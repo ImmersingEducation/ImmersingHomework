@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Controls.HomeworkItemPanel"
+             Width="320" MinHeight="160">
+    <Border Background="White" CornerRadius="24">
+        <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto" RowSpacing="8" Margin="8">
+            <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Orientation="Vertical" Margin="8" Spacing="8">
+                <TextBlock x:Name="ContentText" FontSize="24"/>
+                <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
+            </StackPanel>
+            <Button x:Name="MoreButton" Grid.Row="0" Grid.Column="1" Width="48" Height="48" CornerRadius="24" BorderThickness="0" Background="Transparent" Click="MoreButton_OnClick">
+                <fa:FASymbolIcon Symbol="MoreVertical" FontSize="16"/>
+            </Button>
+        </Grid>
+    </Border>
+</UserControl>

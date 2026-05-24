@@ -1,0 +1,51 @@
+<wnd:FAAppWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+        xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="ImmersingHomework.Views.SettingsWindow"
+        Title="设置"
+        Icon="avares://ImmersingHomework/Assets/icon.png"
+        RequestedThemeVariant="Light">
+    <Grid>
+        <fa:FANavigationView x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
+            <fa:FANavigationView.MenuItems>
+                <fa:FANavigationViewItem Content="基础设置" Tag="Basic">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="Home"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+                <fa:FANavigationViewItem Content="科目设置" Tag="Subject">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="ViewAll"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+                <fa:FANavigationViewItem Content="标签设置" Tag="Tag">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="Tag"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+                <fa:FANavigationViewItem Content="一言设置" Tag="Hitokoto">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="Comment"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+                <fa:FANavigationViewItem Content="联动设置" Tag="Linkage">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="Link"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+            </fa:FANavigationView.MenuItems>
+            <fa:FANavigationView.FooterMenuItems>
+                <fa:FANavigationViewItem Content="关于软件" Tag="About">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="MoreVertical" />
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
+            </fa:FANavigationView.FooterMenuItems>
+            <fa:FAFrame x:Name="ContentFrame" />
+        </fa:FANavigationView>
+    </Grid>
+</wnd:FAAppWindow>

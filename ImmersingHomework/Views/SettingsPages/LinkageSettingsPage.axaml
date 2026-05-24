@@ -1,0 +1,23 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.SettingsPages.LinkageSettingsPage">
+    <ScrollViewer>
+        <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+            <TextBlock Text="联动设置" FontSize="36" FontWeight="Bold"/>
+            <TextBlock Text="设置软件与其他软件的联动行为。" FontSize="18"/>
+            <fa:FASettingsExpander Header="ClassIsland 联动">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FAImageIconSource Source="avares://ImmersingHomework/Assets/ClassIsland.png"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <!-- <ToggleSwitch x:Name="ClassIslandSwitch" OnContent="" OffContent="" IsCheckedChanged="ClassIslandSwitch_OnIsCheckedChanged"/> -->
+                    <TextBlock Text="骗你的，下个版本再做"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

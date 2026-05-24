@@ -1,0 +1,23 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+        mc:Ignorable="d" d:DesignWidth="88" d:DesignHeight="88"
+        x:Class="ImmersingHomework.Views.FloatingButtonWindow"
+        Title="FloatingButton"
+        Width="88"
+        Height="88"
+        CanResize="False"
+        WindowDecorations="None"
+        Background="Transparent"
+        WindowState="Normal"
+        Focusable="False"
+        ShowActivated="False"
+        ShowInTaskbar="False"
+        Icon="avares://ImmersingHomework/Assets/icon.png">
+    <Border CornerRadius="16"
+            BoxShadow="0 4 20 0 rgba(0,0,0,0.2)">
+        <fa:FAImageIcon Source="avares://ImmersingHomework/Assets/icon.png" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </Border>
+</Window>

@@ -1,0 +1,30 @@
+<wnd:FAAppWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+        xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="ImmersingHomework.Views.WelcomeWindow"
+        Title="ImmersingHomework - 欢迎向导"
+        Icon="avares://ImmersingHomework/Assets/icon.png"
+        RequestedThemeVariant="Light">
+        <Grid RowDefinitions="*,Auto" Margin="8">
+                <fa:FAFrame Grid.Row="0" x:Name="Frame"/>
+                <Grid Row="1" ColumnDefinitions="Auto,*,Auto">
+                        <Button x:Name="PreviousButton" Grid.Column="0" Width="128" Click="PreviousButton_OnClick">
+                                <StackPanel Orientation="Horizontal">
+                                        <fa:FASymbolIcon Symbol="ChevronLeft"/>
+                                        <TextBlock Text="上一步"/>
+                                </StackPanel>
+                        </Button>
+                        <TextBlock x:Name="CurrentStep" Grid.Column="1" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        <Button x:Name="NextButton" Grid.Column="2" Width="128" Click="NextButton_OnClick">
+                                <StackPanel Orientation="Horizontal">
+                                        <fa:FASymbolIcon Symbol="ChevronRight"/>
+                                        <TextBlock x:Name="NextButtonText" Text="下一步"/>
+                                </StackPanel>
+                        </Button>
+                </Grid>
+        </Grid>
+</wnd:FAAppWindow>

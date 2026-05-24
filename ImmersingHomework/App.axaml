@@ -1,0 +1,45 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="ImmersingHomework.App"
+             xmlns:fa="clr-namespace:FluentAvalonia.Styling;assembly=FluentAvalonia"
+             RequestedThemeVariant="Default">
+             <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
+
+    <Application.Resources>
+        <FontFamily x:Key="HarmonyOSSansSC">avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC</FontFamily>
+    </Application.Resources>
+
+    <Application.Styles>
+        <fa:FluentAvaloniaTheme />
+        
+        <Style Selector="Window">
+            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+        </Style>
+        <Style Selector="TextBlock">
+            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+        </Style>
+        <Style Selector="TextBox">
+            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+        </Style>
+    </Application.Styles>
+             
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="avares://ImmersingHomework/Assets/icon.png">
+                <TrayIcon.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="显示主窗口"/>
+                        <NativeMenuItem Header="显示/隐藏浮窗"/>
+                        <NativeMenuItem Header="打开设置窗口"/>
+                        <NativeMenuItemSeparator/>
+                        <NativeMenuItem Header="重启"/>
+                        <NativeMenuItem Header="退出"/>
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
+</Application>

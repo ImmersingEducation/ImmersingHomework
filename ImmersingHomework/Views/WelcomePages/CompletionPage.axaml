@@ -1,0 +1,12 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.WelcomePages.CompletionPage">
+    <StackPanel Orientation="Vertical" Spacing="8" HorizontalAlignment="Center" VerticalAlignment="Center">
+        <Image Source="avares://ImmersingHomework/Assets/icon.png" Height="128" Width="128" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBlock Text="您现在可以尽情使用了！" FontWeight="Bold" FontSize="28" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+        <TextBlock Text="点击“重新启动”以退出该向导" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    </StackPanel>
+</UserControl>

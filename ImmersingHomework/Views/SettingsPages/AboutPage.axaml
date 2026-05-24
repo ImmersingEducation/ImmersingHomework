@@ -1,0 +1,35 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.SettingsPages.AboutPage">
+    <ScrollViewer>
+        <StackPanel Orientation="Vertical">
+            <Image Source="avares://ImmersingHomework/Assets/banner-2-3.png" />
+            <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+                <TextBlock Text="关于软件" FontSize="36" FontWeight="Bold"/>
+                <TextBlock Text="展示软件详细信息。" FontSize="18"/>
+                <fa:FASettingsExpander Header="ImmersingHomework" IsExpanded="True">
+                    <fa:FASettingsExpander.IconSource>
+                        <fa:FAImageIconSource Source="avares://ImmersingHomework/Assets/icon.png"/>
+                    </fa:FASettingsExpander.IconSource>
+                    <fa:FASettingsExpander.Footer>
+                        <TextBlock x:Name="VersionText"/>
+                    </fa:FASettingsExpander.Footer>
+                    <fa:FASettingsExpanderItem Content=".NET 版本">
+                        <fa:FASettingsExpanderItem.Footer>
+                            <TextBlock Text="10.0.106"/>
+                        </fa:FASettingsExpanderItem.Footer>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem Content="Avalonia 版本">
+                        <fa:FASettingsExpanderItem.Footer>
+                            <TextBlock Text="12.0.0"/>
+                        </fa:FASettingsExpanderItem.Footer>
+                    </fa:FASettingsExpanderItem>
+                </fa:FASettingsExpander>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

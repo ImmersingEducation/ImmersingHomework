@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.SettingsPages.HitokotoSettingsPage">
+    <ScrollViewer>
+        <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+            <TextBlock Text="一言设置" FontSize="36" FontWeight="Bold"/>
+            <TextBlock Text="设置主界面一言的显示行为。" FontSize="18"/>
+            <fa:FASettingsExpander Header="一言显示方式" Description="一言在主界面以何种方式显示。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="PreviewLink"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="HitokotoDisplayModeComboBox"
+                                   SelectionChanged="HitokotoDisplayModeComboBox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="不显示"/>
+                        <fa:FAComboBoxItem Content="仅显示内容"/>
+                        <fa:FAComboBoxItem Content="显示内容 + 作者"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="一言数据源" Description="一言功能从何处获取数据。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Library"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <TextBlock Text="目前仅支持 v1.hitokoto.cn"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="一言刷新间隔" Description="切换一言显示内容的时间间隔（单位：秒）">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Clock"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="HitokotoRefreshTimeSpanCombobox" IsEditable="True"
+                                   SelectionChanged="HitokotoRefreshTimeSpanCombobox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="30"/>
+                        <fa:FAComboBoxItem Content="60"/>
+                        <fa:FAComboBoxItem Content="120"/>
+                        <fa:FAComboBoxItem Content="300"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>

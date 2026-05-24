@@ -1,0 +1,11 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Controls.HomeworkContentInput">
+    <StackPanel Orientation="Vertical" Spacing="4">
+        <TextBox x:Name="HomeworkTextBox" PlaceholderText="请输入作业内容" TextWrapping="Wrap" AcceptsReturn="True" />
+        <WrapPanel x:Name="TemplatePanel" ItemSpacing="4" LineSpacing="4" />
+    </StackPanel>
+</UserControl>
