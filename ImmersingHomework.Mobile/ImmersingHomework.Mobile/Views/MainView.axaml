@@ -1,0 +1,14 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Mobile.Views.MainView">
+    <ContentControl x:Name="RootContent">
+        <StackPanel x:Name="HomePanel" Orientation="Vertical" Spacing="16" Margin="16">
+            <TextBlock FontSize="24">方圆作业板 移动端</TextBlock>
+            <TextBlock FontSize="16">请扫描一体机端提供的作业二维码以继续。</TextBlock>
+            <Button HorizontalAlignment="Stretch" Height="48" Click="OnScanClicked">扫描</Button>
+        </StackPanel>
+    </ContentControl>
+</UserControl>

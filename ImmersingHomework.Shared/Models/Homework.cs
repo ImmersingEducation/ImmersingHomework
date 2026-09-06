@@ -3,12 +3,13 @@ using System.Collections.Generic;
 using System.Linq;
 using Serilog;
 
-namespace ImmersingHomework.Models;
+namespace ImmersingHomework.Shared.Models;
 
 public class Homework
 {
     private readonly ILogger _logger = Log.ForContext<Homework>();
     public DateOnly Date { get; init; }
+    public bool Frozen { get; set; } = false;
     public List<HomeworkItem> HomeworkItems { get; set; }
 
     public Homework(DateOnly date, List<HomeworkItem> homeworkItems)
@@ -51,6 +52,6 @@ public class Homework
         _logger.Debug("获取标签作业，标签数: {TagCount}", tags.Count);
         return HomeworkItems.Where(item => 
             item.Tags != null && 
-            tags.Any(tag => item.Tags.Contains(tag))).ToList();
+            tags.Any(tag => item.Tags.Any(t => t.Name == tag))).ToList();
     }
 }

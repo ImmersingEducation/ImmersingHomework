@@ -7,6 +7,7 @@ using Avalonia.Media;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Controls;
 using ImmersingHomework.Models;
+using ImmersingHomework.Shared.Models;
 using System.Collections.Generic;
 using Serilog;
 
@@ -63,7 +64,7 @@ public partial class TagPage : UserControl
         var newTag = new TagModel
         {
             Name = "",
-            Color = Models.Color.FromAvaloniaColor(PredefinedColors[0])
+            Color = ImmersingHomework.Shared.Models.Color.FromAvaloniaColor(PredefinedColors[0])
         };
 
         var (result, deleted) = await ShowTagEditDialog(window, newTag, true);
@@ -230,7 +231,7 @@ public partial class TagPage : UserControl
             tag.Name = nameTextBox.Text?.Trim() ?? "";
             if (colorComboBox.SelectedItem is ComboBoxItem selectedItem && selectedItem.Tag is Avalonia.Media.Color selectedColor)
             {
-                tag.Color = Models.Color.FromAvaloniaColor(selectedColor);
+                tag.Color = ImmersingHomework.Shared.Models.Color.FromAvaloniaColor(selectedColor);
             }
         }
 

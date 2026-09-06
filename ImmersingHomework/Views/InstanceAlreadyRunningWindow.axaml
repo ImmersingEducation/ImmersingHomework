@@ -1,0 +1,27 @@
+<wnd:FAAppWindow xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
+        mc:Ignorable="d" d:DesignWidth="380" d:DesignHeight="190"
+        x:Class="ImmersingHomework.Views.InstanceAlreadyRunningWindow"
+        Title="方圆作业板 - 提示"
+        SizeToContent="WidthAndHeight"
+        MinWidth="340"
+        CanResize="False"
+        WindowStartupLocation="CenterScreen"
+        WindowDecorations="BorderOnly"
+        Icon="avares://ImmersingHomework/Assets/icon.png">
+    <Grid RowDefinitions="*,Auto" Margin="24,20" MinHeight="170">
+        <StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Center" Spacing="16">
+            <Image Source="avares://ImmersingHomework/Assets/icon.png" Width="40" Height="40"/>
+            <StackPanel Spacing="4">
+                <TextBlock Text="程序已在运行中" FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock Text="检测到已有 方圆作业板 实例正在运行，请勿重复启动。"
+                           FontSize="13" TextWrapping="Wrap" Opacity="0.7"/>
+            </StackPanel>
+        </StackPanel>
+        <Button Grid.Row="1" Content="确定" Width="80" HorizontalAlignment="Right"
+                Click="ConfirmButton_OnClick"/>
+    </Grid>
+</wnd:FAAppWindow>

@@ -11,23 +11,13 @@
             <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
                 <TextBlock Text="关于软件" FontSize="36" FontWeight="Bold"/>
                 <TextBlock Text="展示软件详细信息。" FontSize="18"/>
-                <fa:FASettingsExpander Header="ImmersingHomework" IsExpanded="True">
+                <fa:FASettingsExpander Header="方圆作业板" IsExpanded="True">
                     <fa:FASettingsExpander.IconSource>
                         <fa:FAImageIconSource Source="avares://ImmersingHomework/Assets/icon.png"/>
                     </fa:FASettingsExpander.IconSource>
                     <fa:FASettingsExpander.Footer>
                         <TextBlock x:Name="VersionText"/>
                     </fa:FASettingsExpander.Footer>
-                    <fa:FASettingsExpanderItem Content=".NET 版本">
-                        <fa:FASettingsExpanderItem.Footer>
-                            <TextBlock Text="10.0.106"/>
-                        </fa:FASettingsExpanderItem.Footer>
-                    </fa:FASettingsExpanderItem>
-                    <fa:FASettingsExpanderItem Content="Avalonia 版本">
-                        <fa:FASettingsExpanderItem.Footer>
-                            <TextBlock Text="12.0.0"/>
-                        </fa:FASettingsExpanderItem.Footer>
-                    </fa:FASettingsExpanderItem>
                 </fa:FASettingsExpander>
             </StackPanel>
         </StackPanel>

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Serilog;
 
-namespace ImmersingHomework.Models;
+namespace ImmersingHomework.Shared.Models;
 
 public class HomeworkItem
 {
@@ -10,9 +10,11 @@ public class HomeworkItem
     public Guid Id { get; init; }
     public string Subject { get; set; }
     public string Content { get; set; }
-    public List<string> Tags { get; set; }
+    public List<TagModel> Tags { get; set; }
+    public string? TemplateName { get; set; }
+    public List<string>? TemplateParameters { get; set; }
 
-    public HomeworkItem(string subject, string content, List<string> tags)
+    public HomeworkItem(string subject, string content, List<TagModel> tags)
     {
         Id = Guid.NewGuid();
         Subject = subject;

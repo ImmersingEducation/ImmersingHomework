@@ -5,6 +5,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Threading;
+using ImmersingHomework.Models;
 using Serilog;
 
 namespace ImmersingHomework.Views;
@@ -26,7 +27,9 @@ public partial class FloatingButtonWindow : Window
         _logger.Debug("FloatingButtonWindow 初始化");
         InitializeComponent();
         
-        Position = new PixelPoint(100, 100);
+        Position = new PixelPoint(
+            AppSettings.Instance.FloatingButtonPositionX.Value,
+            AppSettings.Instance.FloatingButtonPositionY.Value);
         
         Opacity = 0;
         
@@ -142,6 +145,8 @@ public partial class FloatingButtonWindow : Window
             else
             {
                 _logger.Debug("浮窗拖拽结束，新位置: {Position}", Position);
+                AppSettings.Instance.FloatingButtonPositionX.Value = Position.X;
+                AppSettings.Instance.FloatingButtonPositionY.Value = Position.Y;
             }
         }
     }

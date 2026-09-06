@@ -7,12 +7,15 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using ImmersingHomework.Models;
+using ImmersingHomework.Shared.Models;
 using Serilog;
 
 namespace ImmersingHomework.Controls;
 
 public partial class HomeworkItemPanel : UserControl
 {
+    private static readonly IBrush defaultColor = new SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 240, 255));
+
     private readonly ILogger _logger = Log.ForContext<HomeworkItemPanel>();
     public static readonly StyledProperty<HomeworkItem> HomeworkItemProperty =
         AvaloniaProperty.Register<HomeworkItemPanel, HomeworkItem>(nameof(HomeworkItem));
@@ -21,6 +24,15 @@ public partial class HomeworkItemPanel : UserControl
     {
         get => GetValue(HomeworkItemProperty);
         set => SetValue(HomeworkItemProperty, value);
+    }
+
+    public static readonly StyledProperty<bool> IsFrozenProperty =
+        AvaloniaProperty.Register<HomeworkItemPanel, bool>(nameof(IsFrozen), false);
+
+    public bool IsFrozen
+    {
+        get => GetValue(IsFrozenProperty);
+        set => SetValue(IsFrozenProperty, value);
     }
 
     public event Action<HomeworkItem>? EditRequested;
@@ -33,6 +45,10 @@ public partial class HomeworkItemPanel : UserControl
         {
             _logger.Debug("作业项属性变化");
             panel.UpdatePanel();
+        });
+        IsFrozenProperty.Changed.AddClassHandler<HomeworkItemPanel>((panel, e) =>
+        {
+            panel.MoreButton.IsEnabled = !panel.IsFrozen;
         });
     }
 
@@ -57,35 +73,25 @@ public partial class HomeworkItemPanel : UserControl
         }
         TagPanel.Children.Clear();
         
-        var defaultColors = new List<IBrush>
-        {
-            new SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 240, 255)), 
-            new SolidColorBrush(Avalonia.Media.Color.FromRgb(220, 255, 230)), 
-            new SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 250, 220)), 
-            new SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 230, 255)), 
-            new SolidColorBrush(Avalonia.Media.Color.FromRgb(255, 235, 230))
-        };
-
-        var tags = HomeworkItem.Tags ?? Enumerable.Empty<string>();
-        _logger.Debug("作业项有 {Count} 个标签", tags.Count());
+        var tags = HomeworkItem.Tags;
+        if (tags == null) return;
+        _logger.Debug("作业项有 {Count} 个标签", tags.Count);
         
-        for (int i = 0; i < tags.Count(); i++)
+        var tagColorMap = AppSettings.Instance.Tags
+            .Where(t => !string.IsNullOrEmpty(t.Name))
+            .ToDictionary(t => t.Name, t => t.Color.ToSolidColorBrush());
+        
+        for (int i = 0; i < tags.Count; i++)
         {
-            var tagName = tags.ElementAt(i);
-            if (!string.IsNullOrEmpty(tagName))
+            var tagModel = tags[i];
+            if (!string.IsNullOrEmpty(tagModel.Name))
             {
-                IBrush tagColor = defaultColors[i % defaultColors.Count];
-                
-                // 在 AppSettings 中查找对应标签的颜色
-                var tagModel = AppSettings.Instance.Tags.FirstOrDefault(t => t.Name == tagName);
-                if (tagModel != null)
-                {
-                    tagColor = tagModel.Color.ToSolidColorBrush();
-                }
+                tagColorMap.TryGetValue(tagModel.Name, out var tagColor);
+                tagColor ??= tagModel.Color.ToSolidColorBrush();
                 
                 var tag = new Tag
                 {
-                    TagName = tagName,
+                    TagName = tagModel.Name,
                     TagColor = tagColor
                 };
                 TagPanel.Children.Add(tag);

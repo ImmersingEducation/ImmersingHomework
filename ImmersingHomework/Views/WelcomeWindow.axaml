@@ -6,7 +6,7 @@
         xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.WelcomeWindow"
-        Title="ImmersingHomework - 欢迎向导"
+        Title="方圆作业板 - 欢迎向导"
         Icon="avares://ImmersingHomework/Assets/icon.png"
         RequestedThemeVariant="Light">
         <Grid RowDefinitions="*,Auto" Margin="8">

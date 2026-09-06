@@ -4,8 +4,14 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkContentInput">
-    <StackPanel Orientation="Vertical" Spacing="4">
-        <TextBox x:Name="HomeworkTextBox" PlaceholderText="请输入作业内容" TextWrapping="Wrap" AcceptsReturn="True" />
-        <WrapPanel x:Name="TemplatePanel" ItemSpacing="4" LineSpacing="4" />
+    <StackPanel Orientation="Vertical" Spacing="8">
+        <WrapPanel x:Name="TemplateRadioPanel" ItemSpacing="8" LineSpacing="8"/>
+        <TextBox x:Name="FreeTextBox" AcceptsReturn="True" TextWrapping="Wrap" Height="200"
+                 IsVisible="True" />
+        <StackPanel x:Name="TemplatePanel" Spacing="4" IsVisible="False">
+            <TextBlock x:Name="TemplatePreviewText" TextWrapping="Wrap"
+                       FontSize="16" HorizontalAlignment="Center"/>
+            <StackPanel x:Name="ParameterInputsPanel" Spacing="4" />
+        </StackPanel>
     </StackPanel>
 </UserControl>

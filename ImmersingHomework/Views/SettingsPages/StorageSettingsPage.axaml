@@ -1,0 +1,49 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.SettingsPages.StorageSettingsPage">
+    <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+        <TextBlock Text="存储设置" FontSize="36" FontWeight="Bold"/>
+        <TextBlock Text="管理本软件占用的存储空间。" FontSize="18"/>
+        <fa:FASettingsExpander Header="总占用">
+            <fa:FASettingsExpander.Footer>
+                <TextBlock x:Name="TotalOccupationTextBlock"/>
+            </fa:FASettingsExpander.Footer>
+            <fa:FASettingsExpanderItem Content="作业数据占用" Description="这些文件将用于存储对应日期的作业信息，请谨慎删除">
+                <fa:FASettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Name="HomeworkOccupationTextBlock"/>
+                        <Button x:Name="HomeworkManageButton" Click="HomeworkManageButton_OnClick">管理</Button>
+                    </StackPanel>
+                </fa:FASettingsExpanderItem.Footer>
+            </fa:FASettingsExpanderItem>
+            <fa:FASettingsExpanderItem Content="导出产物占用" Description="这些文件将用于存储对应日期的作业图片 / PDF，请放心删除">
+                <fa:FASettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Name="OutputOccupationTextBlock"/>
+                        <Button x:Name="OutputManageButton" Click="OutputManageButton_OnClick">管理</Button>
+                    </StackPanel>
+                </fa:FASettingsExpanderItem.Footer>
+            </fa:FASettingsExpanderItem>
+            <fa:FASettingsExpanderItem Content="日志占用" Description="这些文件将用于存储软件运行时的日志记录，请放心删除">
+                <fa:FASettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Name="LogOccupationTextBlock"/>
+                        <Button x:Name="LogManageButton" Click="LogManageButton_OnClick">管理</Button>
+                    </StackPanel>
+                </fa:FASettingsExpanderItem.Footer>
+            </fa:FASettingsExpanderItem>
+            <fa:FASettingsExpanderItem Content="快照占用" Description="这些文件将用于存储作业修改前的快照，请放心删除">
+                <fa:FASettingsExpanderItem.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock x:Name="SnapshotOccupationTextBlock"/>
+                        <Button x:Name="SnapshotManageButton" Click="SnapshotManageButton_OnClick">管理</Button>
+                    </StackPanel>
+                </fa:FASettingsExpanderItem.Footer>
+            </fa:FASettingsExpanderItem>
+        </fa:FASettingsExpander>
+    </StackPanel>
+</UserControl>

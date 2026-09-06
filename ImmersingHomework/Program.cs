@@ -1,11 +1,15 @@
 using Avalonia;
 using System;
+using System.IO;
 using Serilog;
 
 namespace ImmersingHomework;
 
 class Program
 {
+    private static FileStream? _lockFileStream;
+    public static bool IsSingleInstance { get; private set; }
+
     // Initialization code. Don't use any Avalonia, third-party APIs or any
     // SynchronizationContext-reliant code before AppMain is called: things aren't initialized
     // yet and stuff might break.
@@ -32,6 +36,24 @@ class Program
 
         try
         {
+            var lockDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "ImmersingHomework");
+            Directory.CreateDirectory(lockDir);
+            var lockFilePath = Path.Combine(lockDir, "instance.lock");
+
+            try
+            {
+                _lockFileStream = new FileStream(lockFilePath, FileMode.OpenOrCreate,
+                    FileAccess.ReadWrite, FileShare.None);
+                IsSingleInstance = true;
+            }
+            catch (IOException)
+            {
+                IsSingleInstance = false;
+                Log.ForContext<Program>().Warning("检测到已有程序实例正在运行");
+            }
+
             var logger = Log.ForContext<Program>();
             logger.Information("应用程序启动中...");
             BuildAvaloniaApp()
@@ -43,7 +65,23 @@ class Program
         }
         finally
         {
+            ReleaseLock();
             Log.CloseAndFlush();
+        }
+    }
+
+    public static void ReleaseLock()
+    {
+        try
+        {
+            _lockFileStream?.Dispose();
+        }
+        catch
+        {
+        }
+        finally
+        {
+            _lockFileStream = null;
         }
     }
 
@@ -57,4 +95,3 @@ class Program
             .WithInterFont()
             .LogToTrace();
 }
-// TODO 改以下浮窗的移动

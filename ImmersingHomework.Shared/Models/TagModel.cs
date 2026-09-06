@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Serilog;
 using Avalonia.Media;
 
-namespace ImmersingHomework.Models;
+namespace ImmersingHomework.Shared.Models;
 
 public class TagModel
 {

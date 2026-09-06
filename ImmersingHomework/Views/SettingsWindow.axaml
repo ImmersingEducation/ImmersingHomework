@@ -6,7 +6,7 @@
         xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.SettingsWindow"
-        Title="设置"
+        Title="方圆作业板 - 设置"
         Icon="avares://ImmersingHomework/Assets/icon.png"
         RequestedThemeVariant="Light">
     <Grid>
@@ -27,17 +27,37 @@
                         <fa:FASymbolIconSource Symbol="Tag"/>
                     </fa:FANavigationViewItem.IconSource>
                 </fa:FANavigationViewItem>
+                <fa:FANavigationViewItem Content="作业模板设置" Tag="HomeworkTemplate">
+                    <fa:FANavigationViewItem.IconSource>
+                        <fa:FASymbolIconSource Symbol="Code"/>
+                    </fa:FANavigationViewItem.IconSource>
+                </fa:FANavigationViewItem>
                 <fa:FANavigationViewItem Content="一言设置" Tag="Hitokoto">
                     <fa:FANavigationViewItem.IconSource>
                         <fa:FASymbolIconSource Symbol="Comment"/>
                     </fa:FANavigationViewItem.IconSource>
                 </fa:FANavigationViewItem>
-                <fa:FANavigationViewItem Content="联动设置" Tag="Linkage">
-                    <fa:FANavigationViewItem.IconSource>
-                        <fa:FASymbolIconSource Symbol="Link"/>
-                    </fa:FANavigationViewItem.IconSource>
-                </fa:FANavigationViewItem>
-            </fa:FANavigationView.MenuItems>
+            <fa:FANavigationViewItem Content="联动设置" Tag="Linkage">
+                <fa:FANavigationViewItem.IconSource>
+                    <fa:FASymbolIconSource Symbol="Link"/>
+                </fa:FANavigationViewItem.IconSource>
+            </fa:FANavigationViewItem>
+            <fa:FANavigationViewItem Content="存储设置" Tag="Storage">
+                <fa:FANavigationViewItem.IconSource>
+                    <fa:FASymbolIconSource Symbol="SaveLocal"/>
+                </fa:FANavigationViewItem.IconSource>
+            </fa:FANavigationViewItem>
+            <fa:FANavigationViewItem Content="备份设置" Tag="Backup">
+                <fa:FANavigationViewItem.IconSource>
+                    <fa:FASymbolIconSource Symbol="OpenFolder"/>
+                </fa:FANavigationViewItem.IconSource>
+            </fa:FANavigationViewItem>
+            <!-- <fa:FANavigationViewItem Content="更新设置" Tag="Update"> -->
+            <!--     <fa:FANavigationViewItem.IconSource> -->
+            <!--         <fa:FASymbolIconSource Symbol="Sync"/> -->
+            <!--     </fa:FANavigationViewItem.IconSource> -->
+            <!-- </fa:FANavigationViewItem> -->
+        </fa:FANavigationView.MenuItems>
             <fa:FANavigationView.FooterMenuItems>
                 <fa:FANavigationViewItem Content="关于软件" Tag="About">
                     <fa:FANavigationViewItem.IconSource>

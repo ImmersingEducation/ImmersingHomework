@@ -1,0 +1,22 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="using:ImmersingHomework.Mobile.Controls"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Mobile.Views.ScannerView">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Button Grid.Row="0"
+                Margin="12"
+                HorizontalAlignment="Left"
+                Click="OnBackClicked">返回</Button>
+
+        <controls:MauiCameraScannerHost Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+
+        <TextBlock x:Name="ResultText"
+                   Grid.Row="2"
+                   Margin="16"
+                   HorizontalAlignment="Center"
+                   FontSize="18" />
+    </Grid>
+</UserControl>

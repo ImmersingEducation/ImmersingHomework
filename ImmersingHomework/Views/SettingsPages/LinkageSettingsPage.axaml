@@ -9,14 +9,55 @@
         <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
             <TextBlock Text="联动设置" FontSize="36" FontWeight="Bold"/>
             <TextBlock Text="设置软件与其他软件的联动行为。" FontSize="18"/>
-            <fa:FASettingsExpander Header="ClassIsland 联动">
+            <fa:FASettingsExpander Header="ClassIsland 联动" IsExpanded="True">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FAImageIconSource Source="avares://ImmersingHomework/Assets/ClassIsland.png"/>
                 </fa:FASettingsExpander.IconSource>
                 <fa:FASettingsExpander.Footer>
-                    <!-- <ToggleSwitch x:Name="ClassIslandSwitch" OnContent="" OffContent="" IsCheckedChanged="ClassIslandSwitch_OnIsCheckedChanged"/> -->
-                    <TextBlock Text="骗你的，下个版本再做"/>
+                    <ToggleSwitch x:Name="ClassIslandSwitch" OnContent="" OffContent=""
+                                  IsCheckedChanged="ClassIslandSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
+                <fa:FASettingsExpanderItem Content="接管科目设置"
+                                           IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="TakeoverSubjectsSwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="TakeoverSubjectsSwitch_OnIsCheckedChanged"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="放学后显示作业"
+                                           Description="放学后自动显示主界面，方便查看当天作业。"
+                                           IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="ShowHomeworkAfterSchoolSwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="ShowHomeworkAfterSchoolSwitch_OnIsCheckedChanged"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="放学后显示主界面等待时间"
+                                           Description="收到放学通知后，等待多少秒再显示主界面（单位：秒）。">
+                    <fa:FASettingsExpanderItem.IsEnabled>
+                        <MultiBinding Converter="{x:Static BoolConverters.And}">
+                            <Binding Path="IsChecked" ElementName="ClassIslandSwitch"/>
+                            <Binding Path="IsChecked" ElementName="ShowHomeworkAfterSchoolSwitch"/>
+                        </MultiBinding>
+                    </fa:FASettingsExpanderItem.IsEnabled>
+                    <fa:FASettingsExpanderItem.Footer>
+                        <fa:FAComboBox x:Name="AfterSchoolWaitSecondCombobox" IsEditable="True"
+                                       SelectionChanged="AfterSchoolWaitSecondCombobox_OnSelectionChanged">
+                            <fa:FAComboBoxItem Content="30"/>
+                            <fa:FAComboBoxItem Content="60"/>
+                            <fa:FAComboBoxItem Content="120"/>
+                            <fa:FAComboBoxItem Content="300"/>
+                        </fa:FAComboBox>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="次日第一节课前显示作业"
+                                           Description="在次日第一节课开始前显示作业，上课后自动隐藏主界面。"
+                                           IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="ShowHomeworkBeforeFirstClassNextDaySwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="ShowHomeworkBeforeFirstClassNextDaySwitch_OnIsCheckedChanged"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
             </fa:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>

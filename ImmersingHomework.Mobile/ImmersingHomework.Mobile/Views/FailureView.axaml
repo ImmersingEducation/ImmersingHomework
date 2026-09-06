@@ -1,0 +1,13 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Mobile.Views.FailureView">
+    <StackPanel Orientation="Vertical" Spacing="16" Margin="16">
+        <TextBlock FontSize="24">解析二维码失败</TextBlock>
+        <TextBlock FontSize="16">请检查二维码后重新识别。</TextBlock>
+        <Button Click="OnRescanClicked">重新扫描</Button>
+        <Button Click="OnBackClicked">返回</Button>
+    </StackPanel>
+</UserControl>

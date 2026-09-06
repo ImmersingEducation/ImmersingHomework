@@ -9,20 +9,32 @@
         <entry key="ImmersingHomework/Controls/HomeworkContentInput.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkItemPanel.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkPanel.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/HomeworkStorageManageDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/LogStorageManageDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/OutputStorageManageDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/PickableTag.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/SnapshotStorageManageDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/StorageManagementDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/SubjectHomeworkPanel.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/SubjectPicker.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/Tag.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/TagPicker.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/MainWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/ExceptionWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/FloatingButtonWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/HomeworkAssignmentRemindWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/InstanceAlreadyRunningWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/MainWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/AboutPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/SettingsPages/BackupSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/BasicSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/HitokotoSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/SettingsPages/HomeworkTemplateSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/LinkageSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/SettingsPages/StorageSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/SubjectSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/TagSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/SettingsPages/UpdateSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/WelcomePages/BasicSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/WelcomePages/CompletionPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />

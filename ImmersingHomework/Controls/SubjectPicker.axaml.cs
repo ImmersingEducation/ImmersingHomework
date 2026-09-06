@@ -1,8 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using ImmersingHomework.Models;
+using ImmersingHomework.Shared.Models;
+using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Controls;
@@ -14,8 +17,13 @@ public partial class SubjectPicker : UserControl
     {
         _logger.Debug("SubjectPicker 初始化");
         InitializeComponent();
+
+        List<string> subjects = AppSettings.Instance.EnableClassIslandIPCService.Value &&
+                                AppSettings.Instance.ClassIslandTakeoverSubjects.Value
+            ? ClassIslandService.Instance.GetSubjects()
+            : AppSettings.Instance.Subjects.ToList();
         
-        foreach (var subject in AppSettings.Instance.Subjects)
+        foreach (var subject in subjects)
         {
             SubjectPanel.Children.Add(new RadioButton()
             {

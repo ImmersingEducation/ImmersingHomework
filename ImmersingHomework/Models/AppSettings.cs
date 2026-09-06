@@ -2,7 +2,9 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Media;
+using ImmersingHomework.Enums;
 using ImmersingHomework.Services;
+using ImmersingHomework.Shared.Models;
 using Serilog;
 
 namespace ImmersingHomework.Models;
@@ -27,6 +29,8 @@ public class AppSettings
 
     public ObservableCollection<string> Subjects { get; set; } = [];
     public ObservableCollection<TagModel> Tags { get; set; } = [];
+
+    public ObservableCollection<string> HomeworkTemplates { get; set; } = [];
     
     public bool FirstLaunch { get; set; } = true;
     
@@ -40,6 +44,23 @@ public class AppSettings
     public ObservableProperty<int> HitokotoRefreshTimeSpan { get; set; } = new(120);
     
     public ObservableProperty<bool> EnableClassIslandIPCService { get; set; } = new(false);
+
+    public ObservableProperty<bool> ClassIslandTakeoverSubjects { get; set; } = new(false);
+    
+    public ObservableProperty<bool> ShowHomeworkAfterSchool { get; set; } = new(false);
+
+    public ObservableProperty<int> AfterSchoolShowMainWindowWaitSecond { get; set; } = new(120);
+    
+    public ObservableProperty<bool> ShowHomeworkBeforeFirstClassNextDay { get; set; } = new(false);
+
+    public ObservableProperty<UpdateChannel> UpdateChannel { get; set; } = new(Enums.UpdateChannel.Stable);
+
+    public ObservableProperty<UpdateCheckBehavior> UpdateCheckBehavior { get; set; } =
+        new(Enums.UpdateCheckBehavior.NoticeImmediately);
+    
+    public ObservableProperty<int> FloatingButtonPositionX { get; set; } = new(100);
+    
+    public ObservableProperty<int> FloatingButtonPositionY { get; set; } = new(100);
 
     public AppSettings()
     {
@@ -59,12 +80,23 @@ public class AppSettings
         {
             Tags.Add(tag);
         }
+
+        foreach (var homeworkTemplate in loaded.HomeworkTemplates)
+        {
+            HomeworkTemplates.Add(homeworkTemplate);
+        }
         FirstLaunch = loaded.FirstLaunch;
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
+        ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
+        ShowHomeworkAfterSchool.Value = loaded.ShowHomeworkAfterSchool.Value;
+        AfterSchoolShowMainWindowWaitSecond.Value = loaded.AfterSchoolShowMainWindowWaitSecond.Value;
+        ShowHomeworkBeforeFirstClassNextDay.Value = loaded.ShowHomeworkBeforeFirstClassNextDay.Value;
         HitokotoDisplayMode.Value = loaded.HitokotoDisplayMode.Value;
         HitokotoSource.Value = loaded.HitokotoSource.Value;
         HitokotoRefreshTimeSpan.Value = loaded.HitokotoRefreshTimeSpan.Value;
+        FloatingButtonPositionX.Value = loaded.FloatingButtonPositionX.Value;
+        FloatingButtonPositionY.Value = loaded.FloatingButtonPositionY.Value;
         
         SubscribeToChanges();
         _logger.Information("应用设置加载完成");
@@ -74,12 +106,19 @@ public class AppSettings
     {
         Subjects.CollectionChanged += (s, e) => MarkDirty();
         Tags.CollectionChanged += (s, e) => MarkDirty();
+        HomeworkTemplates.CollectionChanged += (s, e) => MarkDirty();
         
         LaunchAtStartup.ValueChanged += _ => MarkDirty();
         EnableClassIslandIPCService.ValueChanged += _ => MarkDirty();
+        ClassIslandTakeoverSubjects.ValueChanged += _ => MarkDirty();
+        ShowHomeworkAfterSchool.ValueChanged += _ => MarkDirty(); 
+        AfterSchoolShowMainWindowWaitSecond.ValueChanged += _ => MarkDirty();
+        ShowHomeworkBeforeFirstClassNextDay.ValueChanged += _ => MarkDirty();
         HitokotoDisplayMode.ValueChanged += _ => MarkDirty();
         HitokotoSource.ValueChanged += _ => MarkDirty();
         HitokotoRefreshTimeSpan.ValueChanged += _ => MarkDirty();
+        FloatingButtonPositionX.ValueChanged += _ => MarkDirty();
+        FloatingButtonPositionY.ValueChanged += _ => MarkDirty();
     }
 
     private void MarkDirty()

@@ -9,7 +9,7 @@
         <TextBlock Text="科目：" FontWeight="Bold" FontSize="32" />
         <controls:SubjectPicker x:Name="SubjectPicker" />
         <TextBlock Text="作业内容：" FontWeight="Bold" FontSize="32" />
-        <TextBox x:Name="ContentInput" AcceptsReturn="True" TextWrapping="Wrap" Height="200"/>
+        <controls:HomeworkContentInput x:Name="ContentInput" />
         <TextBlock Text="标签：" FontWeight="Bold" FontSize="32" />
         <controls:TagPicker x:Name="TagPicker" />
     </StackPanel>

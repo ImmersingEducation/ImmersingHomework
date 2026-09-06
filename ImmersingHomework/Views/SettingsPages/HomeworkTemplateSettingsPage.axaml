@@ -1,0 +1,20 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="ImmersingHomework.Views.SettingsPages.HomeworkTemplateSettingsPage">
+    <ScrollViewer>
+        <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+            <TextBlock Text="作业模板设置" FontSize="36" FontWeight="Bold"/>
+            <TextBlock Text="管理作业模板。" FontSize="18"/>
+            <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto" RowSpacing="8" ColumnSpacing="8">
+                <Button Grid.Row="0" Grid.Column="1" Content="添加作业模板" Click="AddTemplateButton_OnClick"/>
+                <ScrollViewer Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+                    <WrapPanel ItemSpacing="8" LineSpacing="8" x:Name="HomeworkTemplatePanel"/>
+                </ScrollViewer>
+            </Grid>
+        </StackPanel>
+    </ScrollViewer>
+</UserControl>
