@@ -27,7 +27,9 @@ public class AppSettings
     private AppSettingsStorageService _storageService = new();
     private bool _isDirty;
 
-    public ObservableCollection<string> Subjects { get; set; } = [];
+    public ObservableCollection<string> Subjects { get; set; } = [
+        "语文", "数学", "英语", "物理", "化学", "生物", "政治", "历史", "地理", "体育"
+    ];
     public ObservableCollection<TagModel> Tags { get; set; } = [];
 
     public ObservableCollection<string> HomeworkTemplates { get; set; } = [];
