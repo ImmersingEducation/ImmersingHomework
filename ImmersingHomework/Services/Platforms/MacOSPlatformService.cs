@@ -198,7 +198,7 @@ public class MacOSPlatformService : PlatformServiceBase
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "检查 URL 协议注册状态失败");
+                _logger.Error(ex, "检查 URL 协议注册状态失败: {Scheme}", UrlScheme);
                 return false;
             }
             finally
@@ -214,24 +214,24 @@ public class MacOSPlatformService : PlatformServiceBase
             {
                 if (string.IsNullOrEmpty(CurrentBundleIdentifier))
                 {
-                    _logger.Error("无法获取应用 Bundle Identifier，注册 URL 协议失败");
+                    _logger.Error("URL 协议注册失败: 无法获取应用 Bundle Identifier，{Scheme}", UrlScheme);
                     return;
                 }
 
                 if (value)
                 {
                     var result = LSSetDefaultHandlerForURLScheme(scheme, bundleId);
-                    if (result == 0) _logger.Information("已注册 URL 协议: {Scheme}", UrlScheme);
-                    else _logger.Error("注册 URL 协议失败，错误码: {Code}", result);
+                    if (result == 0) _logger.Information("URL 协议注册成功: {Scheme}", UrlScheme);
+                    else _logger.Error("URL 协议注册失败: {Scheme}，错误码: {Code}", UrlScheme, result);
                 }
                 else
                 {
-                    _logger.Warning("macOS 暂不支持运行时注销 URL 协议: {Scheme}", UrlScheme);
+                    _logger.Warning("URL 协议注销失败: macOS 暂不支持运行时注销 {Scheme}", UrlScheme);
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "设置 URL 协议注册失败");
+                _logger.Error(ex, "URL 协议注册失败: {Scheme}", UrlScheme);
             }
             finally
             {

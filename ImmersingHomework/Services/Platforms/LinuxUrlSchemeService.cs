@@ -24,12 +24,12 @@ internal static class LinuxUrlSchemeService
         {
             if (!File.Exists(DesktopFilePath)) return false;
 
-            var current = Run("xdg-mime", $"query default x-scheme-handler/{Scheme}");
+            var current = Query("xdg-mime", $"query default x-scheme-handler/{Scheme}");
             return string.Equals(current, DesktopFileName, StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "检查 URL 协议注册状态失败");
+            Logger.Error(ex, "检查 URL 协议注册状态失败: {Scheme}", Scheme);
             return false;
         }
     }
@@ -41,7 +41,7 @@ internal static class LinuxUrlSchemeService
             var exePath = Process.GetCurrentProcess().MainModule?.FileName;
             if (string.IsNullOrEmpty(exePath))
             {
-                Logger.Error("Could not get executable path");
+                Logger.Error("URL 协议注册失败: 无法获取可执行文件路径");
                 return;
             }
 
@@ -57,12 +57,19 @@ MimeType=x-scheme-handler/{Scheme};
 Categories=Education;";
             File.WriteAllText(DesktopFilePath, content);
 
-            Run("xdg-mime", $"default {DesktopFileName} x-scheme-handler/{Scheme}");
-            Logger.Information("已注册 URL 协议: {Scheme}", Scheme);
+            var failed = false;
+            failed |= !TryRun("xdg-mime", $"default {DesktopFileName} x-scheme-handler/{Scheme}");
+            failed |= !TryRun("xdg-settings", $"set default-url-scheme-handler {Scheme} {DesktopFileName}");
+            TryRun("update-desktop-database", DesktopFileDirectory);
+
+            if (failed)
+                Logger.Error("URL 协议注册失败: {Scheme}，可能缺少 xdg-utils", Scheme);
+            else
+                Logger.Information("URL 协议注册成功: {Scheme}", Scheme);
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "注册 URL 协议失败");
+            Logger.Error(ex, "URL 协议注册失败: {Scheme}", Scheme);
         }
     }
 
@@ -71,32 +78,75 @@ Categories=Education;";
         try
         {
             if (File.Exists(DesktopFilePath)) File.Delete(DesktopFilePath);
-            Logger.Information("已注销 URL 协议: {Scheme}", Scheme);
+            Logger.Information("URL 协议注销成功: {Scheme}", Scheme);
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "注销 URL 协议失败");
+            Logger.Error(ex, "URL 协议注销失败: {Scheme}", Scheme);
         }
     }
 
     private static string Quote(string value) => $"\"{value.Replace("\"", "\\\"")}\"";
 
-    private static string Run(string fileName, string arguments)
+    private static bool TryRun(string fileName, string arguments)
     {
-        using var process = new Process
+        try
         {
-            StartInfo = new ProcessStartInfo
+            using var process = new Process
             {
-                FileName = fileName,
-                Arguments = arguments,
-                UseShellExecute = false,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            process.Start();
+            process.WaitForExit();
+
+            if (process.ExitCode != 0)
+            {
+                var error = process.StandardError.ReadToEnd().Trim();
+                Logger.Warning("命令执行失败: {FileName} {Arguments}，退出码: {Code}，错误: {Error}",
+                    fileName, arguments, process.ExitCode, error);
+                return false;
             }
-        };
-        process.Start();
-        var output = process.StandardOutput.ReadToEnd();
-        process.WaitForExit();
-        return output.Trim();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "命令执行异常: {FileName} {Arguments}", fileName, arguments);
+            return false;
+        }
+    }
+
+    private static string? Query(string fileName, string arguments)
+    {
+        try
+        {
+            using var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = fileName,
+                    Arguments = arguments,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            process.Start();
+            var output = process.StandardOutput.ReadToEnd();
+            process.WaitForExit();
+            return output.Trim();
+        }
+        catch (Exception ex)
+        {
+            Logger.Warning(ex, "查询命令异常: {FileName} {Arguments}", fileName, arguments);
+            return null;
+        }
     }
 }

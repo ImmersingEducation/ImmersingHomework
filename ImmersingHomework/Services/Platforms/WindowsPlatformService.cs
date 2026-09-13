@@ -202,7 +202,7 @@ public class WindowsPlatformService : PlatformServiceBase
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "检查 URL 协议注册状态失败");
+                _logger.Error(ex, "检查 URL 协议注册状态失败: {Scheme}", UrlScheme);
                 return false;
             }
         }
@@ -213,7 +213,7 @@ public class WindowsPlatformService : PlatformServiceBase
                 var exePath = Process.GetCurrentProcess().MainModule?.FileName;
                 if (string.IsNullOrEmpty(exePath))
                 {
-                    _logger.Error("Could not get executable path");
+                    _logger.Error("URL 协议注册失败: 无法获取可执行文件路径");
                     return;
                 }
 
@@ -223,7 +223,7 @@ public class WindowsPlatformService : PlatformServiceBase
                     using var key = Registry.CurrentUser.CreateSubKey(schemeKeyPath, true);
                     if (key == null)
                     {
-                        _logger.Error("Could not create URL scheme registry key");
+                        _logger.Error("URL 协议注册失败: 无法创建注册表项 {Scheme}", UrlScheme);
                         return;
                     }
 
@@ -233,22 +233,22 @@ public class WindowsPlatformService : PlatformServiceBase
                     using var commandKey = key.CreateSubKey(@"shell\open\command");
                     if (commandKey == null)
                     {
-                        _logger.Error("Could not create URL scheme command registry key");
+                        _logger.Error("URL 协议注册失败: 无法创建命令注册表项 {Scheme}", UrlScheme);
                         return;
                     }
 
                     commandKey.SetValue(null, $"\"{exePath}\" \"%1\"");
-                    _logger.Information("已注册 URL 协议: {Scheme}", UrlScheme);
+                    _logger.Information("URL 协议注册成功: {Scheme}", UrlScheme);
                 }
                 else
                 {
                     Registry.CurrentUser.DeleteSubKeyTree(schemeKeyPath, false);
-                    _logger.Information("已注销 URL 协议: {Scheme}", UrlScheme);
+                    _logger.Information("URL 协议注销成功: {Scheme}", UrlScheme);
                 }
             }
             catch (Exception ex)
             {
-                _logger.Error(ex, "设置 URL 协议注册失败");
+                _logger.Error(ex, "URL 协议注册失败: {Scheme}", UrlScheme);
             }
         }
     }
