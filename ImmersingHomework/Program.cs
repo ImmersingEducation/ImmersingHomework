@@ -1,6 +1,8 @@
 using Avalonia;
 using System;
 using System.IO;
+using System.Linq;
+using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework;
@@ -60,6 +62,26 @@ class Program
 
             var logger = Log.ForContext<Program>();
             logger.Information("应用程序启动中...");
+
+            var startupUrls = UrlSchemeService.ExtractUrls(args).ToList();
+
+            if (!IsSingleInstance && startupUrls.Count > 0)
+            {
+                if (startupUrls.All(UrlIpcService.TryForward))
+                {
+                    logger.Information("已将 {Count} 个 URL 转发到已有实例，本次启动退出", startupUrls.Count);
+                    return;
+                }
+            }
+
+            if (IsSingleInstance)
+            {
+                foreach (var url in startupUrls)
+                {
+                    UrlSchemeService.EnqueueStartupUrl(url);
+                }
+            }
+
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
