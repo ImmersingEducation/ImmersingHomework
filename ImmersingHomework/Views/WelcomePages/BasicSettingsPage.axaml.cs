@@ -21,6 +21,7 @@ public partial class BasicSettingsPage : UserControl
     private void Refresh()
     {
         LaunchAtStartupSwitch.IsChecked = AppSettings.Instance.LaunchAtStartup.Value;
+        UrlSchemaRegisteredSwitch.IsChecked = AppSettings.Instance.UrlSchemaRegistered.Value;
     }
 
     private void LaunchAtStartupSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
@@ -29,6 +30,15 @@ public partial class BasicSettingsPage : UserControl
         {
             _logger.Information("开机自启动设置变更: {Value}", LaunchAtStartupSwitch.IsChecked.Value);
             AppSettings.Instance.LaunchAtStartup.Value = LaunchAtStartupSwitch.IsChecked.Value;
+        }
+    }
+
+    private void UrlSchemaRegisteredSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        if (UrlSchemaRegisteredSwitch.IsChecked.HasValue)
+        {
+            _logger.Information("URL 协议注册设置变更: {Value}", UrlSchemaRegisteredSwitch.IsChecked.Value);
+            AppSettings.Instance.UrlSchemaRegistered.Value = UrlSchemaRegisteredSwitch.IsChecked.Value;
         }
     }
 }

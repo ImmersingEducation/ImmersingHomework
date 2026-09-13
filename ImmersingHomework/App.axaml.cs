@@ -87,6 +87,11 @@ public partial class App : Application
             // 订阅设置变更事件
             SubscribeToLaunchAtStartupChanges();
 
+            // 应用当前的 URL 协议注册设置
+            ApplyUrlSchemaRegisteredSetting();
+            // 订阅设置变更事件
+            SubscribeToUrlSchemaRegisteredChanges();
+
             if (!AppSettings.Instance.FirstLaunch)
             {
                 _mainWindow = new MainWindow();
@@ -202,6 +207,27 @@ public partial class App : Application
             if (_platformService != null)
             {
                 _platformService.SetLaunchAtStartup(newValue);
+            }
+        };
+    }
+
+    private void ApplyUrlSchemaRegisteredSetting()
+    {
+        if (_platformService != null)
+        {
+            _logger.Information("应用 URL 协议注册设置: {Value}", AppSettings.Instance.UrlSchemaRegistered.Value);
+            _platformService.IsUrlSchemaRegistered = AppSettings.Instance.UrlSchemaRegistered.Value;
+        }
+    }
+
+    private void SubscribeToUrlSchemaRegisteredChanges()
+    {
+        AppSettings.Instance.UrlSchemaRegistered.ValueChanged += (newValue) =>
+        {
+            _logger.Information("URL 协议注册设置变更，新值: {Value}", newValue);
+            if (_platformService != null)
+            {
+                _platformService.IsUrlSchemaRegistered = newValue;
             }
         };
     }

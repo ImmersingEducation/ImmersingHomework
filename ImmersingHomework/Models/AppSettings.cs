@@ -38,6 +38,8 @@ public class AppSettings
     
     public ObservableProperty<bool> LaunchAtStartup { get; set; } = new(false);
 
+    public ObservableProperty<bool> UrlSchemaRegistered { get; set; } = new(false);
+
     public ObservableProperty<ThemeMode> ThemeMode { get; set; } = new(Enums.ThemeMode.System);
 
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
@@ -91,6 +93,7 @@ public class AppSettings
         }
         FirstLaunch = loaded.FirstLaunch;
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
+        UrlSchemaRegistered.Value = loaded.UrlSchemaRegistered.Value;
         ThemeMode.Value = loaded.ThemeMode.Value;
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
@@ -114,6 +117,7 @@ public class AppSettings
         HomeworkTemplates.CollectionChanged += (s, e) => MarkDirty();
         
         LaunchAtStartup.ValueChanged += _ => MarkDirty();
+        UrlSchemaRegistered.ValueChanged += _ => MarkDirty();
         ThemeMode.ValueChanged += _ => MarkDirty();
         EnableClassIslandIPCService.ValueChanged += _ => MarkDirty();
         ClassIslandTakeoverSubjects.ValueChanged += _ => MarkDirty();
