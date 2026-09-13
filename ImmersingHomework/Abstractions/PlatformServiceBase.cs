@@ -17,4 +17,6 @@ public abstract class PlatformServiceBase
     {
         Logger.Warning("当前平台未实现系统通知: {Title} - {Message}", title, message);
     }
+
+    public abstract bool IsUrlSchemaRegistered { get; set; }
 }

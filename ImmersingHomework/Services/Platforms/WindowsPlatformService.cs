@@ -15,6 +15,7 @@ public class WindowsPlatformService : PlatformServiceBase
     private const int GWL_EXSTYLE = -20;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
+    private const string UrlScheme = "immersinghomework";
     private readonly ILogger _logger = Log.ForContext<WindowsPlatformService>();
 
     [DllImport("user32.dll")]
@@ -188,5 +189,67 @@ public class WindowsPlatformService : PlatformServiceBase
         public uint dwInfoFlags;
         public Guid guidItem;
         public IntPtr hBalloonIcon;
+    }
+
+    public override bool IsUrlSchemaRegistered
+    {
+        get
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{UrlScheme}");
+                return key != null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查 URL 协议注册状态失败");
+                return false;
+            }
+        }
+        set
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    _logger.Error("Could not get executable path");
+                    return;
+                }
+
+                var schemeKeyPath = $@"Software\Classes\{UrlScheme}";
+                if (value)
+                {
+                    using var key = Registry.CurrentUser.CreateSubKey(schemeKeyPath, true);
+                    if (key == null)
+                    {
+                        _logger.Error("Could not create URL scheme registry key");
+                        return;
+                    }
+
+                    key.SetValue(null, $"URL:{UrlScheme} Protocol");
+                    key.SetValue("URL Protocol", string.Empty);
+
+                    using var commandKey = key.CreateSubKey(@"shell\open\command");
+                    if (commandKey == null)
+                    {
+                        _logger.Error("Could not create URL scheme command registry key");
+                        return;
+                    }
+
+                    commandKey.SetValue(null, $"\"{exePath}\" \"%1\"");
+                    _logger.Information("已注册 URL 协议: {Scheme}", UrlScheme);
+                }
+                else
+                {
+                    Registry.CurrentUser.DeleteSubKeyTree(schemeKeyPath, false);
+                    _logger.Information("已注销 URL 协议: {Scheme}", UrlScheme);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "设置 URL 协议注册失败");
+            }
+        }
     }
 }

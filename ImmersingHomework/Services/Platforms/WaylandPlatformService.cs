@@ -46,6 +46,16 @@ public class WaylandPlatformService : PlatformServiceBase
         LinuxNotificationService.Send(title, message);
     }
 
+    public override bool IsUrlSchemaRegistered
+    {
+        get => LinuxUrlSchemeService.IsRegistered();
+        set
+        {
+            if (value) LinuxUrlSchemeService.Register();
+            else LinuxUrlSchemeService.Unregister();
+        }
+    }
+
     private void SetLinuxLaunchAtStartup(bool enabled)
     {
         try
