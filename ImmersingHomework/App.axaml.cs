@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -252,32 +251,6 @@ public partial class App : Application
         UrlSchemeService.RegisterRoute("open", _ => ShowMainWindow());
         UrlSchemeService.RegisterRoute("app", _ => ShowMainWindow());
         UrlSchemeService.RegisterRoute("settings", _ => OpenSettingsWindow());
-        UrlSchemeService.RegisterRoute("homework", ShowHomework);
-    }
-
-    private void ShowHomework(AppUrl url)
-    {
-        if (_mainWindow is null)
-        {
-            _logger.Warning("无法处理作业路由，主窗口尚未初始化");
-            return;
-        }
-
-        DateOnly date;
-        if (url.Query.TryGetValue("date", out var rawDate) &&
-            DateOnly.TryParseExact(rawDate.Trim().Trim('"'), "yyyy-MM-dd",
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
-        {
-            date = parsed;
-        }
-        else
-        {
-            date = DateOnly.FromDateTime(DateTime.Now);
-        }
-
-        ShowMainWindow();
-        _mainWindow.Date = date;
-        _logger.Information("已跳转到日期 {Date} 的作业", date);
     }
 
     private void InstallMacOSUrlSchemeHandler()
