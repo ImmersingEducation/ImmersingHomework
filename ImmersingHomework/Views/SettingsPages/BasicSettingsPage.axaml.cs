@@ -17,6 +17,8 @@ public partial class BasicSettingsPage : UserControl
     {
         _logger.Debug("BasicSettingsPage 初始化");
         InitializeComponent();
+        // macOS 下 URL 协议由 Info.plist 声明，不支持运行时注册/注销，隐藏该设置项
+        UrlSchemaRegisteredExpander.IsVisible = !OperatingSystem.IsMacOS();
         this.AttachedToVisualTree += (_, _) => 
         {
             _logger.Debug("BasicSettingsPage 附加到视觉树，初始化控件状态");

@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -15,6 +16,8 @@ public partial class BasicSettingsPage : UserControl
     public BasicSettingsPage()
     {
         InitializeComponent();
+        // macOS 下 URL 协议由 Info.plist 声明，不支持运行时注册/注销，隐藏该设置项
+        UrlSchemaRegisteredExpander.IsVisible = !OperatingSystem.IsMacOS();
         Refresh();
     }
 

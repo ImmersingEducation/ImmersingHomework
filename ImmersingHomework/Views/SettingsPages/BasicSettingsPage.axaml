@@ -17,7 +17,7 @@
                     <ToggleSwitch x:Name="LaunchAtStartupSwitch" OnContent="" OffContent="" IsCheckedChanged="LaunchAtStartupSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
-            <fa:FASettingsExpander Header="注册 URL 协议" Description="允许通过链接（immersinghomework://）唤起本软件。">
+            <fa:FASettingsExpander x:Name="UrlSchemaRegisteredExpander" Header="注册 URL 协议" Description="允许通过链接（immersinghomework://）唤起本软件。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Link"/>
                 </fa:FASettingsExpander.IconSource>
