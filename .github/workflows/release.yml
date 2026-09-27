@@ -300,6 +300,12 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends rpm fakeroot zip
 
+      # Fallout 靠仓库根目录下的 .fallout 目录来推断根目录，而 .fallout 在
+      # .gitignore 里、CI 全新 checkout 中并不存在，缺失时会直接抛
+      # "Could not locate '.fallout' directory/file" 而失败，这里先补上这个标记。
+      - name: 补上 Fallout 根目录标记
+        run: mkdir -p .fallout
+
       # 用 dotnet run 直接跑 build/_build.csproj，无需依赖 .config/dotnet-tools.json
       # 里 pin 的 fallout 全局工具版本（该版本未必能在 NuGet 上还原）。
       - name: 发布（含安装包）
@@ -321,6 +327,7 @@ jobs:
           set -euo pipefail
           echo "::warning title=安装包生成失败::已回退为 Portable + DotNetSingleFile，仅发布便携包与单文件版本"
           rm -rf artifacts/publish
+          mkdir -p .fallout
           dotnet run --project build/_build.csproj -c Release -- \
             Publish --no-logo \
             --configuration Release \
