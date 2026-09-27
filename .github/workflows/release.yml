@@ -14,11 +14,12 @@ name: Release
 #   prepare → 解析版本号，在 CHANGELOG/ 里找对应变更日志作为 Release Notes
 #   desktop → Windows / Linux / macOS 三个原生 runner，用 Fallout 打包安装包
 #   android → APK（配置了密钥库 Secrets 则签名）
-#   ios     → 签名 IPA（macOS runner，需要 Secrets 中的证书与描述文件）
+#   ios     → 配了证书 Secrets 就签名并出 IPA；没配则退化为构建模拟器版 .app
+#             （仅验证能编译，不能装真机、不进 Release，不能让没证书的人卡死发版）
 #   release → 汇总全部产物，创建【草稿】Release（需要你手动点 Publish）
 #
 # 需要的仓库 Secrets / Variables（Settings → Secrets and variables → Actions）
-#   Secrets（可选，不配也能跑，只是产物未签名）：
+#   Secrets（可选，不配也能跑，但产物是未签名/模拟器版）：
 #     ANDROID_KEYSTORE_BASE64        release.keystore 的 base64
 #     ANDROID_KEYSTORE_PASSWORD      密钥库口令
 #     ANDROID_KEY_ALIAS              密钥别名
@@ -29,7 +30,8 @@ name: Release
 #     IOS_PROVISIONING_PROFILE_BASE64  描述文件 .mobileprovision 的 base64
 #   Variables（可选）：
 #     ANDROID_APPLICATION_ID         覆盖 Android ApplicationId
-#     IOS_BUNDLE_ID                  覆盖 iOS Bundle ID（需与描述文件的 App ID 一致）
+#     IOS_BUNDLE_ID                  覆盖 iOS Bundle ID（必须与描述文件的 App ID 一致，
+#                                    不一致时会提前报错并告诉你该填什么）
 #
 #   生成 base64：base64 -w0 release.keystore        （macOS 用 base64 -i）
 # ─────────────────────────────────────────────────────────────────────────────
@@ -509,7 +511,8 @@ jobs:
       - name: 安装 iOS workload
         run: dotnet workload install ios
 
-      - name: 发布 IPA
+      - name: 构建 iOS 应用
+        id: build
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
@@ -523,8 +526,22 @@ jobs:
           code=$(( ${v1:-0} * 1000000 + ${v2:-0} * 10000 + ${v3:-0} * 100 + ${v4:-0} ))
           echo "CFBundleVersion = $code"
 
-          sign_args=()
+          info_plist="ImmersingHomework.Mobile/ImmersingHomework.Mobile.iOS/Info.plist"
+
+          args=(
+            publish ImmersingHomework.Mobile/ImmersingHomework.Mobile.iOS/ImmersingHomework.Mobile.iOS.csproj
+            -c Release
+            -f net10.0-ios
+            -p:ApplicationDisplayVersion="$VERSION"
+            -p:ApplicationVersion="$code"
+          )
+          if [ -n "${IOS_BUNDLE_ID:-}" ]; then
+            args+=(-p:ApplicationId="$IOS_BUNDLE_ID")
+          fi
+
           if [ -n "${IOS_CERTIFICATE_BASE64:-}" ] && [ -n "${IOS_PROVISIONING_PROFILE_BASE64:-}" ]; then
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+
             echo "$IOS_CERTIFICATE_BASE64" | base64 -d > "$RUNNER_TEMP/cert.p12"
             echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 -d > "$RUNNER_TEMP/profile.mobileprovision"
 
@@ -553,62 +570,96 @@ jobs:
               echo "::error::导入的证书里没有可用的代码签名身份，请检查 IOS_CERTIFICATE_BASE64 / IOS_CERTIFICATE_PASSWORD"
               exit 1
             fi
-            if [ -z "${IOS_BUNDLE_ID:-}" ]; then
-              echo "::warning title=iOS Bundle ID::签名时建议设置仓库变量 IOS_BUNDLE_ID，使其与描述文件中的 App ID 一致"
+
+            # 提前核对「描述文件的 App ID」与「最终 Bundle ID」，否则会在 codesign
+            # 阶段抛一句很难懂的 profile 不匹配错误。
+            profile_app_id="$(security cms -D -i "$RUNNER_TEMP/profile.mobileprovision" | plutil -extract Entitlements.application-identifier raw -o - - 2> /dev/null || true)"
+            profile_bundle="${profile_app_id#*.}"
+            effective_bundle="${IOS_BUNDLE_ID:-}"
+            if [ -z "$effective_bundle" ]; then
+              effective_bundle="$(plutil -extract CFBundleIdentifier raw -o - "$info_plist" 2> /dev/null || true)"
+            fi
+            if [ -z "$effective_bundle" ]; then
+              echo "::warning title=iOS Bundle ID::既没有设置仓库变量 IOS_BUNDLE_ID，也没能从 Info.plist 读到 CFBundleIdentifier，跳过 App ID 一致性检查"
+            elif [ -n "$profile_bundle" ] && [ "$profile_bundle" != "*" ] && [ "$profile_bundle" != "$effective_bundle" ]; then
+              echo "::error::描述文件对应的 App ID 是 '${profile_app_id}'，而当前 Bundle ID 是 '${effective_bundle}'，两者必须一致。请在仓库 Variables 里把 IOS_BUNDLE_ID 设为 '${profile_bundle}'（或改 Info.plist 的 CFBundleIdentifier）后重跑。"
+              exit 1
             fi
 
-            echo "签名身份：$cert_name｜描述文件：$profile_name"
-            sign_args+=(
+            echo "签名身份：$cert_name｜描述文件：$profile_name｜Bundle ID：$effective_bundle"
+            args+=(
+              -p:RuntimeIdentifier=ios-arm64
               -p:CodesignKey="$cert_name"
               -p:CodesignProvision="$profile_name"
               -p:CodesignKeychain="$keychain"
               -p:BuildIpa=true
             )
           else
-            echo "::warning title=iOS 未签名::未配置 IOS_CERTIFICATE_BASE64 / IOS_PROVISIONING_PROFILE_BASE64，只构建未签名 .app（无法安装到真机）"
-            sign_args+=(-p:BuildIpa=false -p:CodesignKey= -p:CodesignProvision=)
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+
+            # 真机（ios-arm64）构建在 .NET iOS 里强制要求签名身份，没有证书时根本出不了
+            # IPA（用空 CodesignKey 只会让 SDK 去钥匙串里找任意证书然后报错）。所以这里
+            # 退一步：构建模拟器版 .app，仅用于验证 iOS 代码能编译通过。该产物不能装到
+            # 真机，也不会进 Release；配好证书 Secrets 后重跑即可产出签名 IPA。
+            sim_rid="iossimulator-x64"
+            if [ "$(uname -m)" = "arm64" ]; then
+              sim_rid="iossimulator-arm64"
+            fi
+            args+=(
+              -p:RuntimeIdentifier="$sim_rid"
+              -p:EnableCodeSigning=false
+              -p:CodesignRequireProvisioningProfile=false
+              -p:EnableDefaultCodesignEntitlements=false
+              -p:BuildIpa=false
+            )
+            echo "::warning title=iOS 未签名::未配置 IOS_CERTIFICATE_BASE64 / IOS_PROVISIONING_PROFILE_BASE64，本次只构建模拟器版 .app（不能装真机、不进 Release）。配好证书 Secrets 后重跑即可产出签名 IPA。"
           fi
 
-          args=(
-            publish ImmersingHomework.Mobile/ImmersingHomework.Mobile.iOS/ImmersingHomework.Mobile.iOS.csproj
-            -c Release
-            -f net10.0-ios
-            -p:RuntimeIdentifier=ios-arm64
-            -p:ApplicationDisplayVersion="$VERSION"
-            -p:ApplicationVersion="$code"
-          )
-          if [ -n "${IOS_BUNDLE_ID:-}" ]; then
-            args+=(-p:ApplicationId="$IOS_BUNDLE_ID")
-          fi
-
-          dotnet "${args[@]}" "${sign_args[@]}"
+          dotnet "${args[@]}"
 
       - name: 整理产物
         run: |
           set -euo pipefail
           shopt -s nullglob
           mkdir -p dist
-          base="ImmersingHomework.Mobile/ImmersingHomework.Mobile.iOS/bin/Release/net10.0-ios/ios-arm64"
+          base="ImmersingHomework.Mobile/ImmersingHomework.Mobile.iOS/bin/Release/net10.0-ios"
 
-          ipas=("$base"/publish/*.ipa "$base"/*.ipa)
+          ipas=("$base"/*/publish/*.ipa "$base"/*/*.ipa)
           if [ "${#ipas[@]}" -gt 0 ]; then
             cp "${ipas[0]}" "dist/ImmersingHomework-Mobile-${VERSION}-ios.ipa"
           else
-            apps=("$base"/publish/*.app "$base"/*.app)
+            apps=("$base"/*/publish/*.app "$base"/*/*.app)
             if [ "${#apps[@]}" -eq 0 ]; then
               echo "::error::没有找到 .ipa / .app 产物"
               exit 1
             fi
-            zip -qry "dist/ImmersingHomework-Mobile-${VERSION}-ios-unsigned.zip" "${apps[0]}"
+            case "${apps[0]}" in
+              *simulator*) name="ImmersingHomework-Mobile-${VERSION}-ios-simulator-unsigned.zip" ;;
+              *) name="ImmersingHomework-Mobile-${VERSION}-ios-unsigned.zip" ;;
+            esac
+            zip -qry "dist/$name" "${apps[0]}"
           fi
           ls -lh dist
 
-      - uses: actions/upload-artifact@v4
+      # 签名成功 → 这个 IPA 才算发布产物
+      - name: 上传 iOS 产物（进 Release）
+        if: steps.build.outputs.signed == 'true'
+        uses: actions/upload-artifact@v4
         with:
-          name: mobile-ios
+          name: release-mobile-ios
           path: dist/*
           if-no-files-found: error
           retention-days: 14
+
+      # 未签名 → 只留作本次运行的排查产物，不混进 Release
+      - name: 上传 iOS 冒烟产物（不进 Release）
+        if: steps.build.outputs.signed != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-unsigned-smoke
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 7
 
   # ─────────────────────────── 汇总并创建草稿 Release ───────────────────────────
   release:
@@ -658,8 +709,12 @@ jobs:
             gh "${create_args[@]}"
           fi
 
+          # 未签名的 iOS 冒烟包不进 Release（只在本次运行的 Artifacts 里保留）
           files=()
           while IFS= read -r -d '' f; do
+            case "$f" in
+              *-ios-simulator-unsigned.zip | *-ios-unsigned.zip) echo "跳过（未签名，不进 Release）：$f"; continue ;;
+            esac
             files+=("$f")
           done < <(find dist -type f -print0)
           if [ "${#files[@]}" -eq 0 ]; then
