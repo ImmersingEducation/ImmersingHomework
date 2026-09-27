@@ -682,6 +682,12 @@ jobs:
       NOTES: ${{ needs.prepare.outputs.notes }}
       CHANGELOG_FILE: ${{ needs.prepare.outputs.changelog_file }}
     steps:
+      # gh 要通过 git 解析当前仓库（没有 .git 会直接报 "not a git repository"）；
+      # 另外 checkout 默认带 clean（git clean -ffdx），所以必须放在下载产物之前。
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
       # 有平台失败时它就没有 artifact，这里容忍"一个都没匹配到"，交给下一步给出明确报错
       - name: 下载全部平台产物
         continue-on-error: true
