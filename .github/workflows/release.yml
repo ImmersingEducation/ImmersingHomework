@@ -665,7 +665,14 @@ jobs:
   release:
     name: 创建草稿 Release
     needs: [prepare, desktop, android, ios]
-    if: needs.prepare.outputs.should_release == 'true' && needs.prepare.outputs.create_release == 'true'
+    # 关键：只要 prepare 成功、并且确实是要发版，就算某个平台（desktop 某个 RID / android / ios）
+    # 构建失败，也照样把已成功的产物汇总成草稿 Release —— 失败平台的产物缺席不影响发版。
+    # 先决条件仍然保留：prepare 失败（例如找不到 CHANGELOG）就不建 Release。
+    if: >-
+      always() && !cancelled()
+      && needs.prepare.result == 'success'
+      && needs.prepare.outputs.should_release == 'true'
+      && needs.prepare.outputs.create_release == 'true'
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -675,7 +682,9 @@ jobs:
       NOTES: ${{ needs.prepare.outputs.notes }}
       CHANGELOG_FILE: ${{ needs.prepare.outputs.changelog_file }}
     steps:
+      # 有平台失败时它就没有 artifact，这里容忍"一个都没匹配到"，交给下一步给出明确报错
       - name: 下载全部平台产物
+        continue-on-error: true
         uses: actions/download-artifact@v4
         with:
           path: dist
@@ -710,17 +719,38 @@ jobs:
           fi
 
           # 未签名的 iOS 冒烟包不进 Release（只在本次运行的 Artifacts 里保留）
+          mkdir -p dist
           files=()
           while IFS= read -r -d '' f; do
             case "$f" in
               *-ios-simulator-unsigned.zip | *-ios-unsigned.zip) echo "跳过（未签名，不进 Release）：$f"; continue ;;
             esac
             files+=("$f")
-          done < <(find dist -type f -print0)
+          done < <(find dist -type f -print0 | sort -z)
           if [ "${#files[@]}" -eq 0 ]; then
-            echo "::error::没有可上传的产物"
+            echo "::error::所有平台都没有产出任何产物，无法创建 Release（请查看各构建 job 的日志）"
             exit 1
           fi
+
+          # 统计哪些平台的产物缺席（通常意味着该 job 失败了），照发但如实汇报
+          missing=()
+          for want in "win-x64:Windows(win-x64)" "linux-x64:Linux(linux-x64)" "osx-arm64:macOS(osx-arm64)" "android.apk:Android(APK)" "ios.ipa:iOS(IPA)"; do
+            pattern="${want%%:*}"
+            label="${want##*:}"
+            found=false
+            for f in "${files[@]}"; do
+              case "$f" in
+                *"$pattern"*) found=true; break ;;
+              esac
+            done
+            if [ "$found" != "true" ]; then
+              missing+=("$label")
+            fi
+          done
+          if [ "${#missing[@]}" -gt 0 ]; then
+            echo "::warning title=部分平台产物缺席::以下平台本次没有产物（对应 job 大概率失败了），Release 仍会照常创建：${missing[*]}"
+          fi
+
           gh release upload "$TAG" "${files[@]}" --clobber
 
           url="$(gh release view "$TAG" --json url -q '.url')"
@@ -733,6 +763,11 @@ jobs:
             echo "- **标题**：$TITLE"
             echo "- **预发布**：\`$PRERELEASE\`"
             echo "- **变更日志**：\`${CHANGELOG_FILE:-未知}\`"
+            if [ "${#missing[@]}" -gt 0 ]; then
+              echo "- ⚠️ **缺席平台**：${missing[*]}（对应构建失败，本次未包含它们的产物）"
+            else
+              echo "- ✅ **平台齐全**：桌面三平台 + Android + iOS 都有产物"
+            fi
             echo
             echo "### 已上传产物"
             echo
