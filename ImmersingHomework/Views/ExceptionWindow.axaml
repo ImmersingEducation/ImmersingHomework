@@ -5,8 +5,7 @@
         xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.ExceptionWindow"
-        Title="ExceptionWindow" Width="600" Height="400"
-        RequestedThemeVariant="Light">
+        Title="ExceptionWindow" Width="600" Height="400">
         <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Spacing="16" Margin="24">
                 <TextBlock FontSize="32" FontWeight="Bold">Oops！看来开发者要背锅了。</TextBlock>
                 <TextBlock FontSize="16">软件发生了致命错误，需要重启。</TextBlock>

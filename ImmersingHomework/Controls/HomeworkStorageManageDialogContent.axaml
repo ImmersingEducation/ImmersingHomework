@@ -7,6 +7,6 @@
     <StackPanel Orientation="Vertical" Spacing="8">
         <TextBlock HorizontalAlignment="Center">请选择一个日期，软件将会删除该日期及以前的作业信息以及所有为空的作业信息</TextBlock>
         <CalendarDatePicker x:Name="CalendarDatePicker" SelectedDateChanged="CalendarDatePicker_OnSelectedDateChanged" Width="200" HorizontalAlignment="Center"/>
-        <TextBlock x:Name="WarningTextBlock" Foreground="DarkRed" HorizontalAlignment="Center"/>
+        <TextBlock x:Name="WarningTextBlock" Foreground="{DynamicResource SystemFillColorCriticalBrush}" HorizontalAlignment="Center"/>
     </StackPanel>
 </UserControl>

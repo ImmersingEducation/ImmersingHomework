@@ -6,17 +6,16 @@
         xmlns:controls="clr-namespace:ImmersingHomework.Controls"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.MainWindow"
-        Title="方圆作业板" Background="#ECECEC"
-        Icon="avares://ImmersingHomework/Assets/icon.png"
-        RequestedThemeVariant="Light">
+        Title="方圆作业板" Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
+        Icon="avares://ImmersingHomework/Assets/icon.png">
         <Grid RowDefinitions="Auto,*,Auto" Margin="16">
-                <TextBlock x:Name="Hitokoto" Grid.Row="0" FontSize="24" Foreground="#AEAEAE" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0 0 0 8"/>
+                <TextBlock x:Name="Hitokoto" Grid.Row="0" FontSize="24" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0 0 0 8"/>
                 <controls:HomeworkPanel x:Name="HomeworkPanel" Grid.Row="1"/>
                 <Grid Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
                         <Button Grid.Column="0" x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left" Click="MinimizeButton_OnClick">
                                 <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
                         </Button>
-                        <Border Grid.Column="1" Background="#FFFFFFFF" CornerRadius="30">
+                        <Border Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
                                 <StackPanel Orientation="Horizontal" Spacing="10">
                                         <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">
                                                 <fa:FASymbolIcon Symbol="Add" FontSize="24"/>

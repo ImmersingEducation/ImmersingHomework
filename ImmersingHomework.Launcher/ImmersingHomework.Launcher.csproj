@@ -8,6 +8,16 @@
         <AssemblyName>Launcher</AssemblyName>
         <AssemblyVersion>0.2.0.0</AssemblyVersion>
         <FileVersion>0.2.0.0</FileVersion>
+        <Version>0.2.0.0</Version>
+        <Company>ImmersingEducation</Company>
+        <CompanyRDNS>com.immersingeducation</CompanyRDNS>
+        <Authors>ImmersingEducation</Authors>
+        <Summary>班级大屏作业板（ImmersingHomework）</Summary>
+        <Description>一个现代化的班级大屏作业板应用，使用 Avalonia UI 开发，面向教室场景记录与分发作业。</Description>
+        <Copyright>Copyright © 2026 ImmersingEducation</Copyright>
+        <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
+        <RepositoryUrl>https://github.com/cc-cpstudio/ImmersingHomework</RepositoryUrl>
+        <PackageTags>homework;education;classroom;avalonia</PackageTags>
     </PropertyGroup>
 
     <ItemGroup>
@@ -16,22 +26,16 @@
                           Private="false" />
     </ItemGroup>
 
-    <PropertyGroup>
-        <!-- 主工程输出目录：带 -r/自包含 发布时产物位于 net10.0/<RuntimeIdentifier> 子目录 -->
-        <MainProjectBaseDir>$(MSBuildProjectDirectory)/../ImmersingHomework/bin/$(Configuration)/net10.0</MainProjectBaseDir>
-        <MainProjectOutputDir>$(MainProjectBaseDir)</MainProjectOutputDir>
-        <MainProjectOutputDir Condition="'$(RuntimeIdentifier)' != '' and Exists('$(MainProjectBaseDir)/$(RuntimeIdentifier)')">$(MainProjectBaseDir)/$(RuntimeIdentifier)</MainProjectOutputDir>
-    </PropertyGroup>
-
-    <Target Name="StageMainProjectOutput" AfterTargets="Build">
+    <Target Name="CopyMainApp" AfterTargets="Build">
+        <PropertyGroup>
+            <MainAppOutput>$(MSBuildThisFileDirectory)..\ImmersingHomework\bin\$(Configuration)\net10.0\</MainAppOutput>
+        </PropertyGroup>
+        <RemoveDir Directories="$(OutDir)ImmersingHomework" />
         <ItemGroup>
-            <MainProjectFiles Include="$(MainProjectOutputDir)/**/*"
-                              Exclude="$(MainProjectOutputDir)/Data/**;$(MainProjectOutputDir)/Logs/**;$(MainProjectOutputDir)/Outputs/**;$(MainProjectOutputDir)/Temp/**;$(MainProjectOutputDir)/win-x64/**;$(MainProjectOutputDir)/publish/**" />
+            <MainAppFiles Include="$(MainAppOutput)**\*" />
         </ItemGroup>
-        <Copy SourceFiles="@(MainProjectFiles)"
-              DestinationFolder="$(OutDir)ImmersingHomework/%(RecursiveDir)"
-              SkipUnchangedFiles="true" />
-        <MakeDir Directories="$(OutDir)Data;$(OutDir)Outputs;$(OutDir)Logs;$(OutDir)Update" />
+        <Copy SourceFiles="@(MainAppFiles)"
+              DestinationFiles="@(MainAppFiles->'$(OutDir)ImmersingHomework\%(RecursiveDir)%(Filename)%(Extension)')" />
     </Target>
 
 </Project>

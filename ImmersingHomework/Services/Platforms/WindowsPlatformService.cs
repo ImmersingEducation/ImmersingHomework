@@ -1,11 +1,10 @@
 using System;
 using System.Diagnostics;
-using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
-using Microsoft.Win32;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
+using Microsoft.Win32;
 using Serilog;
 
 namespace ImmersingHomework.Services.Platforms;
@@ -13,29 +12,27 @@ namespace ImmersingHomework.Services.Platforms;
 [SupportedOSPlatform("windows")]
 public class WindowsPlatformService : PlatformServiceBase
 {
-    private readonly ILogger _logger = Log.ForContext<WindowsPlatformService>();
-    [DllImport("user32.dll")]
-    private static extern bool SetForegroundWindow(IntPtr hWnd);
-    
-    [DllImport("user32.dll")]
-    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
-    
-    [DllImport("user32.dll")]
-    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
-
     private const int GWL_EXSTYLE = -20;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
+    private const string UrlScheme = "immersinghomework";
+    private readonly ILogger _logger = Log.ForContext<WindowsPlatformService>();
+
+    [DllImport("user32.dll")]
+    private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern int SetWindowLong(IntPtr hWnd, int nIndex, uint dwNewLong);
+
+    [DllImport("user32.dll")]
+    private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
     public override void SetTopmost(Window window, bool enable = true)
     {
         window.Opened += (sender, e) =>
         {
             window.Topmost = enable;
-            if (enable && window.TryGetPlatformHandle()?.Handle is IntPtr hwnd)
-            {
-                SetForegroundWindow(hwnd);
-            }
+            if (enable && window.TryGetPlatformHandle()?.Handle is IntPtr hwnd) SetForegroundWindow(hwnd);
         };
     }
 
@@ -43,7 +40,7 @@ public class WindowsPlatformService : PlatformServiceBase
     {
         window.Focusable = false;
         window.ShowActivated = false;
-        
+
         window.Opened += (sender, e) =>
         {
             if (window.TryGetPlatformHandle()?.Handle is IntPtr hwnd)
@@ -62,7 +59,7 @@ public class WindowsPlatformService : PlatformServiceBase
     public override void HideFromAltTab(Window window)
     {
         window.ShowInTaskbar = false;
-        
+
         window.Opened += (sender, e) =>
         {
             if (window.TryGetPlatformHandle()?.Handle is IntPtr hwnd)
@@ -79,7 +76,7 @@ public class WindowsPlatformService : PlatformServiceBase
         {
             var appName = "ImmersingHomework";
             var exePath = Process.GetCurrentProcess().MainModule?.FileName;
-            
+
             if (string.IsNullOrEmpty(exePath))
             {
                 _logger.Error("Could not get executable path");
@@ -100,10 +97,7 @@ public class WindowsPlatformService : PlatformServiceBase
             }
             else
             {
-                if (key.GetValue(appName) != null)
-                {
-                    key.DeleteValue(appName);
-                }
+                if (key.GetValue(appName) != null) key.DeleteValue(appName);
                 _logger.Information("Disabled launch at startup");
             }
         }
@@ -177,17 +171,85 @@ public class WindowsPlatformService : PlatformServiceBase
         public NotifyIconFlags uFlags;
         public uint uCallbackMessage;
         public IntPtr hIcon;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
         public string szTip;
+
         public uint dwState;
         public uint dwStateMask;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
         public string szInfo;
+
         public uint uTimeout;
+
         [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 64)]
         public string szInfoTitle;
+
         public uint dwInfoFlags;
         public Guid guidItem;
         public IntPtr hBalloonIcon;
+    }
+
+    public override bool IsUrlSchemaRegistered
+    {
+        get
+        {
+            try
+            {
+                using var key = Registry.CurrentUser.OpenSubKey($@"Software\Classes\{UrlScheme}");
+                return key != null;
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查 URL 协议注册状态失败: {Scheme}", UrlScheme);
+                return false;
+            }
+        }
+        set
+        {
+            try
+            {
+                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                if (string.IsNullOrEmpty(exePath))
+                {
+                    _logger.Error("URL 协议注册失败: 无法获取可执行文件路径");
+                    return;
+                }
+
+                var schemeKeyPath = $@"Software\Classes\{UrlScheme}";
+                if (value)
+                {
+                    using var key = Registry.CurrentUser.CreateSubKey(schemeKeyPath, true);
+                    if (key == null)
+                    {
+                        _logger.Error("URL 协议注册失败: 无法创建注册表项 {Scheme}", UrlScheme);
+                        return;
+                    }
+
+                    key.SetValue(null, $"URL:{UrlScheme} Protocol");
+                    key.SetValue("URL Protocol", string.Empty);
+
+                    using var commandKey = key.CreateSubKey(@"shell\open\command");
+                    if (commandKey == null)
+                    {
+                        _logger.Error("URL 协议注册失败: 无法创建命令注册表项 {Scheme}", UrlScheme);
+                        return;
+                    }
+
+                    commandKey.SetValue(null, $"\"{exePath}\" \"%1\"");
+                    _logger.Information("URL 协议注册成功: {Scheme}", UrlScheme);
+                }
+                else
+                {
+                    Registry.CurrentUser.DeleteSubKeyTree(schemeKeyPath, false);
+                    _logger.Information("URL 协议注销成功: {Scheme}", UrlScheme);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "URL 协议注册失败: {Scheme}", UrlScheme);
+            }
+        }
     }
 }

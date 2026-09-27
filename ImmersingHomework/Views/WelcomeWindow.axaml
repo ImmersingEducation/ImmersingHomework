@@ -7,24 +7,33 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.WelcomeWindow"
         Title="方圆作业板 - 欢迎向导"
-        Icon="avares://ImmersingHomework/Assets/icon.png"
-        RequestedThemeVariant="Light">
-        <Grid RowDefinitions="*,Auto" Margin="8">
-                <fa:FAFrame Grid.Row="0" x:Name="Frame"/>
-                <Grid Row="1" ColumnDefinitions="Auto,*,Auto">
-                        <Button x:Name="PreviousButton" Grid.Column="0" Width="128" Click="PreviousButton_OnClick">
-                                <StackPanel Orientation="Horizontal">
-                                        <fa:FASymbolIcon Symbol="ChevronLeft"/>
-                                        <TextBlock Text="上一步"/>
+        Icon="avares://ImmersingHomework/Assets/icon.png">
+        <Grid RowDefinitions="Auto,*,Auto">
+                <Border Grid.Row="0" HorizontalAlignment="Stretch" Height="72" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                        <StackPanel Orientation="Horizontal" Margin="16" VerticalAlignment="Center">
+                                <TextBlock FontSize="24" FontWeight="Bold">方圆作业板 欢迎向导</TextBlock>
+                        </StackPanel>
+                </Border>
+                <fa:FAFrame x:Name="Frame" Grid.Row="1" Margin="16"/>
+                <Border Grid.Row="2" HorizontalAlignment="Stretch" Height="72" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                        <Grid ColumnDefinitions="Auto,*,Auto,Auto" Margin="16" ColumnSpacing="16">
+                                <StackPanel Orientation="Horizontal" Grid.Column="0" Spacing="" VerticalAlignment="Center">
+                                        <TextBlock>当前步骤：</TextBlock>
+                                        <TextBlock x:Name="CurrentStep"></TextBlock>
                                 </StackPanel>
-                        </Button>
-                        <TextBlock x:Name="CurrentStep" Grid.Column="1" FontSize="16" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-                        <Button x:Name="NextButton" Grid.Column="2" Width="128" Click="NextButton_OnClick">
-                                <StackPanel Orientation="Horizontal">
-                                        <fa:FASymbolIcon Symbol="ChevronRight"/>
-                                        <TextBlock x:Name="NextButtonText" Text="下一步"/>
-                                </StackPanel>
-                        </Button>
-                </Grid>
+                                <Button x:Name="PreviousButton" Grid.Column="2" Click="PreviousButton_OnClick" VerticalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal">
+                                                <fa:FASymbolIcon Symbol="ChevronLeft"/>
+                                                <TextBlock Text="上一步"/>
+                                        </StackPanel>
+                                </Button>
+                                <Button x:Name="NextButton" Grid.Column="3" Click="NextButton_OnClick" VerticalAlignment="Stretch">
+                                        <StackPanel Orientation="Horizontal">
+                                                <fa:FASymbolIcon Symbol="ChevronRight"/>
+                                                <TextBlock x:Name="NextButtonText" Text="下一步"/>
+                                        </StackPanel>
+                                </Button>
+                        </Grid>
+                </Border>
         </Grid>
 </wnd:FAAppWindow>

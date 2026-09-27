@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
 using Serilog;
@@ -19,8 +20,35 @@ public class MacOSPlatformService : PlatformServiceBase
     [DllImport("/System/Library/Frameworks/AppKit.framework/AppKit")]
     private static extern void NSWindowSetCollectionBehavior(IntPtr window, int behavior);
 
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern IntPtr CFStringCreateWithCString(IntPtr allocator, string cStr, int encoding);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern void CFRelease(IntPtr cf);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern long CFStringGetLength(IntPtr theString);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    [return: MarshalAs(UnmanagedType.I1)]
+    private static extern bool CFStringGetCString(IntPtr theString, byte[] buffer, int bufferSize, int encoding);
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern IntPtr CFBundleGetMainBundle();
+
+    [DllImport("/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation")]
+    private static extern IntPtr CFBundleGetIdentifier(IntPtr bundle);
+
+    [DllImport("/System/Library/Frameworks/CoreServices.framework/CoreServices")]
+    private static extern int LSSetDefaultHandlerForURLScheme(IntPtr scheme, IntPtr bundleId);
+
+    [DllImport("/System/Library/Frameworks/CoreServices.framework/CoreServices")]
+    private static extern IntPtr LSCopyDefaultHandlerForURLScheme(IntPtr scheme);
+
     private const int kCGWindowLevelFloating = 3;
     private const int NSWindowCollectionBehaviorIgnoreCycle = 1 << 5;
+    private const string UrlScheme = "immersinghomework";
+    private const int kCFStringEncodingUTF8 = 0x08000100;
 
     public override void SetTopmost(Window window, bool enable = true)
     {
@@ -144,6 +172,100 @@ public class MacOSPlatformService : PlatformServiceBase
         catch (Exception ex)
         {
             _logger.Error(ex, "发送系统通知失败: {Title}", title);
+        }
+    }
+
+    public override bool IsUrlSchemaRegistered
+    {
+        get
+        {
+            var scheme = CreateCfString(UrlScheme);
+            try
+            {
+                var handler = LSCopyDefaultHandlerForURLScheme(scheme);
+                if (handler == IntPtr.Zero) return false;
+                try
+                {
+                    var handlerId = CfStringToString(handler);
+                    var bundleId = CurrentBundleIdentifier;
+                    return !string.IsNullOrEmpty(bundleId) &&
+                           string.Equals(handlerId, bundleId, StringComparison.OrdinalIgnoreCase);
+                }
+                finally
+                {
+                    CFRelease(handler);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "检查 URL 协议注册状态失败: {Scheme}", UrlScheme);
+                return false;
+            }
+            finally
+            {
+                CFRelease(scheme);
+            }
+        }
+        set
+        {
+            var scheme = CreateCfString(UrlScheme);
+            var bundleId = CreateCfString(CurrentBundleIdentifier ?? string.Empty);
+            try
+            {
+                if (string.IsNullOrEmpty(CurrentBundleIdentifier))
+                {
+                    _logger.Error("URL 协议注册失败: 无法获取应用 Bundle Identifier，{Scheme}", UrlScheme);
+                    return;
+                }
+
+                if (value)
+                {
+                    var result = LSSetDefaultHandlerForURLScheme(scheme, bundleId);
+                    if (result == 0) _logger.Information("URL 协议注册成功: {Scheme}", UrlScheme);
+                    else _logger.Error("URL 协议注册失败: {Scheme}，错误码: {Code}", UrlScheme, result);
+                }
+                else
+                {
+                    _logger.Warning("URL 协议注销失败: macOS 暂不支持运行时注销 {Scheme}", UrlScheme);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.Error(ex, "URL 协议注册失败: {Scheme}", UrlScheme);
+            }
+            finally
+            {
+                CFRelease(scheme);
+                CFRelease(bundleId);
+            }
+        }
+    }
+
+    private static IntPtr CreateCfString(string value) =>
+        CFStringCreateWithCString(IntPtr.Zero, value, kCFStringEncodingUTF8);
+
+    private static string? CfStringToString(IntPtr cf)
+    {
+        if (cf == IntPtr.Zero) return null;
+
+        var length = CFStringGetLength(cf);
+        if (length == 0) return string.Empty;
+
+        var buffer = new byte[length * 4 + 1];
+        return CFStringGetCString(cf, buffer, buffer.Length, kCFStringEncodingUTF8)
+            ? Encoding.UTF8.GetString(buffer).TrimEnd('\0')
+            : null;
+    }
+
+    private static string? CurrentBundleIdentifier
+    {
+        get
+        {
+            var bundle = CFBundleGetMainBundle();
+            if (bundle == IntPtr.Zero) return null;
+
+            var identifier = CFBundleGetIdentifier(bundle);
+            return CfStringToString(identifier);
         }
     }
 }

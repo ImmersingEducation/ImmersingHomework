@@ -27,7 +27,9 @@ public class AppSettings
     private AppSettingsStorageService _storageService = new();
     private bool _isDirty;
 
-    public ObservableCollection<string> Subjects { get; set; } = [];
+    public ObservableCollection<string> Subjects { get; set; } = [
+        "语文", "数学", "英语", "物理", "化学", "生物", "政治", "历史", "地理", "体育"
+    ];
     public ObservableCollection<TagModel> Tags { get; set; } = [];
 
     public ObservableCollection<string> HomeworkTemplates { get; set; } = [];
@@ -35,6 +37,10 @@ public class AppSettings
     public bool FirstLaunch { get; set; } = true;
     
     public ObservableProperty<bool> LaunchAtStartup { get; set; } = new(false);
+
+    public ObservableProperty<bool> UrlSchemaRegistered { get; set; } = new(false);
+
+    public ObservableProperty<ThemeMode> ThemeMode { get; set; } = new(Enums.ThemeMode.System);
 
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
         new(Models.HitokotoDisplayMode.Content);
@@ -87,6 +93,8 @@ public class AppSettings
         }
         FirstLaunch = loaded.FirstLaunch;
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
+        UrlSchemaRegistered.Value = loaded.UrlSchemaRegistered.Value;
+        ThemeMode.Value = loaded.ThemeMode.Value;
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         ShowHomeworkAfterSchool.Value = loaded.ShowHomeworkAfterSchool.Value;
@@ -109,6 +117,8 @@ public class AppSettings
         HomeworkTemplates.CollectionChanged += (s, e) => MarkDirty();
         
         LaunchAtStartup.ValueChanged += _ => MarkDirty();
+        UrlSchemaRegistered.ValueChanged += _ => MarkDirty();
+        ThemeMode.ValueChanged += _ => MarkDirty();
         EnableClassIslandIPCService.ValueChanged += _ => MarkDirty();
         ClassIslandTakeoverSubjects.ValueChanged += _ => MarkDirty();
         ShowHomeworkAfterSchool.ValueChanged += _ => MarkDirty(); 

@@ -20,6 +20,7 @@
         <entry key="ImmersingHomework/Controls/Tag.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/TagPicker.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/MainWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Styles/GlobalStyles.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/ExceptionWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/FloatingButtonWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/HomeworkAssignmentRemindWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />

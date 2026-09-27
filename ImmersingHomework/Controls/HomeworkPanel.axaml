@@ -12,7 +12,7 @@
                    FontSize="24" 
                    HorizontalAlignment="Center" 
                    VerticalAlignment="Center"
-                   Foreground="Gray"
+                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    IsVisible="False"/>
     </Grid>
 </UserControl>

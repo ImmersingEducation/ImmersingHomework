@@ -7,8 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.SettingsWindow"
         Title="方圆作业板 - 设置"
-        Icon="avares://ImmersingHomework/Assets/icon.png"
-        RequestedThemeVariant="Light">
+        Icon="avares://ImmersingHomework/Assets/icon.png">
     <Grid>
         <fa:FANavigationView x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
             <fa:FANavigationView.MenuItems>

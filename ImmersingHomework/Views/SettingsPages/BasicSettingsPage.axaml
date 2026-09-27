@@ -17,6 +17,27 @@
                     <ToggleSwitch x:Name="LaunchAtStartupSwitch" OnContent="" OffContent="" IsCheckedChanged="LaunchAtStartupSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander x:Name="UrlSchemaRegisteredExpander" Header="注册 URL 协议" Description="允许通过链接（immersinghomework://）唤起本软件。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Link"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <ToggleSwitch x:Name="UrlSchemaRegisteredSwitch" OnContent="" OffContent="" IsCheckedChanged="UrlSchemaRegisteredSwitch_OnIsCheckedChanged"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="外观样式" Description="选择软件的显示主题。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="DarkTheme"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="ThemeModeComboBox"
+                                   SelectionChanged="ThemeModeComboBox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="跟随系统"/>
+                        <fa:FAComboBoxItem Content="浅色"/>
+                        <fa:FAComboBoxItem Content="深色"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

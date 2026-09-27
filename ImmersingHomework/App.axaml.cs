@@ -8,6 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
@@ -68,6 +69,9 @@ public partial class App : Application
         AppSettings.Instance.Initialize();
         _logger.Information("应用设置已初始化");
 
+        ApplyThemeMode();
+        SubscribeToThemeModeChanges();
+
         if (AppSettings.Instance.EnableClassIslandIPCService.Value)
         {
             _logger.Information("ClassIsland 联动已启用，初始化 ClassIsland 服务");
@@ -82,6 +86,11 @@ public partial class App : Application
             ApplyLaunchAtStartupSetting();
             // 订阅设置变更事件
             SubscribeToLaunchAtStartupChanges();
+
+            // 应用当前的 URL 协议注册设置
+            ApplyUrlSchemaRegisteredSetting();
+            // 订阅设置变更事件
+            SubscribeToUrlSchemaRegisteredChanges();
 
             if (!AppSettings.Instance.FirstLaunch)
             {
@@ -130,6 +139,8 @@ public partial class App : Application
                 _logger.Information("启动时自动检查更新");
                 _ = StartupUpdateCheckAsync();
             }
+
+            SetupUrlSchemeHandling();
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -199,6 +210,74 @@ public partial class App : Application
             {
                 _platformService.SetLaunchAtStartup(newValue);
             }
+        };
+    }
+
+    private void ApplyUrlSchemaRegisteredSetting()
+    {
+        if (_platformService != null)
+        {
+            _logger.Information("应用 URL 协议注册设置: {Value}", AppSettings.Instance.UrlSchemaRegistered.Value);
+            _platformService.IsUrlSchemaRegistered = AppSettings.Instance.UrlSchemaRegistered.Value;
+        }
+    }
+
+    private void SubscribeToUrlSchemaRegisteredChanges()
+    {
+        AppSettings.Instance.UrlSchemaRegistered.ValueChanged += (newValue) =>
+        {
+            _logger.Information("URL 协议注册设置变更，新值: {Value}", newValue);
+            if (_platformService != null)
+            {
+                _platformService.IsUrlSchemaRegistered = newValue;
+            }
+        };
+    }
+
+    private void SetupUrlSchemeHandling()
+    {
+        RegisterUrlRoutes();
+
+        UrlIpcService.StartServer(url => Dispatcher.UIThread.Post(() => UrlSchemeService.Handle(url)));
+
+        InstallMacOSUrlSchemeHandler();
+
+        UrlSchemeService.FlushStartupUrls();
+    }
+
+    private void RegisterUrlRoutes()
+    {
+        UrlSchemeService.RegisterRoute(string.Empty, _ => ShowMainWindow());
+        UrlSchemeService.RegisterRoute("open", _ => ShowMainWindow());
+        UrlSchemeService.RegisterRoute("app", _ => ShowMainWindow());
+        UrlSchemeService.RegisterRoute("settings", _ => OpenSettingsWindow());
+    }
+
+    private void InstallMacOSUrlSchemeHandler()
+    {
+        if (!OperatingSystem.IsMacOS()) return;
+
+        MacOSUrlSchemeService.Install(url => Dispatcher.UIThread.Post(() => UrlSchemeService.Handle(url)));
+    }
+
+    private void ApplyThemeMode()
+    {
+        var themeMode = AppSettings.Instance.ThemeMode.Value;
+        _logger.Information("应用外观样式设置: {Value}", themeMode);
+        RequestedThemeVariant = themeMode switch
+        {
+            ThemeMode.Light => ThemeVariant.Light,
+            ThemeMode.Dark => ThemeVariant.Dark,
+            _ => ThemeVariant.Default
+        };
+    }
+
+    private void SubscribeToThemeModeChanges()
+    {
+        AppSettings.Instance.ThemeMode.ValueChanged += (newValue) =>
+        {
+            _logger.Information("外观样式设置变更，新值: {Value}", newValue);
+            Dispatcher.UIThread.Post(ApplyThemeMode);
         };
     }
 
