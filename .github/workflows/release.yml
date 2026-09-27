@@ -34,6 +34,8 @@ name: Release
 #   生成 base64：base64 -w0 release.keystore        （macOS 用 base64 -i）
 # ─────────────────────────────────────────────────────────────────────────────
 
+# test at Sept. 27th 2026
+
 on:
   push:
     branches: [main]
