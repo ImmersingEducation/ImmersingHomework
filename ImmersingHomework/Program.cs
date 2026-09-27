@@ -5,6 +5,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using ImmersingHomework.Helper;
 using ImmersingHomework.Services;
 using Serilog;
 
@@ -46,10 +47,11 @@ class Program
                 outputTemplate: "[{Timestamp:yyyy-MM-dd HH:mm:ss}] [{Level:u3}] [{SourceContext}] {Message} {NewLine}{Exception}");
 
         Log.Logger = loggerConfiguration.CreateLogger();
-        
-#if Platforms_Windows
-        OSKIntergration.Intergrate();
-#endif
+
+        if (OperatingSystem.IsWindows())
+        {
+            OSKIntegration.Integrate();
+        }
         
         try
         {
