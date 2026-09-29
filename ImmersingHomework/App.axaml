@@ -6,23 +6,37 @@
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Resources>
-        <FontFamily x:Key="HarmonyOSSansSC">avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC</FontFamily>
+        <!-- 应用默认字体，需与 Program.DefaultFontFamilyKey 保持一致。
+             图标字形（如标题栏按钮的 E738/E739/E711）不在此指定，缺字形时由 Program.cs 里的
+             系统字体回退负责（Windows 侧由系统自带的 Segoe Fluent Icons 补齐），不额外内置图标字体。 -->
+        <FontFamily x:Key="AppFontFamily">avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC</FontFamily>
+
+        <!-- Fluent 主题的弹出层/列表等模板通过 DynamicResource 取此键；
+             此前未定义，弹出层会退回系统默认字体，这里统一指向上面的字体 -->
+        <StaticResource x:Key="ContentControlThemeFontFamily" ResourceKey="AppFontFamily"/>
     </Application.Resources>
 
     <Application.Styles>
         <fa:FluentAvaloniaTheme />
         
         <Style Selector="Window">
-            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         </Style>
         <Style Selector="TextBlock">
-            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         </Style>
         <Style Selector="Button">
-            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
+        </Style>
+        <!-- 标题栏系统按钮(最小化/最大化/关闭)：上面的 Button 全局样式优先级高于 ControlTheme，
+             会把字体改成 HarmonyOS Sans SC，而它不含 E738/E739/E711 这些图标码点，渲染成方块。
+             这里用更具体的类选择器改回图标字体(FluentAvalonia 自带，无需额外内置字体文件)，
+             只影响这几个按钮，普通按钮仍是 HarmonyOS Sans SC。 -->
+        <Style Selector="Button.CaptionButton">
+            <Setter Property="FontFamily" Value="avares://FluentAvalonia/Fonts#Symbols" />
         </Style>
         <Style Selector="TextBox">
-            <Setter Property="FontFamily" Value="{StaticResource HarmonyOSSansSC}" />
+            <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         </Style>
     </Application.Styles>
              

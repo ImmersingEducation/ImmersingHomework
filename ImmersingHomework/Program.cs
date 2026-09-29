@@ -1,4 +1,5 @@
 using Avalonia;
+using Avalonia.Media;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -187,10 +188,23 @@ class Program
         }
     }
 
+    // 应用默认字体：与 App.axaml 中的 AppFontFamily 保持一致。
+    // 图标字形（如标题栏按钮的 E738/E739/E711）不在此指定，缺字形时由下面的系统字体回退负责，
+    // Windows 侧由系统自带的 Segoe Fluent Icons 补齐，不额外内置图标字体。
+    private const string DefaultFontFamilyKey =
+        "avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC";
+
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new FontManagerOptions
+            {
+                DefaultFamilyName = DefaultFontFamilyKey,
+                // 全局字形回退 = 系统默认字体（FontFamily.Default 为平台默认字体占位符，
+                // 实测不受上面 DefaultFamilyName 覆盖的影响）
+                FontFallbacks = [new FontFallback { FontFamily = FontFamily.Default }]
+            })
 #if DEBUG
             .WithDeveloperTools()
 #endif
