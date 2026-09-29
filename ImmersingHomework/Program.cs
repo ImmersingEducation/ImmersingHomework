@@ -188,11 +188,11 @@ class Program
         }
     }
 
-    // 应用默认字体：与 App.axaml 中的 AppFontFamily 保持一致。
-    // 图标字形（如标题栏按钮的 E738/E739/E711）不在此指定，缺字形时由下面的系统字体回退负责，
-    // Windows 侧由系统自带的 Segoe Fluent Icons 补齐，不额外内置图标字体。
+    // 应用默认字体（复合字体）：与 App.axaml 中的 AppFontFamily 保持一致。
+    // 正文用 HarmonyOS Sans SC；PUA 区的图标字形（E700/E72B/E11A/E738/E739/E711 等）
+    // 由第二项 FluentAvalonia 自带的 Symbols 字体提供，不额外内置图标字体文件。
     private const string DefaultFontFamilyKey =
-        "avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC";
+        "avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC, avares://FluentAvalonia/Fonts#Symbols";
 
     // Avalonia configuration, don't remove; also used by visual designer.
     public static AppBuilder BuildAvaloniaApp()
@@ -201,9 +201,11 @@ class Program
             .With(new FontManagerOptions
             {
                 DefaultFamilyName = DefaultFontFamilyKey,
-                // 全局字形回退 = 系统默认字体（FontFamily.Default 为平台默认字体占位符，
-                // 实测不受上面 DefaultFamilyName 覆盖的影响）
-                FontFallbacks = [new FontFallback { FontFamily = FontFamily.Default }]
+                // 字形回退：FontFallbacks 的匹配优先级高于字体族列表，若这里放 FontFamily.Default
+                // (平台默认字体)，系统字体会先于 AppFontFamily 抢答，图标字形落到哪台机器上就不可控
+                // (本机实测 E700 落到了 JetBrains Mono NL 的 .notdef，画成缺字形方框)。
+                // 改成与 DefaultFamilyName 相同的复合字体，让字形来源和顺序完全确定。
+                FontFallbacks = [new FontFallback { FontFamily = new FontFamily(DefaultFontFamilyKey) }]
             })
 #if DEBUG
             .WithDeveloperTools()

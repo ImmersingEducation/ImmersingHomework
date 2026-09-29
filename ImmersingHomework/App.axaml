@@ -6,10 +6,14 @@
              <!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
     <Application.Resources>
-        <!-- 应用默认字体，需与 Program.DefaultFontFamilyKey 保持一致。
-             图标字形（如标题栏按钮的 E738/E739/E711）不在此指定，缺字形时由 Program.cs 里的
-             系统字体回退负责（Windows 侧由系统自带的 Segoe Fluent Icons 补齐），不额外内置图标字体。 -->
-        <FontFamily x:Key="AppFontFamily">avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC</FontFamily>
+        <!-- 应用默认字体（复合字体），需与 Program.DefaultFontFamilyKey 保持一致。
+             Avalonia 按顺序在各个字体里找字形：正文用 HarmonyOS Sans SC，
+             PUA 区的图标字形（汉堡菜单 E700、返回 E72B、搜索 E11A、标题栏按钮 E738/E739/E711 等）
+             由第二项 FluentAvalonia 自带的 Symbols 字体提供，不需要额外内置字体文件。
+             注意：下面 Button/TextBlock 全局样式的优先级高于 ControlTheme，会覆盖 Fluent 主题
+             在控件模板里设的图标字体（如 NavigationView 的 PaneToggleButtonStyle），
+             所以图标字体必须写在这里，而不是指望系统字体回退兜底。 -->
+        <FontFamily x:Key="AppFontFamily">avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC, avares://FluentAvalonia/Fonts#Symbols</FontFamily>
 
         <!-- Fluent 主题的弹出层/列表等模板通过 DynamicResource 取此键；
              此前未定义，弹出层会退回系统默认字体，这里统一指向上面的字体 -->
@@ -28,10 +32,8 @@
         <Style Selector="Button">
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         </Style>
-        <!-- 标题栏系统按钮(最小化/最大化/关闭)：上面的 Button 全局样式优先级高于 ControlTheme，
-             会把字体改成 HarmonyOS Sans SC，而它不含 E738/E739/E711 这些图标码点，渲染成方块。
-             这里用更具体的类选择器改回图标字体(FluentAvalonia 自带，无需额外内置字体文件)，
-             只影响这几个按钮，普通按钮仍是 HarmonyOS Sans SC。 -->
+        <!-- 标题栏系统按钮(最小化/最大化/关闭)：AppFontFamily 已是复合字体，这条改为显式指定，
+             属于冗余保险(不依赖复合字体的解析顺序)，只影响这几个按钮。 -->
         <Style Selector="Button.CaptionButton">
             <Setter Property="FontFamily" Value="avares://FluentAvalonia/Fonts#Symbols" />
         </Style>
