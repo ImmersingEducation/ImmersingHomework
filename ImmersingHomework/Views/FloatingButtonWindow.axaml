@@ -11,6 +11,8 @@
         CanResize="False"
         WindowDecorations="None"
         Background="Transparent"
+        TransparencyLevelHint="Transparent"
+        WindowStartupLocation="Manual"
         WindowState="Normal"
         Focusable="False"
         ShowActivated="False"
