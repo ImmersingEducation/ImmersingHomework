@@ -101,4 +101,14 @@ Categories=Education;";
             _logger.Error(ex, "Failed to set launch at startup");
         }
     }
+
+    public override void CreateDesktopShortcut()
+    {
+        LinuxShortcutService.Create();
+    }
+
+    public override void ShowDesktopShortcut()
+    {
+        LinuxShortcutService.Show();
+    }
 }

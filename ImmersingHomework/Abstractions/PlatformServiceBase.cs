@@ -19,4 +19,7 @@ public abstract class PlatformServiceBase
     }
 
     public abstract bool IsUrlSchemaRegistered { get; set; }
+
+    public abstract void CreateDesktopShortcut();
+    public abstract void ShowDesktopShortcut();
 }

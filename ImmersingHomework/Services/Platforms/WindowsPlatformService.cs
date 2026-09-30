@@ -1,7 +1,9 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using System.Text;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
 using Microsoft.Win32;
@@ -16,6 +18,8 @@ public class WindowsPlatformService : PlatformServiceBase
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
     private const string UrlScheme = "immersinghomework";
+    private const string ShortcutName = "方圆作业板";
+    private static readonly Guid ShellLinkClassId = new("00021401-0000-0000-C000-000000000046");
     private readonly ILogger _logger = Log.ForContext<WindowsPlatformService>();
 
     [DllImport("user32.dll")]
@@ -251,5 +255,124 @@ public class WindowsPlatformService : PlatformServiceBase
                 _logger.Error(ex, "URL 协议注册失败: {Scheme}", UrlScheme);
             }
         }
+    }
+
+    public override void CreateDesktopShortcut()
+    {
+        try
+        {
+            var exePath = Environment.ProcessPath;
+            if (string.IsNullOrEmpty(exePath))
+            {
+                _logger.Error("创建桌面快捷方式失败: 无法获取可执行文件路径");
+                return;
+            }
+
+            var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrEmpty(desktopDirectory))
+            {
+                _logger.Error("创建桌面快捷方式失败: 无法获取桌面目录");
+                return;
+            }
+
+            Directory.CreateDirectory(desktopDirectory);
+            var shortcutPath = Path.Combine(desktopDirectory, $"{ShortcutName}.lnk");
+
+            var shellLinkType = Type.GetTypeFromCLSID(ShellLinkClassId);
+            if (shellLinkType == null)
+            {
+                _logger.Error("创建桌面快捷方式失败: 无法创建 ShellLink COM 对象");
+                return;
+            }
+
+            if (Activator.CreateInstance(shellLinkType) is not IShellLinkW shellLink)
+            {
+                _logger.Error("创建桌面快捷方式失败: ShellLink COM 对象创建失败");
+                return;
+            }
+
+            shellLink.SetPath(exePath);
+            shellLink.SetWorkingDirectory(Path.GetDirectoryName(exePath) ?? string.Empty);
+            shellLink.SetDescription("Immersing Homework Management");
+            // 图标已嵌入可执行文件，直接引用自身图标
+            shellLink.SetIconLocation(exePath, 0);
+            ((IPersistFile)shellLink).Save(shortcutPath, true);
+
+            _logger.Information("桌面快捷方式创建成功: {Path}", shortcutPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "创建桌面快捷方式失败");
+        }
+    }
+
+    public override void ShowDesktopShortcut()
+    {
+        try
+        {
+            var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrEmpty(desktopDirectory))
+            {
+                _logger.Error("显示桌面快捷方式失败: 无法获取桌面目录");
+                return;
+            }
+
+            var shortcutPath = Path.Combine(desktopDirectory, $"{ShortcutName}.lnk");
+            if (!File.Exists(shortcutPath))
+            {
+                _logger.Warning("桌面快捷方式不存在，直接打开桌面目录: {Path}", shortcutPath);
+                OpenInExplorer(desktopDirectory);
+                return;
+            }
+
+            OpenInExplorer($"/select,\"{shortcutPath}\"");
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "显示桌面快捷方式失败");
+        }
+    }
+
+    private void OpenInExplorer(string target)
+    {
+        Process.Start(new ProcessStartInfo("explorer.exe", target) { UseShellExecute = true });
+    }
+
+    [ComImport]
+    [Guid("000214F9-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IShellLinkW
+    {
+        void GetPath([MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszFile, int cch, IntPtr pfd, uint fFlags);
+        void GetIDList(out IntPtr ppidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszName, int cch);
+        void SetDescription([MarshalAs(UnmanagedType.LPWStr)] string pszName);
+        void GetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszDir, int cch);
+        void SetWorkingDirectory([MarshalAs(UnmanagedType.LPWStr)] string pszDir);
+        void GetArguments([MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszArgs, int cch);
+        void SetArguments([MarshalAs(UnmanagedType.LPWStr)] string pszArgs);
+        void GetHotkey(out short pwHotkey);
+        void SetHotkey(short wHotkey);
+        void GetShowCmd(out int piShowCmd);
+        void SetShowCmd(int iShowCmd);
+        void GetIconLocation([MarshalAs(UnmanagedType.LPWStr)] StringBuilder pszIconPath, int cch, out int piIcon);
+        void SetIconLocation([MarshalAs(UnmanagedType.LPWStr)] string pszIconPath, int iIcon);
+        void SetRelativePath([MarshalAs(UnmanagedType.LPWStr)] string pszPathRel, uint dwReserved);
+        void Resolve(IntPtr hwnd, uint fFlags);
+        void SetPath([MarshalAs(UnmanagedType.LPWStr)] string pszFile);
+    }
+
+    [ComImport]
+    [Guid("0000010B-0000-0000-C000-000000000046")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    private interface IPersistFile
+    {
+        void GetClassID(out Guid pClassID);
+        [PreserveSig] int IsDirty();
+        void Load([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, uint dwMode);
+        void Save([MarshalAs(UnmanagedType.LPWStr)] string pszFileName, [MarshalAs(UnmanagedType.Bool)] bool fRemember);
+        void SaveCompleted([MarshalAs(UnmanagedType.LPWStr)] string pszFileName);
+        void GetCurFile([MarshalAs(UnmanagedType.LPWStr)] out string ppszFileName);
     }
 }

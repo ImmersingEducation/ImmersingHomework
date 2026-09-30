@@ -48,6 +48,7 @@ public class MacOSPlatformService : PlatformServiceBase
     private const int kCGWindowLevelFloating = 3;
     private const int NSWindowCollectionBehaviorIgnoreCycle = 1 << 5;
     private const string UrlScheme = "immersinghomework";
+    private const string ShortcutName = "方圆作业板";
     private const int kCFStringEncodingUTF8 = 0x08000100;
 
     public override void SetTopmost(Window window, bool enable = true)
@@ -267,5 +268,131 @@ public class MacOSPlatformService : PlatformServiceBase
             var identifier = CFBundleGetIdentifier(bundle);
             return CfStringToString(identifier);
         }
+    }
+
+    public override void CreateDesktopShortcut()
+    {
+        try
+        {
+            var desktopDirectory = GetDesktopDirectory();
+            Directory.CreateDirectory(desktopDirectory);
+
+            var shortcutPath = Path.Combine(desktopDirectory, ShortcutName);
+            var appBundle = FindAppBundle();
+            if (string.IsNullOrEmpty(appBundle))
+            {
+                _logger.Warning("当前未运行在 .app 包内，跳过桌面快捷方式创建");
+                return;
+            }
+
+            if (Directory.Exists(shortcutPath) || File.Exists(shortcutPath))
+            {
+                if (Directory.Exists(shortcutPath)) Directory.Delete(shortcutPath, true);
+                else File.Delete(shortcutPath);
+            }
+
+            // Finder 的 alias 文件支持双击启动应用且自带图标
+            var script = $"tell application \"Finder\"\n" +
+                          $"    set desktopFolder to (POSIX file \"{EscapeAppleScript(desktopDirectory)}\" as alias)\n" +
+                          $"    set targetApp to (POSIX file \"{EscapeAppleScript(appBundle)}\" as alias)\n" +
+                          $"    set newAlias to make new alias file at desktopFolder to targetApp\n" +
+                          $"    set name of newAlias to \"{EscapeAppleScript(ShortcutName)}\"\n" +
+                          "end tell";
+
+            if (!TryRunOsaScript(script))
+            {
+                _logger.Error("创建桌面快捷方式失败: Finder 别名创建未成功");
+                return;
+            }
+
+            _logger.Information("桌面快捷方式创建成功: {Path}", shortcutPath);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "创建桌面快捷方式失败");
+        }
+    }
+
+    public override void ShowDesktopShortcut()
+    {
+        try
+        {
+            var desktopDirectory = GetDesktopDirectory();
+            var shortcutPath = Path.Combine(desktopDirectory, ShortcutName);
+            var target = Directory.Exists(shortcutPath) || File.Exists(shortcutPath)
+                ? shortcutPath
+                : desktopDirectory;
+
+            // -R 会在访达中选中该文件
+            var startInfo = new ProcessStartInfo { FileName = "open", UseShellExecute = false };
+            startInfo.ArgumentList.Add("-R");
+            startInfo.ArgumentList.Add(target);
+
+            using var process = Process.Start(startInfo);
+            process?.WaitForExit();
+
+            if (process is { ExitCode: not 0 })
+                _logger.Error("显示桌面快捷方式失败，退出码: {Code}", process.ExitCode);
+            else
+                _logger.Information("已显示桌面快捷方式: {Path}", target);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "显示桌面快捷方式失败");
+        }
+    }
+
+    private static string GetDesktopDirectory() =>
+        Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Desktop");
+
+    /// <summary>
+    /// 向上查找当前进程所在的 .app 包路径，非包内运行时返回 null。
+    /// </summary>
+    private static string? FindAppBundle()
+    {
+        var exePath = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exePath)) return null;
+
+        var directory = Path.GetDirectoryName(exePath);
+        while (!string.IsNullOrEmpty(directory))
+        {
+            if (directory.EndsWith(".app", StringComparison.OrdinalIgnoreCase)) return directory;
+            var parent = Path.GetDirectoryName(directory);
+            if (string.Equals(parent, directory, StringComparison.Ordinal)) break;
+            directory = parent;
+        }
+
+        return null;
+    }
+
+    private static string EscapeAppleScript(string value) =>
+        value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+
+    private bool TryRunOsaScript(string script)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "osascript",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true
+        };
+        startInfo.ArgumentList.Add("-e");
+        startInfo.ArgumentList.Add(script);
+
+        using var process = Process.Start(startInfo);
+        if (process == null) return false;
+        process.WaitForExit();
+
+        if (process.ExitCode != 0)
+        {
+            var error = process.StandardError.ReadToEnd().Trim();
+            _logger.Error("osascript 执行失败，退出码: {Code}，错误: {Error}", process.ExitCode, error);
+            return false;
+        }
+
+        return true;
     }
 }
