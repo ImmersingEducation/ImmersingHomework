@@ -8,10 +8,11 @@
         x:Class="ImmersingHomework.Views.MainWindow"
         Title="方圆作业板" Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
         Icon="avares://ImmersingHomework/Assets/icon.png">
-        <Grid RowDefinitions="Auto,*,Auto" Margin="16">
+        <Grid Margin="16">
+                <Grid RowDefinitions="Auto,*,Auto">
                 <TextBlock x:Name="Hitokoto" Grid.Row="0" FontSize="24" Foreground="{DynamicResource TextFillColorTertiaryBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" Margin="0 0 0 8"/>
                 <controls:HomeworkPanel x:Name="HomeworkPanel" Grid.Row="1"/>
-                <Grid Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
+                <Grid x:Name="ButtonBar" Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
                         <Button Grid.Column="0" x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left" Click="MinimizeButton_OnClick">
                                 <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
                         </Button>
@@ -43,5 +44,31 @@
                                 <Calendar x:Name="Calendar" SelectionMode="SingleDate" SelectedDatesChanged="Calendar_OnSelectedDatesChanged"/>
                         </Popup>
                 </Grid>
+                </Grid>
+                <!-- 消息浮层：位于根 Grid 的最后一层，悬浮在主布局之上，不占用任何行空间；
+                     底部留出的 Margin 由 ShowInfoBar 按按钮区实际高度设置 -->
+                <StackPanel x:Name="InfoBarPanel"
+                            Spacing="8"
+                            MaxWidth="640"
+                            HorizontalAlignment="Right"
+                            VerticalAlignment="Bottom">
+                        <StackPanel.Styles>
+                                <!-- 消息出现时自上而下渐显，RenderTransform 由 ShowInfoBar 设置为 TranslateTransform -->
+                                <Style Selector="fa|FAInfoBar">
+                                        <Style.Animations>
+                                                <Animation Duration="0:0:0.25" Easing="CubicEaseOut" FillMode="Forward">
+                                                        <KeyFrame Cue="0%">
+                                                                <Setter Property="Opacity" Value="0"/>
+                                                                <Setter Property="TranslateTransform.Y" Value="-12"/>
+                                                        </KeyFrame>
+                                                        <KeyFrame Cue="100%">
+                                                                <Setter Property="Opacity" Value="1"/>
+                                                                <Setter Property="TranslateTransform.Y" Value="0"/>
+                                                        </KeyFrame>
+                                                </Animation>
+                                        </Style.Animations>
+                                </Style>
+                        </StackPanel.Styles>
+                </StackPanel>
         </Grid>
 </Window>

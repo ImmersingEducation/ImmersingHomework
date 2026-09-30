@@ -26,6 +26,11 @@ public partial class  HomeworkPanel : UserControl
 
     public event Action<bool>? FrozenChanged;
 
+    /// <summary>
+    /// 请求在窗口的 InfoBar 区域显示一条消息，由 <see cref="Views.MainWindow"/> 订阅并转发
+    /// </summary>
+    public event Action<FAInfoBarSeverity, string, string?>? NotificationRequested;
+
     public bool IsFrozen
     {
         get => GetValue(IsFrozenProperty);
@@ -213,6 +218,8 @@ public partial class  HomeworkPanel : UserControl
             if (control.IsDeleted)
             {
                 currentHomework.RemoveHomeworkItem(item);
+                NotificationRequested?.Invoke(FAInfoBarSeverity.Informational, "作业已删除",
+                    $"已删除 {item.Subject} 的作业");
             }
             else if (control.Result != null)
             {
@@ -221,6 +228,8 @@ public partial class  HomeworkPanel : UserControl
                 {
                     currentHomework.RemoveHomeworkItem(oldItem);
                     currentHomework.AddHomeworkItem(control.Result);
+                    NotificationRequested?.Invoke(FAInfoBarSeverity.Success, "作业已修改",
+                        $"{control.Result.Subject} 的作业内容已更新");
                 }
             }
             

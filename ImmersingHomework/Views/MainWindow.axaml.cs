@@ -2,9 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using System.Timers;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input.Platform;
@@ -12,6 +15,7 @@ using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Controls;
@@ -53,6 +57,42 @@ public partial class MainWindow : Window
     private readonly HomeworkStorageService _storageService;
     private Bitmap? _clipboardBitmap;
 
+    /// <summary>
+    /// InfoBar 消息区域内最多同时显示的消息条数，超出时自动移除最早的一条
+    /// </summary>
+    private const int MaxInfoBarCount = 3;
+
+    /// <summary>
+    /// 消息未指定显示时长时的默认显示时长
+    /// </summary>
+    private static readonly TimeSpan DefaultInfoBarDuration = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// 消息浮层与下方按钮区之间的间距
+    /// </summary>
+    private const double InfoBarPanelSpacing = 8;
+
+    /// <summary>
+    /// 有消息时消息浮层的外边距，底部留出按钮区的高度使其不遮挡按钮
+    /// </summary>
+    private Avalonia.Thickness InfoBarPanelMargin =>
+        new(0, 0, 0, ButtonBar.Bounds.Height + InfoBarPanelSpacing);
+
+    /// <summary>
+    /// InfoBar 入场动画的起始 Y 偏移，即从上方滑入的距离
+    /// </summary>
+    private const double InfoBarEnterOffset = -12;
+
+    /// <summary>
+    /// InfoBar 出场动画的 X 位移，即向右移出的距离
+    /// </summary>
+    private const double InfoBarExitOffset = 40;
+
+    /// <summary>
+    /// InfoBar 出场动画时长
+    /// </summary>
+    private static readonly TimeSpan InfoBarExitDuration = TimeSpan.FromMilliseconds(200);
+
     public MainWindow()
     {
         _logger.Information("MainWindow 初始化开始");
@@ -81,6 +121,7 @@ public partial class MainWindow : Window
             SetupHitokotoTimer();
 
         HomeworkPanel.FrozenChanged += ApplyFrozenState;
+        HomeworkPanel.NotificationRequested += (severity, title, message) => ShowInfoBar(severity, title, message);
         HomeworkPanel.Refresh();
         _logger.Information("MainWindow 初始化完成");
     }
@@ -103,7 +144,7 @@ public partial class MainWindow : Window
                     {
                         HitokotoDisplayMode.Hide => "",
                         HitokotoDisplayMode.Content => "咕咕嘎嘎！",
-                        HitokotoDisplayMode.ContentAndAuthor => "咕咕嘎嘎！ —— programmer_cc"
+                        HitokotoDisplayMode.ContentAndAuthor => "咕咕嘎嘎！ —— progcc"
                     };
                 }
                 else
@@ -144,6 +185,159 @@ public partial class MainWindow : Window
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
     }
 
+    /// <summary>
+    /// 在主窗口右下角的 InfoBar 区域显示一条消息
+    /// </summary>
+    /// <param name="severity">消息级别</param>
+    /// <param name="title">消息标题</param>
+    /// <param name="message">消息内容，可为空</param>
+    /// <param name="duration">
+    /// 消息自动关闭前的停留时长，传入 <see cref="TimeSpan.Zero"/> 或负数表示不自动关闭
+    /// </param>
+    /// <param name="actionButton">可选的操作按钮内容，为空时不显示操作按钮</param>
+    public void ShowInfoBar(FAInfoBarSeverity severity, string title, string? message = null,
+        TimeSpan? duration = null, Control? actionButton = null)
+    {
+        var infoBar = new FAInfoBar
+        {
+            Severity = severity,
+            Title = title,
+            Message = message,
+            IsClosable = true,
+            IsOpen = false,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            // 入场动画改 TranslateTransform.Y，出场动画改 TranslateTransform.X，
+            // 需在此显式赋值，否则动画会因主题覆盖 RenderTransform 而失效
+            RenderTransform = new TranslateTransform(0, InfoBarEnterOffset)
+        };
+
+        if (actionButton is not null)
+            infoBar.ActionButton = actionButton;
+
+        infoBar.Closed += (_, _) =>
+        {
+            InfoBarPanel.Children.Remove(infoBar);
+            if (InfoBarPanel.Children.Count == 0)
+                InfoBarPanel.Margin = default;
+        };
+
+        while (InfoBarPanel.Children.Count >= MaxInfoBarCount)
+            InfoBarPanel.Children.RemoveAt(0);
+
+        _logger.Debug("显示 InfoBar 消息: [{Severity}] {Title} {Message}", severity, title, message ?? string.Empty);
+        InfoBarPanel.Margin = InfoBarPanelMargin;
+        InfoBarPanel.Children.Add(infoBar);
+        infoBar.IsOpen = true;
+
+        var timeout = duration ?? DefaultInfoBarDuration;
+        if (timeout <= TimeSpan.Zero)
+            return;
+
+        var timer = new DispatcherTimer { Interval = timeout };
+        timer.Tick += (_, _) =>
+        {
+            timer.Stop();
+            // 已被移除的（如超出数量上限）无需再处理
+            if (InfoBarPanel.Children.Contains(infoBar))
+                FireAndForget(CloseInfoBarAsync(infoBar));
+        };
+        // 用户提前关闭时无需再等待
+        infoBar.Closed += (_, _) => timer.Stop();
+        timer.Start();
+    }
+
+    /// <summary>
+    /// 播放向右移出的动画，动画结束后关闭并销毁该消息
+    /// </summary>
+    private async Task CloseInfoBarAsync(FAInfoBar infoBar)
+    {
+        var animation = new Animation
+        {
+            Duration = InfoBarExitDuration,
+            Easing = new CubicEaseIn(),
+            Children =
+            {
+                new KeyFrame
+                {
+                    Cue = new Cue(0),
+                    Setters =
+                    {
+                        new Setter(Avalonia.Visual.OpacityProperty, 1d),
+                        new Setter(TranslateTransform.XProperty, 0d)
+                    }
+                },
+                new KeyFrame
+                {
+                    Cue = new Cue(1),
+                    Setters =
+                    {
+                        new Setter(Avalonia.Visual.OpacityProperty, 0d),
+                        new Setter(TranslateTransform.XProperty, InfoBarExitOffset)
+                    }
+                }
+            }
+        };
+
+        await animation.RunAsync(infoBar);
+        // 动画结束后真正关闭，Closed 事件会将其从面板移除并释放
+        if (InfoBarPanel.Children.Contains(infoBar))
+            infoBar.IsOpen = false;
+    }
+
+    /// <summary>
+    /// 启动一个无需等待的异步操作，并记录未处理的异常
+    /// </summary>
+    private void FireAndForget(Task task)
+    {
+        _ = task.ContinueWith(t => _logger.Error(t.Exception, "InfoBar 移出动画执行失败"),
+            TaskContinuationOptions.OnlyOnFaulted);
+    }
+
+    /// <summary>
+    /// 显示一条普通信息
+    /// </summary>
+    public void ShowInformation(string title, string? message = null,
+        TimeSpan? duration = null, Control? actionButton = null) =>
+        ShowInfoBar(FAInfoBarSeverity.Informational, title, message, duration, actionButton);
+
+    /// <summary>
+    /// 显示一条成功信息
+    /// </summary>
+    public void ShowSuccess(string title, string? message = null,
+        TimeSpan? duration = null, Control? actionButton = null) =>
+        ShowInfoBar(FAInfoBarSeverity.Success, title, message, duration, actionButton);
+
+    /// <summary>
+    /// 显示一条警告信息
+    /// </summary>
+    public void ShowWarning(string title, string? message = null,
+        TimeSpan? duration = null, Control? actionButton = null) =>
+        ShowInfoBar(FAInfoBarSeverity.Warning, title, message, duration, actionButton);
+
+    /// <summary>
+    /// 显示一条错误信息
+    /// </summary>
+    public void ShowError(string title, string? message = null,
+        TimeSpan? duration = null, Control? actionButton = null) =>
+        ShowInfoBar(FAInfoBarSeverity.Error, title, message, duration, actionButton);
+
+    /// <summary>
+    /// 关闭当前显示的所有 InfoBar 消息
+    /// </summary>
+    public void ClearInfoBars()
+    {
+        foreach (var infoBar in InfoBarPanel.Children.OfType<FAInfoBar>())
+            FireAndForget(CloseInfoBarAsync(infoBar));
+    }
+
+    /// <summary>
+    /// 截取过长的作业内容摘要，避免 InfoBar 消息过长
+    /// </summary>
+    private static string Summarize(string? content, int maxLength = 40) =>
+        string.IsNullOrEmpty(content) ? string.Empty
+            : content.Length <= maxLength ? content
+            : $"{content[..maxLength]}…";
+
     private void DateButton_OnClick(object? sender, RoutedEventArgs e)
     {
         CalendarPopup.IsOpen = true;
@@ -181,6 +375,7 @@ public partial class MainWindow : Window
             _storageService.Save(currentHomework);
             HomeworkPanel.Refresh();
             _logger.Information("作业已保存");
+            ShowSuccess("作业已添加", $"{control.Result.Subject}：{Summarize(control.Result.Content)}");
         }
     }
 
@@ -217,44 +412,57 @@ public partial class MainWindow : Window
 
         if (exportFormat is null) return;
 
-        if (exportFormat == ExportFormat.Image)
+        try
         {
-            var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.png";
-            HomeworkImageService.HomeworkToImage(homework, outputPath);
-            await ShowExportResultDialog(outputPath, isImage: true);
-        }
-        else if (exportFormat == ExportFormat.Pdf)
-        {
-            var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.pdf";
-            var pdfService = new UafPdfService();
-            pdfService.InitializeFonts();
-            var pdfBytes = pdfService.GeneratePdfFromHomework(homework);
-            var fullPath = Path.GetFullPath(outputPath);
-            var directory = Path.GetDirectoryName(fullPath);
-            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
-                Directory.CreateDirectory(directory);
-            await File.WriteAllBytesAsync(fullPath, pdfBytes);
-            await ShowExportResultDialog(outputPath, isImage: false);
-        }
-        else if (exportFormat == ExportFormat.QrCode)
-        {
-            var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.png";
-            var qrOutputPath = HomeworkQrCodeService.GenerateQrCode(homework, outputPath);
-            if (qrOutputPath is null)
+            if (exportFormat == ExportFormat.Image)
             {
-                var errorDialog = new FAContentDialog()
+                var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.png";
+                HomeworkImageService.HomeworkToImage(homework, outputPath);
+                ShowSuccess("图片已导出", Path.GetFullPath(outputPath));
+                await ShowExportResultDialog(outputPath, isImage: true);
+            }
+            else if (exportFormat == ExportFormat.Pdf)
+            {
+                var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.pdf";
+                var pdfService = new UafPdfService();
+                pdfService.InitializeFonts();
+                var pdfBytes = pdfService.GeneratePdfFromHomework(homework);
+                var fullPath = Path.GetFullPath(outputPath);
+                var directory = Path.GetDirectoryName(fullPath);
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
+                    Directory.CreateDirectory(directory);
+                await File.WriteAllBytesAsync(fullPath, pdfBytes);
+                ShowSuccess("PDF 已导出", fullPath);
+                await ShowExportResultDialog(outputPath, isImage: false);
+            }
+            else if (exportFormat == ExportFormat.QrCode)
+            {
+                var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.png";
+                var qrOutputPath = HomeworkQrCodeService.GenerateQrCode(homework, outputPath);
+                if (qrOutputPath is null)
                 {
-                    Title = "二维码导出失败",
-                    Content = "作业数据量过大，超出了二维码的存储上限，请尝试减少作业条目数量。",
-                    CloseButtonText = "关闭"
-                };
-                errorDialog.CloseButtonClick += (_, _) => errorDialog.Hide();
-                await errorDialog.ShowAsync(this);
+                    ShowError("二维码导出失败", "作业数据量过大，超出了二维码的存储上限，请尝试减少作业条目数量。",
+                        TimeSpan.Zero);
+                    var errorDialog = new FAContentDialog()
+                    {
+                        Title = "二维码导出失败",
+                        Content = "作业数据量过大，超出了二维码的存储上限，请尝试减少作业条目数量。",
+                        CloseButtonText = "关闭"
+                    };
+                    errorDialog.CloseButtonClick += (_, _) => errorDialog.Hide();
+                    await errorDialog.ShowAsync(this);
+                }
+                else
+                {
+                    ShowSuccess("二维码已导出", Path.GetFullPath(qrOutputPath));
+                    await ShowQrCodeDialog(qrOutputPath);
+                }
             }
-            else
-            {
-                await ShowQrCodeDialog(qrOutputPath);
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "导出作业失败，格式: {Format}", exportFormat);
+            ShowError("导出失败", ex.Message, TimeSpan.Zero);
         }
     }
 
@@ -299,6 +507,7 @@ public partial class MainWindow : Window
             catch (Exception ex)
             {
                 _logger.Error(ex, "打开文件失败: {Path}", fullPath);
+                ShowError("打开文件失败", ex.Message, TimeSpan.Zero);
             }
             dialog.Hide();
         };
