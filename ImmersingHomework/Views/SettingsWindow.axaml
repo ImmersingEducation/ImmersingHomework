@@ -10,6 +10,20 @@
         Icon="avares://ImmersingHomework/Assets/icon.png">
     <Grid>
         <fa:FANavigationView x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
+    <Grid RowDefinitions="48,*">
+        <Border Grid.Row="0" Margin="10 0" VerticalAlignment="Center">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <TextBlock Grid.Column="0">方圆作业板 - 设置</TextBlock>
+                <Button Grid.Column="2" Theme="{StaticResource TransparentButton}" Height="24">
+                    <fa:FASymbolIcon Symbol="More"/>
+                    <Button.Flyout>
+                        <fa:FAMenuFlyout>
+                        </fa:FAMenuFlyout>
+                    </Button.Flyout>
+                </Button>
+            </Grid>
+        </Border>
+        <fa:FANavigationView Grid.Row="1" x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
             <fa:FANavigationView.MenuItems>
                 <fa:FANavigationViewItem Content="基础设置" Tag="Basic">
                     <fa:FANavigationViewItem.IconSource>
