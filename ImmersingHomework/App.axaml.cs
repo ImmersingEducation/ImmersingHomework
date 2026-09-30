@@ -35,6 +35,11 @@ public partial class App : Application
     private bool _isShowingExceptionWindow;
     
     public static readonly HttpClient HttpClient = new();
+
+    /// <summary>
+    /// 当前运行平台的系统服务，供各视图调用；非桌面生命周期下为 null。
+    /// </summary>
+    public static PlatformServiceBase? CurrentPlatformService => (Current as App)?._platformService;
     
     public override void Initialize()
     {

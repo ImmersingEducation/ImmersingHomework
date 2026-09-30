@@ -272,44 +272,53 @@ public class MacOSPlatformService : PlatformServiceBase
 
     public override void CreateDesktopShortcut()
     {
+        CreateFinderAlias(GetDesktopDirectory(), "桌面");
+    }
+
+    public override void CreateStartMenuShortcut()
+    {
+        CreateFinderAlias(GetApplicationsDirectory(), "应用程序");
+    }
+
+    /// <summary>
+    /// 在目标目录创建指向当前 .app 包的 Finder 别名。
+    /// </summary>
+    private void CreateFinderAlias(string targetDirectory, string location)
+    {
         try
         {
-            var desktopDirectory = GetDesktopDirectory();
-            Directory.CreateDirectory(desktopDirectory);
-
-            var shortcutPath = Path.Combine(desktopDirectory, ShortcutName);
             var appBundle = FindAppBundle();
             if (string.IsNullOrEmpty(appBundle))
             {
-                _logger.Warning("当前未运行在 .app 包内，跳过桌面快捷方式创建");
+                _logger.Warning("当前未运行在 .app 包内，跳过{Location}快捷方式创建", location);
                 return;
             }
 
-            if (Directory.Exists(shortcutPath) || File.Exists(shortcutPath))
-            {
-                if (Directory.Exists(shortcutPath)) Directory.Delete(shortcutPath, true);
-                else File.Delete(shortcutPath);
-            }
+            Directory.CreateDirectory(targetDirectory);
+
+            var shortcutPath = Path.Combine(targetDirectory, ShortcutName);
+            if (Directory.Exists(shortcutPath)) Directory.Delete(shortcutPath, true);
+            else if (File.Exists(shortcutPath)) File.Delete(shortcutPath);
 
             // Finder 的 alias 文件支持双击启动应用且自带图标
             var script = $"tell application \"Finder\"\n" +
-                          $"    set desktopFolder to (POSIX file \"{EscapeAppleScript(desktopDirectory)}\" as alias)\n" +
+                          $"    set targetFolder to (POSIX file \"{EscapeAppleScript(targetDirectory)}\" as alias)\n" +
                           $"    set targetApp to (POSIX file \"{EscapeAppleScript(appBundle)}\" as alias)\n" +
-                          $"    set newAlias to make new alias file at desktopFolder to targetApp\n" +
+                          $"    set newAlias to make new alias file at targetFolder to targetApp\n" +
                           $"    set name of newAlias to \"{EscapeAppleScript(ShortcutName)}\"\n" +
                           "end tell";
 
             if (!TryRunOsaScript(script))
             {
-                _logger.Error("创建桌面快捷方式失败: Finder 别名创建未成功");
+                _logger.Error("创建{Location}快捷方式失败: Finder 别名创建未成功", location);
                 return;
             }
 
-            _logger.Information("桌面快捷方式创建成功: {Path}", shortcutPath);
+            _logger.Information("{Location}快捷方式创建成功: {Path}", location, shortcutPath);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "创建桌面快捷方式失败");
+            _logger.Error(ex, "创建{Location}快捷方式失败", location);
         }
     }
 
@@ -346,6 +355,35 @@ public class MacOSPlatformService : PlatformServiceBase
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
             "Desktop");
+
+    /// <summary>
+    /// 「开始菜单」的对应位置为应用程序目录，系统目录不可写时回退到用户目录。
+    /// </summary>
+    private static string GetApplicationsDirectory()
+    {
+        const string systemApplications = "/Applications";
+        if (Directory.Exists(systemApplications) && HasWritePermission(systemApplications))
+            return systemApplications;
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            "Applications");
+    }
+
+    private static bool HasWritePermission(string directory)
+    {
+        try
+        {
+            var probePath = Path.Combine(directory, $".immersinghomework-{Guid.NewGuid():N}");
+            using (File.Create(probePath)) { }
+            File.Delete(probePath);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 
     /// <summary>
     /// 向上查找当前进程所在的 .app 包路径，非包内运行时返回 null。

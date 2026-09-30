@@ -22,18 +22,35 @@ internal static class LinuxShortcutService
 
     private static string ShortcutPath => Path.Combine(DesktopDirectory, ShortcutFileName);
 
+    /// <summary>
+    /// 「开始菜单」的对应位置为 freedesktop 的应用菜单目录 ~/.local/share/applications。
+    /// </summary>
+    private static string ApplicationsDirectory => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".local", "share", "applications");
+
     public static void Create()
+    {
+        Write(DesktopDirectory, ShortcutPath, "桌面");
+    }
+
+    public static void CreateApplication()
+    {
+        Write(ApplicationsDirectory, Path.Combine(ApplicationsDirectory, ShortcutFileName), "应用菜单");
+    }
+
+    private static void Write(string directory, string shortcutPath, string location)
     {
         try
         {
             var exePath = Process.GetCurrentProcess().MainModule?.FileName;
             if (string.IsNullOrEmpty(exePath))
             {
-                Logger.Error("创建桌面快捷方式失败: 无法获取可执行文件路径");
+                Logger.Error("创建{Location}快捷方式失败: 无法获取可执行文件路径", location);
                 return;
             }
 
-            Directory.CreateDirectory(DesktopDirectory);
+            Directory.CreateDirectory(directory);
 
             var iconPath = ResolveIconPath();
             var content = $@"[Desktop Entry]
@@ -49,19 +66,19 @@ Terminal=false
 StartupNotify=true
 Categories=Education;";
 
-            File.WriteAllText(ShortcutPath, content);
+            File.WriteAllText(shortcutPath, content);
             // GNOME / KDE 只会执行桌面目录中带可执行位的 .desktop 文件
             File.SetUnixFileMode(
-                ShortcutPath,
+                shortcutPath,
                 UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute |
                 UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
                 UnixFileMode.OtherRead | UnixFileMode.OtherExecute);
 
-            Logger.Information("桌面快捷方式创建成功: {Path}", ShortcutPath);
+            Logger.Information("{Location}快捷方式创建成功: {Path}", location, shortcutPath);
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "创建桌面快捷方式失败");
+            Logger.Error(ex, "创建{Location}快捷方式失败", location);
         }
     }
 

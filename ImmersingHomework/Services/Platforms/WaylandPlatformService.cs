@@ -107,6 +107,11 @@ Categories=Education;";
         LinuxShortcutService.Create();
     }
 
+    public override void CreateStartMenuShortcut()
+    {
+        LinuxShortcutService.CreateApplication();
+    }
+
     public override void ShowDesktopShortcut()
     {
         LinuxShortcutService.Show();

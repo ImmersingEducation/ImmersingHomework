@@ -259,35 +259,55 @@ public class WindowsPlatformService : PlatformServiceBase
 
     public override void CreateDesktopShortcut()
     {
+        var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+        if (string.IsNullOrEmpty(desktopDirectory))
+        {
+            _logger.Error("创建桌面快捷方式失败: 无法获取桌面目录");
+            return;
+        }
+
+        CreateShortcut(desktopDirectory, "桌面");
+    }
+
+    public override void CreateStartMenuShortcut()
+    {
+        var startMenuDirectory = Environment.GetFolderPath(Environment.SpecialFolder.StartMenu);
+        if (string.IsNullOrEmpty(startMenuDirectory))
+        {
+            _logger.Error("创建开始菜单快捷方式失败: 无法获取开始菜单目录");
+            return;
+        }
+
+        CreateShortcut(Path.Combine(startMenuDirectory, "Programs"), "开始菜单");
+    }
+
+    /// <summary>
+    /// 在指定目录生成指向当前可执行文件的 .lnk 快捷方式。
+    /// </summary>
+    private void CreateShortcut(string directory, string location)
+    {
         try
         {
             var exePath = Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
-                _logger.Error("创建桌面快捷方式失败: 无法获取可执行文件路径");
+                _logger.Error("创建{Location}快捷方式失败: 无法获取可执行文件路径", location);
                 return;
             }
 
-            var desktopDirectory = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-            if (string.IsNullOrEmpty(desktopDirectory))
-            {
-                _logger.Error("创建桌面快捷方式失败: 无法获取桌面目录");
-                return;
-            }
-
-            Directory.CreateDirectory(desktopDirectory);
-            var shortcutPath = Path.Combine(desktopDirectory, $"{ShortcutName}.lnk");
+            Directory.CreateDirectory(directory);
+            var shortcutPath = Path.Combine(directory, $"{ShortcutName}.lnk");
 
             var shellLinkType = Type.GetTypeFromCLSID(ShellLinkClassId);
             if (shellLinkType == null)
             {
-                _logger.Error("创建桌面快捷方式失败: 无法创建 ShellLink COM 对象");
+                _logger.Error("创建{Location}快捷方式失败: 无法创建 ShellLink COM 对象", location);
                 return;
             }
 
             if (Activator.CreateInstance(shellLinkType) is not IShellLinkW shellLink)
             {
-                _logger.Error("创建桌面快捷方式失败: ShellLink COM 对象创建失败");
+                _logger.Error("创建{Location}快捷方式失败: ShellLink COM 对象创建失败", location);
                 return;
             }
 
@@ -298,11 +318,11 @@ public class WindowsPlatformService : PlatformServiceBase
             shellLink.SetIconLocation(exePath, 0);
             ((IPersistFile)shellLink).Save(shortcutPath, true);
 
-            _logger.Information("桌面快捷方式创建成功: {Path}", shortcutPath);
+            _logger.Information("{Location}快捷方式创建成功: {Path}", location, shortcutPath);
         }
         catch (Exception ex)
         {
-            _logger.Error(ex, "创建桌面快捷方式失败");
+            _logger.Error(ex, "创建{Location}快捷方式失败", location);
         }
     }
 

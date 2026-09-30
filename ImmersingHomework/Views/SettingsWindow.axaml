@@ -8,8 +8,6 @@
         x:Class="ImmersingHomework.Views.SettingsWindow"
         Title="方圆作业板 - 设置"
         Icon="avares://ImmersingHomework/Assets/icon.png">
-    <Grid>
-        <fa:FANavigationView x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
     <Grid RowDefinitions="48,*">
         <Border Grid.Row="0" Margin="10 0" VerticalAlignment="Center">
             <Grid ColumnDefinitions="Auto,*,Auto">
@@ -18,6 +16,8 @@
                     <fa:FASymbolIcon Symbol="More"/>
                     <Button.Flyout>
                         <fa:FAMenuFlyout>
+                            <fa:FAMenuFlyoutItem Text="创建桌面快捷方式" IconSource="Home" Click="CreateDesktopShortcut_MenuFlyoutItem_OnClick"/>
+                            <fa:FAMenuFlyoutItem Text="创建开始菜单快捷方式" IconSource="AllApps" Click="CreateStartMenuShortcut_FAMenuFlyoutItem_OnClick"/>
                         </fa:FAMenuFlyout>
                     </Button.Flyout>
                 </Button>
