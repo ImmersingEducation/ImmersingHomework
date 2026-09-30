@@ -27,7 +27,9 @@ class Program
 
         if (!File.Exists(mainExe))
         {
-            Console.Error.WriteLine($"未找到主程序: {mainExe}");
+            var message = $"未找到主程序: {mainExe}";
+            Diagnostics.Error(message);
+            Diagnostics.ShowError(message);
             return 1;
         }
 
@@ -36,6 +38,7 @@ class Program
             FileName = mainExe,
             WorkingDirectory = baseDir,
             UseShellExecute = false,
+            CreateNoWindow = true,
         };
 
         foreach (var arg in args)
@@ -76,7 +79,7 @@ class Program
                     }
 
                     Directory.Delete(updateDir, true);
-                    Console.WriteLine($"已应用更新: {Path.GetFileName(updateDir)}");
+                    Diagnostics.Info($"已应用更新: {Path.GetFileName(updateDir)}");
                 }
             }
 
@@ -84,7 +87,9 @@ class Program
         }
         catch (Exception ex)
         {
-            Console.Error.WriteLine($"应用更新失败: {ex.Message}");
+            var message = $"应用更新失败: {ex.Message}";
+            Diagnostics.Error(message);
+            Diagnostics.ShowWarning(message);
         }
     }
 

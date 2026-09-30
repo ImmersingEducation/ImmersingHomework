@@ -44,6 +44,9 @@ ScaffoldingReadMe.txt
 *~
 CodeCoverage/
 
+# Launcher 运行日志
+launcher.log
+
 # MSBuild Binary and Structured Log
 *.binlog
 

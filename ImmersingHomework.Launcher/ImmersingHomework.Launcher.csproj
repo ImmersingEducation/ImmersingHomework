@@ -1,8 +1,10 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
+        <!-- WinExe: 避免 Windows 下启动时弹出控制台窗口（非 Windows 平台由 SDK 自动按 Exe 处理） -->
+        <OutputType>WinExe</OutputType>
         <TargetFramework>net10.0</TargetFramework>
+        <ApplicationIcon>..\ImmersingHomework\Assets\icon.ico</ApplicationIcon>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AssemblyName>Launcher</AssemblyName>
