@@ -1,3 +1,4 @@
+using System;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -11,14 +12,32 @@ namespace ImmersingHomework.Views;
 
 public partial class SettingsWindow : FAAppWindow
 {
+    private const double TitleBarHeight = 48;
+
     private readonly ILogger _logger = Log.ForContext<SettingsWindow>();
     public SettingsWindow()
     {
         _logger.Debug("SettingsWindow 初始化");
         InitializeComponent();
-        TitleBar.Height = 48;
-        TitleBar.ExtendsContentIntoTitleBar = true;
         NavigationView.SelectedItem = NavigationView.MenuItems[0];
+        
+        if (OperatingSystem.IsMacOS())
+        {
+            ExtendClientAreaToDecorationsHint = true;
+            WindowDecorations = WindowDecorations.Full;
+            ExtendClientAreaTitleBarHeightHint = -1;
+        }
+        else if (IsWindows)
+        {
+            // FA 托管标题栏（图标 + 标题 + 拖拽区）的高度
+            TitleBar.Height = TitleBarHeight;
+            TitleBar.ExtendsContentIntoTitleBar = true;
+
+            // 系统绘制的最小化/最大化/关闭按钮高度由 Avalonia 的 WindowDrawnDecorations 决定，
+            // 与 TitleBar.Height 无关：FluentAvalonia 主题把 DefaultTitleBarHeight 写死为 32，
+            // 只有 ExtendClientAreaTitleBarHeightHint 能覆盖它。
+            ExtendClientAreaTitleBarHeightHint = TitleBarHeight;
+        }
     }
 
     private void NavigationView_SelectionChanged(object? sender, FANavigationViewSelectionChangedEventArgs e)
