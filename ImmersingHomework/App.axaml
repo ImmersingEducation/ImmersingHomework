@@ -23,6 +23,8 @@
     <Application.Styles>
         <fa:FluentAvaloniaTheme />
         
+        <StyleInclude Source="Styles/GlobalStyles.axaml"/>
+        
         <Style Selector="Window">
             <Setter Property="FontFamily" Value="{StaticResource AppFontFamily}" />
         </Style>

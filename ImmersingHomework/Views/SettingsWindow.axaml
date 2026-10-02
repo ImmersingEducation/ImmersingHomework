@@ -10,9 +10,16 @@
         Icon="avares://ImmersingHomework/Assets/icon.png">
     <Grid RowDefinitions="48,*">
         <Border Grid.Row="0" Margin="10 0" VerticalAlignment="Center">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <TextBlock Grid.Column="0">方圆作业板 - 设置</TextBlock>
-                <Button Grid.Column="2" Theme="{StaticResource TransparentButton}" Height="24">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto">
+                <Border Grid.Column="0" Width="60">
+                    <Border.IsVisible>
+                        <OnPlatform Default="False">
+                            <On Options="macOS" Content="True" />
+                        </OnPlatform>
+                    </Border.IsVisible>
+                </Border>
+                <TextBlock Grid.Column="1" VerticalAlignment="Center">方圆作业板 - 设置</TextBlock>
+                <Button Grid.Column="3" Theme="{StaticResource TransparentButton}" Height="24">
                     <fa:FASymbolIcon Symbol="More"/>
                     <Button.Flyout>
                         <fa:FAMenuFlyout>
@@ -21,6 +28,7 @@
                         </fa:FAMenuFlyout>
                     </Button.Flyout>
                 </Button>
+                <Border Grid.Column="4" Width="140" Classes="custom-titlebar-only"/>
             </Grid>
         </Border>
         <fa:FANavigationView Grid.Row="1" x:Name="NavigationView" PaneDisplayMode="Auto" IsSettingsVisible="False" SelectionChanged="NavigationView_SelectionChanged">
