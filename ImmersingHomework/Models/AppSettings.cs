@@ -2,8 +2,8 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using Avalonia.Media;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Enums;
-using ImmersingHomework.Services;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
@@ -21,10 +21,23 @@ public enum HitokotoSource
 
 public class AppSettings
 {
-    public static AppSettings Instance { get; } = new AppSettings();
+    private static AppSettings? _instance;
+
+    /// <summary>
+    /// 全局唯一的应用设置实例。由 <see cref="App"/> 在构建 DI 容器后通过 <see cref="InitializeInstance"/> 赋值，
+    /// 此后各处均可直接访问，无需再逐层传递。
+    /// </summary>
+    public static AppSettings Instance => _instance
+        ?? throw new InvalidOperationException("AppSettings 尚未初始化，请确保 App 已完成依赖注入容器的构建。");
+
+    /// <summary>把容器中解析出的 <see cref="AppSettings"/> 实例设为全局单例，仅在启动时调用一次。</summary>
+    public static void InitializeInstance(AppSettings settings)
+    {
+        _instance = settings;
+    }
 
     private readonly ILogger _logger = Log.ForContext<AppSettings>();
-    private AppSettingsStorageService _storageService = new();
+    private readonly IAppSettingsStorageService _storageService;
     private bool _isDirty;
 
     public ObservableCollection<string> Subjects { get; set; } = [
@@ -68,7 +81,17 @@ public class AppSettings
     
     public ObservableProperty<int> FloatingButtonPositionY { get; set; } = new(100);
 
-    public AppSettings()
+    /// <summary>供 DI 容器使用的构造函数。</summary>
+    public AppSettings(IAppSettingsStorageService storageService)
+    {
+        _storageService = storageService;
+    }
+
+    /// <summary>
+    /// 供 JSON 反序列化使用的构造函数。反序列化出来的副本只用于读取默认值，
+    /// 不会调用 <see cref="Save"/>，因此自行持有一个存储服务实例即可。
+    /// </summary>
+    public AppSettings() : this(new ImmersingHomework.Services.AppSettingsStorageService())
     {
     }
 

@@ -4,12 +4,13 @@ using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Tasks;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public class HomeworkStorageService
+public class HomeworkStorageService : IHomeworkStorageService
 {
     private readonly ILogger _logger = Log.ForContext<HomeworkStorageService>();
     private string GetFilePath(DateOnly date)

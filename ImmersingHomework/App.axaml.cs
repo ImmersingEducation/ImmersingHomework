@@ -1,6 +1,5 @@
 using System;
 using System.Diagnostics;
-using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Avalonia;
@@ -12,12 +11,11 @@ using Avalonia.Styling;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.DependencyInjection;
 using ImmersingHomework.Enums;
 using ImmersingHomework.Models;
-using ImmersingHomework.Shared.Models;
-using ImmersingHomework.Services;
-using ImmersingHomework.Services.Platforms;
 using ImmersingHomework.Views;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace ImmersingHomework;
@@ -29,18 +27,19 @@ public partial class App : Application
     private MainWindow? _mainWindow;
     private FloatingButtonWindow? _floatingButtonWindow;
     private SettingsWindow? _settingsWindow;
-    private PlatformServiceBase? _platformService;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
     private TrayIcon? _trayIcon;
     private bool _isShowingExceptionWindow;
-    
-    public static readonly HttpClient HttpClient = new();
+
+    private ServiceProvider? _services;
 
     /// <summary>
-    /// 当前运行平台的系统服务，供各视图调用；非桌面生命周期下为 null。
+    /// 应用级依赖注入容器，在 <see cref="OnFrameworkInitializationCompleted"/> 中构建。
+    /// 常规代码一律通过构造函数获取服务；此属性仅供容器自身所在的位置（创建主窗口、设置窗口等）使用。
     /// </summary>
-    public static PlatformServiceBase? CurrentPlatformService => (Current as App)?._platformService;
-    
+    public IServiceProvider Services =>
+        _services ?? throw new InvalidOperationException("依赖注入容器尚未构建。");
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -56,6 +55,12 @@ public partial class App : Application
         _logger.Information("应用框架初始化完成");
 
         RegisterGlobalExceptionHandlers();
+
+        // 按 Avalonia 官方推荐的方式构建依赖注入容器：集中注册、构造函数注入
+        _services = BuildServiceProvider();
+
+        // AppSettings 是全局设置单例，但同样从容器解析，以复用注入进来的存储服务
+        AppSettings.InitializeInstance(Services.GetRequiredService<AppSettings>());
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
@@ -77,38 +82,36 @@ public partial class App : Application
         ApplyThemeMode();
         SubscribeToThemeModeChanges();
 
+        var classIslandService = Services.GetRequiredService<IClassIslandService>();
         if (AppSettings.Instance.EnableClassIslandIPCService.Value)
         {
             _logger.Information("ClassIsland 联动已启用，初始化 ClassIsland 服务");
-            ClassIslandService.Instance.Initialize();
+            classIslandService.Initialize();
         }
         
         if (_desktopLifetime != null)
         {
-            _platformService = CreatePlatformService();
-            
+            var platformService = Services.GetRequiredService<IPlatformService>();
+
             // 应用当前的开机自启动设置
-            ApplyLaunchAtStartupSetting();
+            ApplyLaunchAtStartupSetting(platformService);
             // 订阅设置变更事件
-            SubscribeToLaunchAtStartupChanges();
+            SubscribeToLaunchAtStartupChanges(platformService);
 
             // 应用当前的 URL 协议注册设置
-            ApplyUrlSchemaRegisteredSetting();
+            ApplyUrlSchemaRegisteredSetting(platformService);
             // 订阅设置变更事件
-            SubscribeToUrlSchemaRegisteredChanges();
+            SubscribeToUrlSchemaRegisteredChanges(platformService);
 
             if (!AppSettings.Instance.FirstLaunch)
             {
-                _mainWindow = new MainWindow();
+                _mainWindow = Services.GetRequiredService<MainWindow>();
                 _floatingButtonWindow = new FloatingButtonWindow();
-            
-                if (_platformService != null)
-                {
-                    _platformService.SetTopmost(_floatingButtonWindow);
-                    _platformService.DisableFocus(_floatingButtonWindow);
-                    _platformService.HideFromTaskbar(_floatingButtonWindow);
-                    _platformService.HideFromAltTab(_floatingButtonWindow);
-                }
+
+                platformService.SetTopmost(_floatingButtonWindow);
+                platformService.DisableFocus(_floatingButtonWindow);
+                platformService.HideFromTaskbar(_floatingButtonWindow);
+                platformService.HideFromAltTab(_floatingButtonWindow);
                 
                 _desktopLifetime.MainWindow = _floatingButtonWindow;
             
@@ -125,7 +128,7 @@ public partial class App : Application
                 SetupTrayIcon();
             
                 if (AppSettings.Instance.EnableClassIslandIPCService.Value &&
-                    ClassIslandService.Instance.IsCurrentTimeBeforeFirstClass() &&
+                    classIslandService.IsCurrentTimeBeforeFirstClass() &&
                     AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value)
                 {
                     _logger.Information("当前时间在第一节课前，显示主界面");
@@ -142,13 +145,21 @@ public partial class App : Application
             if (!AppSettings.Instance.FirstLaunch)
             {
                 _logger.Information("启动时自动检查更新");
-                _ = StartupUpdateCheckAsync();
+                _ = StartupUpdateCheckAsync(Services.GetRequiredService<IUpdateService>(), platformService);
             }
 
             SetupUrlSchemeHandling();
         }
 
         base.OnFrameworkInitializationCompleted();
+    }
+
+    /// <summary>集中注册所有服务并构建容器，具体注册见 <see cref="ServiceCollectionExtensions"/>。</summary>
+    private static ServiceProvider BuildServiceProvider()
+    {
+        var collection = new ServiceCollection();
+        collection.AddImmersingHomeworkServices();
+        return collection.BuildServiceProvider();
     }
 
     private void RegisterGlobalExceptionHandlers()
@@ -197,72 +208,70 @@ public partial class App : Application
         }
     }
 
-    private void ApplyLaunchAtStartupSetting()
+    private void ApplyLaunchAtStartupSetting(IPlatformService platformService)
     {
-        if (_platformService != null)
-        {
-            _logger.Information("应用开机自启动设置: {Value}", AppSettings.Instance.LaunchAtStartup.Value);
-            _platformService.SetLaunchAtStartup(AppSettings.Instance.LaunchAtStartup.Value);
-        }
+        _logger.Information("应用开机自启动设置: {Value}", AppSettings.Instance.LaunchAtStartup.Value);
+        platformService.SetLaunchAtStartup(AppSettings.Instance.LaunchAtStartup.Value);
     }
 
-    private void SubscribeToLaunchAtStartupChanges()
+    private void SubscribeToLaunchAtStartupChanges(IPlatformService platformService)
     {
         AppSettings.Instance.LaunchAtStartup.ValueChanged += (newValue) =>
         {
             _logger.Information("开机自启动设置变更，新值: {Value}", newValue);
-            if (_platformService != null)
-            {
-                _platformService.SetLaunchAtStartup(newValue);
-            }
+            platformService.SetLaunchAtStartup(newValue);
         };
     }
 
-    private void ApplyUrlSchemaRegisteredSetting()
+    private void ApplyUrlSchemaRegisteredSetting(IPlatformService platformService)
     {
-        if (_platformService != null)
-        {
-            _logger.Information("应用 URL 协议注册设置: {Value}", AppSettings.Instance.UrlSchemaRegistered.Value);
-            _platformService.IsUrlSchemaRegistered = AppSettings.Instance.UrlSchemaRegistered.Value;
-        }
+        _logger.Information("应用 URL 协议注册设置: {Value}", AppSettings.Instance.UrlSchemaRegistered.Value);
+        platformService.IsUrlSchemaRegistered = AppSettings.Instance.UrlSchemaRegistered.Value;
     }
 
-    private void SubscribeToUrlSchemaRegisteredChanges()
+    private void SubscribeToUrlSchemaRegisteredChanges(IPlatformService platformService)
     {
         AppSettings.Instance.UrlSchemaRegistered.ValueChanged += (newValue) =>
         {
             _logger.Information("URL 协议注册设置变更，新值: {Value}", newValue);
-            if (_platformService != null)
-            {
-                _platformService.IsUrlSchemaRegistered = newValue;
-            }
+            platformService.IsUrlSchemaRegistered = newValue;
         };
     }
 
     private void SetupUrlSchemeHandling()
     {
-        RegisterUrlRoutes();
+        var urlIpcService = Services.GetRequiredService<IUrlIpcService>();
+        var urlSchemeService = Services.GetRequiredService<IUrlSchemeService>();
 
-        UrlIpcService.StartServer(url => Dispatcher.UIThread.Post(() => UrlSchemeService.Handle(url)));
+        RegisterUrlRoutes(urlSchemeService);
 
-        InstallMacOSUrlSchemeHandler();
+        urlIpcService.StartServer(url => Dispatcher.UIThread.Post(() => urlSchemeService.Handle(url)));
 
-        UrlSchemeService.FlushStartupUrls();
+        InstallMacOSUrlSchemeHandler(urlSchemeService);
+
+        // 命令行带来的 URL 由 Program 暂存（此时容器尚未建立），此处转交给容器中的服务统一处理
+        foreach (var url in Program.TakePendingStartupUrls())
+        {
+            urlSchemeService.EnqueueStartupUrl(url);
+        }
+
+        urlSchemeService.FlushStartupUrls();
     }
 
-    private void RegisterUrlRoutes()
+    private void RegisterUrlRoutes(IUrlSchemeService urlSchemeService)
     {
-        UrlSchemeService.RegisterRoute(string.Empty, _ => ShowMainWindow());
-        UrlSchemeService.RegisterRoute("open", _ => ShowMainWindow());
-        UrlSchemeService.RegisterRoute("app", _ => ShowMainWindow());
-        UrlSchemeService.RegisterRoute("settings", _ => OpenSettingsWindow());
+        urlSchemeService.RegisterRoute(string.Empty, _ => ShowMainWindow());
+        urlSchemeService.RegisterRoute("open", _ => ShowMainWindow());
+        urlSchemeService.RegisterRoute("app", _ => ShowMainWindow());
+        urlSchemeService.RegisterRoute("settings", _ => OpenSettingsWindow());
     }
 
-    private void InstallMacOSUrlSchemeHandler()
+    private void InstallMacOSUrlSchemeHandler(IUrlSchemeService urlSchemeService)
     {
         if (!OperatingSystem.IsMacOS()) return;
 
-        MacOSUrlSchemeService.Install(url => Dispatcher.UIThread.Post(() => UrlSchemeService.Handle(url)));
+        Services.GetRequiredService<IMacOSUrlSchemeService>()
+            .Install(url => Dispatcher.UIThread.Post(() => urlSchemeService.Handle(url)));
     }
 
     private void ApplyThemeMode()
@@ -345,7 +354,7 @@ public partial class App : Application
     {
         if (_settingsWindow == null)
         {
-            _settingsWindow = new SettingsWindow();
+            _settingsWindow = Services.GetRequiredService<SettingsWindow>();
             _settingsWindow.Closed += (s, e) => _settingsWindow = null;
             _settingsWindow.Show();
         }
@@ -358,7 +367,7 @@ public partial class App : Application
 
     public void OpenHomeworkAssignmentRemindWindow()
     {
-        var remindWindow = new HomeworkAssignmentRemindWindow();
+        var remindWindow = Services.GetRequiredService<HomeworkAssignmentRemindWindow>();
         remindWindow.Activate();
         remindWindow.Show();
     }
@@ -395,36 +404,6 @@ public partial class App : Application
     public void ExitApplication()
     {
         _desktopLifetime?.Shutdown();
-    }
-
-    private PlatformServiceBase CreatePlatformService()
-    {
-        if (OperatingSystem.IsWindows())
-            return new WindowsPlatformService();
-        if (OperatingSystem.IsMacOS())
-            return new MacOSPlatformService();
-        if (OperatingSystem.IsLinux())
-        {
-            var xdgSession = Environment.GetEnvironmentVariable("XDG_SESSION_TYPE");
-            if (!string.IsNullOrEmpty(xdgSession))
-            {
-                if (xdgSession.Equals("x11", StringComparison.OrdinalIgnoreCase))
-                    return new X11PlatformService();
-                if (xdgSession.Equals("wayland", StringComparison.OrdinalIgnoreCase))
-                    return new WaylandPlatformService();
-            }
-            
-            var waylandDisplay = Environment.GetEnvironmentVariable("WAYLAND_DISPLAY");
-            if (!string.IsNullOrEmpty(waylandDisplay))
-                return new WaylandPlatformService();
-            
-            var display = Environment.GetEnvironmentVariable("DISPLAY");
-            if (!string.IsNullOrEmpty(display))
-                return new X11PlatformService();
-            
-            return new X11PlatformService(); // 默认使用 X11
-        }
-        throw new PlatformNotSupportedException();
     }
 
     private async void MainWindow_WindowMinimized(object? sender, EventArgs e)
@@ -488,7 +467,7 @@ public partial class App : Application
         _floatingButtonWindow?.HideWithAnimation();
     }
 
-    private async Task StartupUpdateCheckAsync()
+    private async Task StartupUpdateCheckAsync(IUpdateService updateService, IPlatformService platformService)
     {
         var behavior = AppSettings.Instance.UpdateCheckBehavior.Value;
         if (behavior == UpdateCheckBehavior.Nothing)
@@ -500,7 +479,7 @@ public partial class App : Application
         CheckUpdateResponse? update;
         try
         {
-            update = await UpdateService.CheckUpdateAsync();
+            update = await updateService.CheckUpdateAsync();
         }
         catch (Exception ex)
         {
@@ -520,25 +499,25 @@ public partial class App : Application
         if (update.IsForceUpdate)
         {
             _logger.Information("检测到强制更新，忽略更新行为直接下载并安装");
-            await DownloadUpdateAsync(update, installImmediately: true);
+            await DownloadUpdateAsync(updateService, update, installImmediately: true);
             return;
         }
 
         switch (behavior)
         {
             case UpdateCheckBehavior.NoticeImmediately:
-                SendUpdateNotification(update);
+                SendUpdateNotification(platformService, update);
                 break;
             case UpdateCheckBehavior.DownloadImmediately:
-                await DownloadUpdateAsync(update, installImmediately: false);
+                await DownloadUpdateAsync(updateService, update, installImmediately: false);
                 break;
             case UpdateCheckBehavior.InstallImmediately:
-                await DownloadUpdateAsync(update, installImmediately: true);
+                await DownloadUpdateAsync(updateService, update, installImmediately: true);
                 break;
         }
     }
 
-    private void SendUpdateNotification(CheckUpdateResponse update)
+    private void SendUpdateNotification(IPlatformService platformService, CheckUpdateResponse update)
     {
         var title = "方圆作业板 更新";
         var body = $"发现新版本 {update.LatestVersion}。";
@@ -546,17 +525,17 @@ public partial class App : Application
             body += $"\n{update.UpdateLog}";
 
         _logger.Information("发送系统更新通知: {Title}", title);
-        _platformService?.SendNotification(title, body);
+        platformService.SendNotification(title, body);
     }
 
-    private async Task DownloadUpdateAsync(CheckUpdateResponse update, bool installImmediately)
+    private async Task DownloadUpdateAsync(IUpdateService updateService, CheckUpdateResponse update, bool installImmediately)
     {
         var window = _desktopLifetime?.MainWindow;
         if (window is null)
         {
             try
             {
-                await UpdateService.DownloadUpdateAsync(update);
+                await updateService.DownloadUpdateAsync(update);
             }
             catch (Exception ex)
             {
@@ -608,7 +587,7 @@ public partial class App : Application
         var downloadFailed = false;
         try
         {
-            filePath = await UpdateService.DownloadUpdateAsync(update, progress, cts.Token);
+            filePath = await updateService.DownloadUpdateAsync(update, progress, cts.Token);
         }
         catch (OperationCanceledException)
         {

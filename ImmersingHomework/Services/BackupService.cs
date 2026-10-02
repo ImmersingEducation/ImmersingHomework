@@ -5,15 +5,16 @@ using System.IO.Compression;
 using System.Text;
 using System.Text.Json;
 using iText.Kernel.Pdf;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
 using ImmersingHomework.Uaf.Core.Services;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public static class BackupService
+public class BackupService : IBackupService
 {
-    private static readonly ILogger _logger = Log.ForContext("SourceContext", nameof(BackupService));
+    private readonly ILogger _logger = Log.ForContext<BackupService>();
 
     private static string GetHomeworkDataDir()
     {
@@ -51,7 +52,7 @@ public static class BackupService
         return null;
     }
 
-    public static string PackHomeworks(List<string> homeworkPaths)
+    public string PackHomeworks(List<string> homeworkPaths)
     {
         var backupDir = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Backups");
         if (!Directory.Exists(backupDir))
@@ -88,7 +89,7 @@ public static class BackupService
         return packagePath;
     }
 
-    public static List<string> PackHomeworksAsUaf(List<string> homeworkPaths)
+    public List<string> PackHomeworksAsUaf(List<string> homeworkPaths)
     {
         var outputDir = Path.Combine(Directory.GetCurrentDirectory(), "Data", "Backups", "Uaf");
         if (!Directory.Exists(outputDir))
@@ -128,7 +129,7 @@ public static class BackupService
         return pdfPaths;
     }
 
-    public static List<Homework> UnpackHomeworks(string packagePath)
+    public List<Homework> UnpackHomeworks(string packagePath)
     {
         if (!File.Exists(packagePath))
         {
@@ -179,7 +180,7 @@ public static class BackupService
         return unpacked;
     }
 
-    public static List<Homework> UnpackHomeworksAsUaf(List<string> homeworkPaths)
+    public List<Homework> UnpackHomeworksAsUaf(List<string> homeworkPaths)
     {
         var dataDir = GetHomeworkDataDir();
         if (!Directory.Exists(dataDir))

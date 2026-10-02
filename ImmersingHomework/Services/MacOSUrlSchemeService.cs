@@ -1,26 +1,27 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
 [SupportedOSPlatform("macos")]
-internal static class MacOSUrlSchemeService
+internal sealed class MacOSUrlSchemeService : IMacOSUrlSchemeService
 {
     private const uint kEventClassInternet = 0x4755524C; // 'GURL'
     private const uint kAEGetURL = 0x4755524C;            // 'GURL'
     private const uint keyDirectObject = 0x2D2D2D2D;      // '----'
     private const uint typeAEURL = 0x75726C20;            // 'url '
 
-    private static readonly ILogger Logger = Log.ForContext(typeof(MacOSUrlSchemeService));
-    private static Action<string>? _handler;
-    private static IntPtr _handlerPtr;
+    private readonly ILogger _logger = Log.ForContext<MacOSUrlSchemeService>();
+    private Action<string>? _handler;
+    private IntPtr _handlerPtr;
 
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     private delegate int AEEventHandler(IntPtr appleEvent, IntPtr reply, long refCon);
 
-    private static readonly AEEventHandler UrlEventDelegate = UrlEventHandler;
+    private readonly AEEventHandler _urlEventDelegate;
 
     [DllImport("/System/Library/Frameworks/CoreServices.framework/CoreServices")]
     private static extern int AEInstallEventHandler(
@@ -32,22 +33,26 @@ internal static class MacOSUrlSchemeService
         IntPtr theAppleEvent, uint keyword, uint desiredType, out uint actualType,
         IntPtr dataPtr, int maximumSize, out int actualSize);
 
-    /// <summary>安装 kAEGetURL 事件处理器，收到 URL 时回调 <paramref name="onUrl"/>。</summary>
-    public static void Install(Action<string> onUrl)
+    public MacOSUrlSchemeService()
+    {
+        _urlEventDelegate = UrlEventHandler;
+    }
+
+    public void Install(Action<string> onUrl)
     {
         _handler = onUrl;
 
         if (_handlerPtr == IntPtr.Zero)
-            _handlerPtr = Marshal.GetFunctionPointerForDelegate(UrlEventDelegate);
+            _handlerPtr = Marshal.GetFunctionPointerForDelegate(_urlEventDelegate);
 
         var result = AEInstallEventHandler(kEventClassInternet, kAEGetURL, _handlerPtr, 0, false);
         if (result != 0)
-            Logger.Warning("安装 URL 协议 Apple Event 处理器失败，错误码: {Code}", result);
+            _logger.Warning("安装 URL 协议 Apple Event 处理器失败，错误码: {Code}", result);
         else
-            Logger.Information("已安装 URL 协议 Apple Event 处理器");
+            _logger.Information("已安装 URL 协议 Apple Event 处理器");
     }
 
-    private static int UrlEventHandler(IntPtr appleEvent, IntPtr reply, long refCon)
+    private int UrlEventHandler(IntPtr appleEvent, IntPtr reply, long refCon)
     {
         try
         {
@@ -57,13 +62,13 @@ internal static class MacOSUrlSchemeService
         }
         catch (Exception ex)
         {
-            Logger.Error(ex, "处理 Apple Event URL 失败");
+            _logger.Error(ex, "处理 Apple Event URL 失败");
         }
 
         return 0; // noErr
     }
 
-    private static string? GetUrl(IntPtr appleEvent)
+    private string? GetUrl(IntPtr appleEvent)
     {
         uint actualType;
         int actualSize;
@@ -71,7 +76,7 @@ internal static class MacOSUrlSchemeService
         var status = AEGetParamPtr(appleEvent, keyDirectObject, typeAEURL, out actualType, IntPtr.Zero, 0, out actualSize);
         if (status != 0 || actualSize <= 0)
         {
-            Logger.Warning("获取 Apple Event URL 大小失败，状态: {Status}", status);
+            _logger.Warning("获取 Apple Event URL 大小失败，状态: {Status}", status);
             return null;
         }
 

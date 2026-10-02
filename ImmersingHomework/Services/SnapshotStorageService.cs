@@ -1,13 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
+/// <param name="FilePath">快照文件的完整路径。</param>
+/// <param name="CreatedAt">快照文件的创建时间。</param>
 public record SnapshotInfo(string FilePath, DateTime CreatedAt);
 
-public class SnapshotStorageService
+public class SnapshotStorageService : ISnapshotStorageService
 {
     private readonly ILogger _logger = Log.ForContext<SnapshotStorageService>();
 

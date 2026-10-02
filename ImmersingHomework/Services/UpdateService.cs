@@ -5,32 +5,32 @@ using System.Reflection;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Models;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public record CheckUpdateResponse(
-    bool HasUpdate,
-    string? LatestVersion,
-    string? UpdateLog,
-    string? DownloadUrl,
-    bool IsForceUpdate);
-
-public static class UpdateService
+public class UpdateService : IUpdateService
 {
-    private static readonly ILogger _logger = Log.ForContext(typeof(UpdateService));
-
     private const string ReleaseCenterUrl = "http://47.122.121.60:8000";
     private const string AppName = "ImmersingHomework";
 
-    public static string GetCurrentVersion()
+    private readonly ILogger _logger = Log.ForContext<UpdateService>();
+    private readonly HttpClient _httpClient;
+
+    public UpdateService(HttpClient httpClient)
+    {
+        _httpClient = httpClient;
+    }
+
+    public string GetCurrentVersion()
     {
         var version = Assembly.GetExecutingAssembly().GetName().Version;
         return $"{version?.Major ?? 0}.{version?.Minor ?? 0}.{version?.Build ?? 0}.{version?.Revision ?? 0}";
     }
 
-    public static string GetCurrentPlatform()
+    public string GetCurrentPlatform()
     {
         if (OperatingSystem.IsWindows())
             return "windows";
@@ -41,7 +41,7 @@ public static class UpdateService
         return "windows";
     }
 
-    public static async Task<CheckUpdateResponse?> CheckUpdateAsync(CancellationToken ct = default)
+    public async Task<CheckUpdateResponse?> CheckUpdateAsync(CancellationToken ct = default)
     {
         var channel = AppSettings.Instance.UpdateChannel.Value.ToString();
         var currentVersion = GetCurrentVersion();
@@ -49,7 +49,7 @@ public static class UpdateService
 
         _logger.Information("开始检查更新，当前版本: {Version}，渠道: {Channel}，地址: {Url}", currentVersion, channel, url);
 
-        HttpResponseMessage response = await App.HttpClient.GetAsync(url, ct);
+        var response = await _httpClient.GetAsync(url, ct);
         response.EnsureSuccessStatusCode();
 
         JsonNode json = JsonNode.Parse(await response.Content.ReadAsStringAsync(ct))
@@ -69,7 +69,7 @@ public static class UpdateService
         return new CheckUpdateResponse(true, latestVersion, null, downloadUrl, false);
     }
 
-    public static async Task<string?> DownloadUpdateAsync(
+    public async Task<string?> DownloadUpdateAsync(
         CheckUpdateResponse update,
         IProgress<double>? progress = null,
         CancellationToken ct = default)
@@ -95,7 +95,7 @@ public static class UpdateService
         var fileLocation = Path.Combine(targetDir, fileName);
 
         _logger.Information("开始下载更新，目标路径: {FileLocation}", fileLocation);
-        using var response = await App.HttpClient.GetAsync(
+        using var response = await _httpClient.GetAsync(
             update.DownloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
         response.EnsureSuccessStatusCode();
 
@@ -118,12 +118,12 @@ public static class UpdateService
         return fileLocation;
     }
 
-    public static string GetUpdateDirectory(string version)
+    public string GetUpdateDirectory(string version)
     {
         return Path.Combine(Directory.GetCurrentDirectory(), "Temp", $"Update_v{version}");
     }
 
-    private static string GetFileNameFromUrl(string url, string version)
+    private string GetFileNameFromUrl(string url, string version)
     {
         try
         {

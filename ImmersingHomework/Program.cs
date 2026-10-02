@@ -6,8 +6,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using ImmersingHomework.Abstractions;
+using ImmersingHomework.DependencyInjection;
 using ImmersingHomework.Helper;
-using ImmersingHomework.Services;
+using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
 namespace ImmersingHomework;
@@ -15,6 +17,7 @@ namespace ImmersingHomework;
 class Program
 {
     private static FileStream? _lockFileStream;
+    private static readonly List<string> _pendingStartupUrls = [];
     public static bool IsSingleInstance { get; private set; }
 
     // Initialization code. Don't use any Avalonia, third-party APIs or any
@@ -23,10 +26,6 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // 纯查询调用（如 homework）只把 JSON 输出到 stdout，日志仅写文件，避免污染 stdout。
-        var startupUrls = UrlSchemeService.ExtractUrls(args).ToList();
-        var queryOnly = startupUrls.Count > 0 && startupUrls.All(IsHomeworkUrl);
-
         var loggerConfiguration = new LoggerConfiguration()
 #if DEBUG
             .MinimumLevel.Verbose()
@@ -42,6 +41,19 @@ class Program
                 fileSizeLimitBytes: 10 * 1024 * 1024,
                 retainedFileCountLimit: 45
             );
+
+        var bootstrapServices = new ServiceCollection();
+        bootstrapServices.AddImmersingHomeworkServices();
+        using var bootstrapProvider = bootstrapServices.BuildServiceProvider();
+
+        // 本阶段容器尚未建立（App 尚未启动），URL 处理所需的纯逻辑服务在此处单独解析
+        var urlSchemeService = bootstrapProvider.GetRequiredService<IUrlSchemeService>();
+        var urlIpcService = bootstrapProvider.GetRequiredService<IUrlIpcService>();
+        var homeworkStorageService = bootstrapProvider.GetRequiredService<IHomeworkStorageService>();
+
+        // 纯查询调用（如 homework）只把 JSON 输出到 stdout，日志仅写文件，避免污染 stdout。
+        var startupUrls = urlSchemeService.ExtractUrls(args).ToList();
+        var queryOnly = startupUrls.Count > 0 && startupUrls.All(u => IsHomeworkUrl(urlSchemeService, u));
 
         if (!queryOnly)
             loggerConfiguration = loggerConfiguration.WriteTo.Console(
@@ -81,7 +93,7 @@ class Program
             var actionUrls = new List<string>();
             foreach (var url in startupUrls)
             {
-                if (TryQueryHomework(url, out var json))
+                if (TryQueryHomework(urlSchemeService, homeworkStorageService, url, out var json))
                 {
                     if (json is not null)
                         WriteToStdout(json);
@@ -100,7 +112,7 @@ class Program
 
             if (!IsSingleInstance && actionUrls.Count > 0)
             {
-                if (actionUrls.All(UrlIpcService.TryForward))
+                if (actionUrls.All(urlIpcService.TryForward))
                 {
                     logger.Information("已将 {Count} 个 URL 转发到已有实例，本次启动退出", actionUrls.Count);
                     return;
@@ -109,10 +121,8 @@ class Program
 
             if (IsSingleInstance)
             {
-                foreach (var url in actionUrls)
-                {
-                    UrlSchemeService.EnqueueStartupUrl(url);
-                }
+                // App 建立自己的 DI 容器后，会通过 TakePendingStartupUrls 取走这些 URL
+                _pendingStartupUrls.AddRange(actionUrls);
             }
 
             BuildAvaloniaApp()
@@ -129,16 +139,25 @@ class Program
         }
     }
 
-    private static bool IsHomeworkUrl(string raw)
-        => UrlSchemeService.TryParse(raw, out var url) &&
+    /// <summary>取出并清空由命令行参数暂存、等待 UI 就绪后处理的 URL。</summary>
+    public static IReadOnlyList<string> TakePendingStartupUrls()
+    {
+        var urls = _pendingStartupUrls.ToArray();
+        _pendingStartupUrls.Clear();
+        return urls;
+    }
+
+    private static bool IsHomeworkUrl(IUrlSchemeService urlSchemeService, string raw)
+        => urlSchemeService.TryParse(raw, out var url) &&
            string.Equals(url.Host, "homework", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>处理纯查询类 URL（当前仅 homework），返回 true 表示该 URL 已被本方法处理并输出结果。</summary>
-    private static bool TryQueryHomework(string raw, out string? json)
+    private static bool TryQueryHomework(IUrlSchemeService urlSchemeService, IHomeworkStorageService storageService,
+        string raw, out string? json)
     {
         json = null;
 
-        if (!UrlSchemeService.TryParse(raw, out var url))
+        if (!urlSchemeService.TryParse(raw, out var url))
             return false;
 
         if (!string.Equals(url.Host, "homework", StringComparison.OrdinalIgnoreCase))
@@ -156,7 +175,7 @@ class Program
             date = DateOnly.FromDateTime(DateTime.Now);
         }
 
-        var homework = new HomeworkStorageService().Load(date);
+        var homework = storageService.Load(date);
         json = JsonSerializer.Serialize(homework, new JsonSerializerOptions { WriteIndented = true });
         return true;
     }

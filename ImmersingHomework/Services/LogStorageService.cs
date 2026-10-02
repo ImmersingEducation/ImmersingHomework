@@ -1,10 +1,11 @@
 using System;
 using System.IO;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public class LogStorageService
+public class LogStorageService : ILogStorageService
 {
     private readonly ILogger _logger = Log.ForContext<LogStorageService>();
     private readonly string _logDir;

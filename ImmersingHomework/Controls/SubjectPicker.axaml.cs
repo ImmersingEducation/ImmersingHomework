@@ -1,11 +1,12 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
-using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Controls;
@@ -13,16 +14,36 @@ namespace ImmersingHomework.Controls;
 public partial class SubjectPicker : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<SubjectPicker>();
+    private IClassIslandService? _classIslandService;
+
     public SubjectPicker()
     {
         _logger.Debug("SubjectPicker 初始化");
         InitializeComponent();
+    }
+
+    /// <summary>
+    /// 注入依赖服务并加载科目列表。本控件在 <c>AddHomeworkWindow.axaml</c> 中以 XAML 方式声明创建，
+    /// 构造函数由 XAML 编译器调用，无法传入服务，因此由 <see cref="AddHomeworkWindow"/>
+    /// 在 <c>InitializeComponent</c> 之后显式注入。
+    /// </summary>
+    public void Initialize(IClassIslandService classIslandService)
+    {
+        _classIslandService = classIslandService;
+        LoadSubjects();
+    }
+
+    private void LoadSubjects()
+    {
+        var classIslandService = _classIslandService
+                                ?? throw new InvalidOperationException("SubjectPicker 尚未注入 IClassIslandService。");
 
         List<string> subjects = AppSettings.Instance.EnableClassIslandIPCService.Value &&
                                 AppSettings.Instance.ClassIslandTakeoverSubjects.Value
-            ? ClassIslandService.Instance.GetSubjects()
+            ? classIslandService.GetSubjects()
             : AppSettings.Instance.Subjects.ToList();
-        
+
+        SubjectPanel.Children.Clear();
         foreach (var subject in subjects)
         {
             SubjectPanel.Children.Add(new RadioButton()

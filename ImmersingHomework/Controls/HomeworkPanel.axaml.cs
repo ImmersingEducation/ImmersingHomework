@@ -7,8 +7,8 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
-using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Controls;
@@ -43,7 +43,9 @@ public partial class  HomeworkPanel : UserControl
         set => SetValue(DateProperty, value);
     }
 
-    private readonly HomeworkStorageService _storageService;
+    private IHomeworkStorageService? _storageService;
+    private IClassIslandService? _classIslandService;
+    private readonly bool _autoLoad;
 
     public HomeworkPanel() : this(true)
     {
@@ -52,22 +54,43 @@ public partial class  HomeworkPanel : UserControl
     public HomeworkPanel(bool autoLoad)
     {
         _logger.Information("HomeworkPanel 初始化开始");
+        _autoLoad = autoLoad;
         InitializeComponent();
-        _storageService = new HomeworkStorageService();
         DateProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
         {
             _logger.Debug("日期改变: {Date}", panel.Date);
             panel.DateChanged?.Invoke(panel.Date);
-            _ = panel.RefreshAsync(panel.Date);
+            // 依赖服务尚未注入时（如 XAML 预览）跳过加载，待 Initialize 注入后再补
+            if (panel._storageService is not null)
+                _ = panel.RefreshAsync(panel.Date);
         });
         IsFrozenProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
         {
             panel.ApplyFrozenStateToSubjects();
             panel.FrozenChanged?.Invoke(panel.IsFrozen);
         });
-        if (autoLoad)
-            Date = DateOnly.FromDateTime(DateTime.Now);
         _logger.Information("HomeworkPanel 初始化完成");
+    }
+
+    private IHomeworkStorageService StorageService =>
+        _storageService ?? throw new InvalidOperationException("HomeworkPanel 尚未注入 IHomeworkStorageService。");
+
+    private IClassIslandService ClassIslandService =>
+        _classIslandService ?? throw new InvalidOperationException("HomeworkPanel 尚未注入 IClassIslandService。");
+
+    /// <summary>
+    /// 注入依赖服务。本控件在 <c>MainWindow.axaml</c> 中以 XAML 方式声明创建，
+    /// 构造函数由 XAML 编译器调用，无法传入服务，因此由 <see cref="Views.MainWindow"/>
+    /// 在 <c>InitializeComponent</c> 之后显式注入。
+    /// </summary>
+    public void Initialize(IHomeworkStorageService storageService, IClassIslandService classIslandService)
+    {
+        _storageService = storageService;
+        _classIslandService = classIslandService;
+        _logger.Debug("HomeworkPanel 依赖服务注入完成");
+
+        if (_autoLoad)
+            Date = DateOnly.FromDateTime(DateTime.Now);
     }
 
     public void DisplayHomework(Homework homework)
@@ -113,7 +136,7 @@ public partial class  HomeworkPanel : UserControl
         _logger.Debug("刷新作业面板，日期: {Date}", date);
         SubjectHomeworkPanels.IsVisible = false;
         SubjectHomeworkPanels.Children.Clear();
-        var homework = await _storageService.LoadAsync(date);
+        var homework = await StorageService.LoadAsync(date);
         IsFrozen = homework?.Frozen ?? false;
 
         var hasHomework = false;
@@ -121,7 +144,7 @@ public partial class  HomeworkPanel : UserControl
         {
             // 只在文件不存在且是空作业时才创建文件，避免重复保存
             if ((homework.HomeworkItems == null || homework.HomeworkItems.Count == 0) 
-                && !_storageService.Exists(date))
+                && !StorageService.Exists(date))
             {
                 _logger.Debug("自动创建空作业文件，日期: {Date}", date);
                 // 自动保存这个空白作业，创建对应的日期文件（异步执行，不阻塞UI）
@@ -129,7 +152,7 @@ public partial class  HomeworkPanel : UserControl
                 {
                     try
                     {
-                        await _storageService.SaveAsync(homework);
+                        await StorageService.SaveAsync(homework);
                     }
                     catch (Exception ex)
                     {
@@ -195,7 +218,7 @@ public partial class  HomeworkPanel : UserControl
         var window = TopLevel.GetTopLevel(this) as Window;
         if (window == null) return;
 
-        var control = new AddHomeworkWindow(item);
+        var control = new AddHomeworkWindow(item, ClassIslandService);
         var dialog = new FAContentDialog()
         {
             Title = control.Title,
@@ -213,7 +236,7 @@ public partial class  HomeworkPanel : UserControl
 
         if (result == FAContentDialogResult.Primary || result == FAContentDialogResult.Secondary)
         {
-            var currentHomework = _storageService.Load(Date) ?? new Homework(Date, []);
+            var currentHomework = StorageService.Load(Date) ?? new Homework(Date, []);
             
             if (control.IsDeleted)
             {
@@ -233,7 +256,7 @@ public partial class  HomeworkPanel : UserControl
                 }
             }
             
-            _storageService.Save(currentHomework);
+            StorageService.Save(currentHomework);
             await RefreshAsync(Date);
         }
     }

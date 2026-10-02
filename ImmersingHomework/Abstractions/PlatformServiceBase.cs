@@ -3,7 +3,7 @@ using Serilog;
 
 namespace ImmersingHomework.Abstractions;
 
-public abstract class PlatformServiceBase
+public abstract class PlatformServiceBase : IPlatformService
 {
     protected readonly ILogger Logger = Log.ForContext<PlatformServiceBase>();
     public abstract void SetTopmost(Window window, bool enable =  true);

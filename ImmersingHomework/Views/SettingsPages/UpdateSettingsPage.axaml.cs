@@ -4,9 +4,9 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Enums;
 using ImmersingHomework.Models;
-using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Views.SettingsPages;
@@ -14,11 +14,13 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class UpdateSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<UpdateSettingsPage>();
+    private readonly IUpdateService _updateService;
     private CheckUpdateResponse? _latestUpdate;
 
-    public UpdateSettingsPage()
+    public UpdateSettingsPage(IUpdateService updateService)
     {
         _logger.Debug("UpdateSettingsPage 初始化");
+        _updateService = updateService;
         InitializeComponent();
         this.AttachedToVisualTree += (_, _) =>
         {
@@ -29,7 +31,7 @@ public partial class UpdateSettingsPage : UserControl
 
     private void Refresh()
     {
-        var currentVersion = UpdateService.GetCurrentVersion();
+        var currentVersion = _updateService.GetCurrentVersion();
         UpdateStatusItem.Content = "尚未检查更新";
         UpdateStatusItem.Description = $"当前版本 {currentVersion}，点击“检查更新”获取最新版本。";
         UpdateChannelComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.UpdateChannel.Value);
@@ -51,7 +53,7 @@ public partial class UpdateSettingsPage : UserControl
 
         try
         {
-            var result = await UpdateService.CheckUpdateAsync();
+            var result = await _updateService.CheckUpdateAsync();
             if (result is null)
             {
                 UpdateStatusItem.Content = "检查更新失败";
@@ -69,7 +71,7 @@ public partial class UpdateSettingsPage : UserControl
             else
             {
                 UpdateStatusItem.Content = "已是最新版本";
-                UpdateStatusItem.Description = $"当前版本 {UpdateService.GetCurrentVersion()} 已是最新。";
+                UpdateStatusItem.Description = $"当前版本 {_updateService.GetCurrentVersion()} 已是最新。";
             }
         }
         catch (Exception ex)
@@ -111,7 +113,7 @@ public partial class UpdateSettingsPage : UserControl
 
         try
         {
-            var filePath = await UpdateService.DownloadUpdateAsync(_latestUpdate, progress);
+            var filePath = await _updateService.DownloadUpdateAsync(_latestUpdate, progress);
             if (filePath is null)
             {
                 UpdateStatusItem.Content = "下载失败";

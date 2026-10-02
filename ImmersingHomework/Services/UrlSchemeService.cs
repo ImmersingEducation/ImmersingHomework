@@ -1,24 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public static class UrlSchemeService
+public class UrlSchemeService : IUrlSchemeService
 {
     public const string Scheme = "immersinghomework";
     public const string Prefix = Scheme + "://";
 
-    private static readonly ILogger Logger = Log.ForContext(typeof(UrlSchemeService));
-    private static readonly Dictionary<string, Action<AppUrl>> Routes = new(StringComparer.OrdinalIgnoreCase);
-    private static readonly List<string> StartupUrls = [];
+    private readonly ILogger _logger = Log.ForContext<UrlSchemeService>();
+    private readonly Dictionary<string, Action<AppUrl>> _routes = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<string> _startupUrls = [];
 
-    /// <summary>注册一个路由，路由键为 URL 的主机名部分（不区分大小写）。</summary>
-    public static void RegisterRoute(string route, Action<AppUrl> handler) => Routes[route] = handler;
+    public void RegisterRoute(string route, Action<AppUrl> handler) => _routes[route] = handler;
 
-    /// <summary>从命令行参数中提取所有以 <c>immersinghomework://</c> 开头的 URL。</summary>
-    public static IEnumerable<string> ExtractUrls(IEnumerable<string> args)
+    public IEnumerable<string> ExtractUrls(IEnumerable<string> args)
     {
         foreach (var arg in args)
         {
@@ -28,18 +27,16 @@ public static class UrlSchemeService
         }
     }
 
-    /// <summary>把启动时收到的 URL 暂存起来，待 UI 就绪后再统一处理。</summary>
-    public static void EnqueueStartupUrl(string raw) => StartupUrls.Add(raw);
+    public void EnqueueStartupUrl(string raw) => _startupUrls.Add(raw);
 
-    /// <summary>处理所有暂存的启动 URL（应在 UI 线程调用）。</summary>
-    public static void FlushStartupUrls()
+    public void FlushStartupUrls()
     {
-        var urls = StartupUrls.ToArray();
-        StartupUrls.Clear();
+        var urls = _startupUrls.ToArray();
+        _startupUrls.Clear();
         foreach (var url in urls) Handle(url);
     }
 
-    public static bool TryParse(string? raw, out AppUrl url)
+    public bool TryParse(string? raw, out AppUrl url)
     {
         url = new AppUrl(string.Empty, Array.Empty<string>(), new Dictionary<string, string>());
         if (string.IsNullOrWhiteSpace(raw)) return false;
@@ -82,23 +79,22 @@ public static class UrlSchemeService
         return true;
     }
 
-    /// <summary>解析并分发一个 URL。应在 UI 线程调用。</summary>
-    public static void Handle(string raw)
+    public void Handle(string raw)
     {
         if (!TryParse(raw, out var url))
         {
-            Logger.Warning("无法解析 URL: {Raw}", raw);
+            _logger.Warning("无法解析 URL: {Raw}", raw);
             return;
         }
 
-        if (Routes.TryGetValue(url.Host, out var handler))
+        if (_routes.TryGetValue(url.Host, out var handler))
         {
-            Logger.Information("分发 URL 路由: {Host}", url.Host);
+            _logger.Information("分发 URL 路由: {Host}", url.Host);
             handler(url);
         }
         else
         {
-            Logger.Warning("未注册的 URL 路由: {Host}", url.Host);
+            _logger.Warning("未注册的 URL 路由: {Host}", url.Host);
         }
     }
 }

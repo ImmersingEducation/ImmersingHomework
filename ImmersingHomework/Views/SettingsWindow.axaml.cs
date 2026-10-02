@@ -5,6 +5,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using FluentAvalonia.UI.Controls;
 using FluentAvalonia.UI.Windowing;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Views.SettingsPages;
 using Serilog;
 
@@ -15,10 +16,17 @@ public partial class SettingsWindow : FAAppWindow
     private const double TitleBarHeight = 48;
 
     private readonly ILogger _logger = Log.ForContext<SettingsWindow>();
-    public SettingsWindow()
+    private readonly IPlatformService _platformService;
+
+    public SettingsWindow(IPlatformService platformService, IFANavigationPageFactory navigationPageFactory)
     {
         _logger.Debug("SettingsWindow 初始化");
+        _platformService = platformService;
         InitializeComponent();
+
+        // 让导航页面经由 DI 容器创建，从而支持各设置页的构造函数注入
+        ContentFrame.NavigationPageFactory = navigationPageFactory;
+
         NavigationView.SelectedItem = NavigationView.MenuItems[0];
         
         if (OperatingSystem.IsMacOS())
@@ -81,29 +89,15 @@ public partial class SettingsWindow : FAAppWindow
 
     private void CreateDesktopShortcut_MenuFlyoutItem_OnClick(object? sender, RoutedEventArgs e)
     {
-        var platformService = App.CurrentPlatformService;
-        if (platformService is null)
-        {
-            _logger.Warning("平台服务未初始化，跳过桌面快捷方式创建");
-            return;
-        }
-
         _logger.Information("用户请求创建桌面快捷方式");
-        platformService.CreateDesktopShortcut();
+        _platformService.CreateDesktopShortcut();
         ShowShortcutResult("桌面快捷方式创建完成");
     }
 
     private void CreateStartMenuShortcut_FAMenuFlyoutItem_OnClick(object? sender, RoutedEventArgs e)
     {
-        var platformService = App.CurrentPlatformService;
-        if (platformService is null)
-        {
-            _logger.Warning("平台服务未初始化，跳过开始菜单快捷方式创建");
-            return;
-        }
-
         _logger.Information("用户请求创建开始菜单快捷方式");
-        platformService.CreateStartMenuShortcut();
+        _platformService.CreateStartMenuShortcut();
         ShowShortcutResult("开始菜单快捷方式创建完成");
     }
 

@@ -5,8 +5,8 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Controls;
-using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Views.SettingsPages;
@@ -14,13 +14,22 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class StorageSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<StorageSettingsPage>();
-    private readonly HomeworkStorageService _homeworkStorageService = new();
-    private readonly OutputStorageService _outputStorageService = new();
-    private readonly LogStorageService _logStorageService = new();
-    private readonly SnapshotStorageService _snapshotStorageService = new();
+    private readonly IHomeworkStorageService _homeworkStorageService;
+    private readonly IOutputStorageService _outputStorageService;
+    private readonly ILogStorageService _logStorageService;
+    private readonly ISnapshotStorageService _snapshotStorageService;
 
-    public StorageSettingsPage()
+    public StorageSettingsPage(
+        IHomeworkStorageService homeworkStorageService,
+        IOutputStorageService outputStorageService,
+        ILogStorageService logStorageService,
+        ISnapshotStorageService snapshotStorageService)
     {
+        _homeworkStorageService = homeworkStorageService;
+        _outputStorageService = outputStorageService;
+        _logStorageService = logStorageService;
+        _snapshotStorageService = snapshotStorageService;
+
         InitializeComponent();
         RefreshOccupancyStats();
     }

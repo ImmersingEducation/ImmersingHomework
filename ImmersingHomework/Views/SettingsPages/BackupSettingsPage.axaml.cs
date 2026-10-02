@@ -8,7 +8,7 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Platform.Storage;
 using FluentAvalonia.UI.Controls;
-using ImmersingHomework.Services;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Views.SettingsPages;
@@ -16,9 +16,11 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class BackupSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<BackupSettingsPage>();
+    private readonly IBackupService _backupService;
 
-    public BackupSettingsPage()
+    public BackupSettingsPage(IBackupService backupService)
     {
+        _backupService = backupService;
         InitializeComponent();
     }
 
@@ -51,12 +53,12 @@ public partial class BackupSettingsPage : UserControl
         string targetDir;
         if (result == FAContentDialogResult.Primary)
         {
-            var packagePath = BackupService.PackHomeworks(homeworkPaths);
+            var packagePath = _backupService.PackHomeworks(homeworkPaths);
             targetDir = Path.GetDirectoryName(packagePath) ?? GetBackupsDir();
         }
         else
         {
-            BackupService.PackHomeworksAsUaf(homeworkPaths);
+            _backupService.PackHomeworksAsUaf(homeworkPaths);
             targetDir = GetUafBackupsDir();
         }
 
@@ -96,8 +98,8 @@ public partial class BackupSettingsPage : UserControl
 
         _logger.Information("开始恢复，共 {Count} 个文件", filePaths.Count);
         var restoredCount = isPrivate
-            ? BackupService.UnpackHomeworks(filePaths[0]).Count
-            : BackupService.UnpackHomeworksAsUaf(filePaths).Count;
+            ? _backupService.UnpackHomeworks(filePaths[0]).Count
+            : _backupService.UnpackHomeworksAsUaf(filePaths).Count;
 
         var successDialog = new FAContentDialog()
         {

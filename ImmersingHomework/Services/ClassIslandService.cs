@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Data;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
@@ -8,26 +7,21 @@ using ClassIsland.Shared.IPC;
 using ClassIsland.Shared.IPC.Abstractions.Services;
 using ClassIsland.Shared.Models.Profile;
 using dotnetCampus.Ipc.CompilerServices.GeneratedProxies;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public class ClassIslandService
+public class ClassIslandService : IClassIslandService
 {
-    public static ClassIslandService Instance { get; } = new ClassIslandService();
-
     private readonly ILogger _logger = Log.ForContext<ClassIslandService>();
-    private IpcClient _client = new IpcClient();
+    private readonly IpcClient _client = new();
     private bool _initialized;
 
     public bool Initialized => _initialized;
     
-    private ClassIslandService()
-    {
-    }
-
     public void Initialize()
     {
         if (_initialized)

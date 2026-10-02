@@ -1,10 +1,11 @@
 using System;
 using System.IO;
+using ImmersingHomework.Abstractions;
 using Serilog;
 
 namespace ImmersingHomework.Services;
 
-public class OutputStorageService
+public class OutputStorageService : IOutputStorageService
 {
     private readonly ILogger _logger = Log.ForContext<OutputStorageService>();
     private readonly string _outputDir;

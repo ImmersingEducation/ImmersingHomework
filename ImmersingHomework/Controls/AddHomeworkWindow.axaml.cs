@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using Avalonia.Controls;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
@@ -18,15 +19,20 @@ public partial class AddHomeworkWindow : UserControl
     public string Title { get; private set; }
     public string? SecondaryButtonText { get; private set; }
 
-    public AddHomeworkWindow()
+    public AddHomeworkWindow(IClassIslandService classIslandService)
     {
         _logger.Information("AddHomeworkWindow 初始化（添加新作业）");
         InitializeComponent();
+
+        // SubjectPicker 由 AddHomeworkWindow.axaml 以 XAML 方式创建，需在此显式注入
+        SubjectPicker.Initialize(classIslandService);
+
         Title = "添加作业项";
         SecondaryButtonText = null;
     }
 
-    public AddHomeworkWindow(HomeworkItem existingItem) : this()
+    public AddHomeworkWindow(HomeworkItem existingItem, IClassIslandService classIslandService)
+        : this(classIslandService)
     {
         _logger.Information("AddHomeworkWindow 初始化（编辑现有作业），ID: {Id}", existingItem.Id);
         _existingItem = existingItem;

@@ -18,13 +18,14 @@ using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Controls;
 using ImmersingHomework.Enums;
 using ImmersingHomework.Shared.Enums;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
-using ImmersingHomework.Services;
 using ImmersingHomework.Shared.Services;
+using ImmersingHomework.Services;
 using Serilog;
 
 namespace ImmersingHomework.Views;
@@ -54,7 +55,11 @@ public partial class MainWindow : Window
         }
     }
 
-    private readonly HomeworkStorageService _storageService;
+    private readonly IHomeworkStorageService _storageService;
+    private readonly ISnapshotStorageService _snapshotStorageService;
+    private readonly IHomeworkMergeService _homeworkMergeService;
+    private readonly IHitokotoService _hitokotoService;
+    private readonly IClassIslandService _classIslandService;
     private Bitmap? _clipboardBitmap;
 
     /// <summary>
@@ -93,13 +98,27 @@ public partial class MainWindow : Window
     /// </summary>
     private static readonly TimeSpan InfoBarExitDuration = TimeSpan.FromMilliseconds(200);
 
-    public MainWindow()
+    public MainWindow(
+        IHomeworkStorageService storageService,
+        ISnapshotStorageService snapshotStorageService,
+        IHomeworkMergeService homeworkMergeService,
+        IHitokotoService hitokotoService,
+        IClassIslandService classIslandService)
     {
         _logger.Information("MainWindow 初始化开始");
         InitializeComponent();
+
+        _storageService = storageService;
+        _snapshotStorageService = snapshotStorageService;
+        _homeworkMergeService = homeworkMergeService;
+        _hitokotoService = hitokotoService;
+        _classIslandService = classIslandService;
+
+        // HomeworkPanel 由 MainWindow.axaml 以 XAML 方式创建，无法使用构造函数注入，由这里显式注入
+        HomeworkPanel.Initialize(storageService, classIslandService);
+
         WindowState = WindowState.FullScreen;
         
-        _storageService = new HomeworkStorageService();
         DateChanged += UpdateDateText;
         DateChanged += (date) => HomeworkPanel.Date = date;
         Date = DateOnly.FromDateTime(DateTime.Now);
@@ -134,7 +153,7 @@ public partial class MainWindow : Window
         _hitokotoTimer.Elapsed += async (s, e) =>
         {
             _logger.Debug("Hitokoto 定时器触发，开始获取新的 Hitokoto");
-            HitokotoService.Hitokoto? hitokoto = await HitokotoService.GetHitokoto();
+            Models.Hitokoto? hitokoto = await _hitokotoService.GetHitokoto();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 if (hitokoto is null)
@@ -353,7 +372,7 @@ public partial class MainWindow : Window
     private async void AddHomeworkButton_OnClick(object? sender, RoutedEventArgs e)
     {
         _logger.Information("用户点击了添加作业按钮");
-        var control = new AddHomeworkWindow();
+        var control = new AddHomeworkWindow(_classIslandService);
         var dialog = new FAContentDialog()
         {
             Title = control.Title,
@@ -594,8 +613,7 @@ public partial class MainWindow : Window
     private async void RestoreButton_OnClick(object? sender, RoutedEventArgs e)
     {
         _logger.Information("用户点击了还原按钮");
-        var snapshotStorageService = new SnapshotStorageService();
-        var snapshots = snapshotStorageService.GetSnapshots(Date);
+        var snapshots = _snapshotStorageService.GetSnapshots(Date);
 
         if (snapshots.Count == 0)
         {
@@ -681,11 +699,11 @@ public partial class MainWindow : Window
 
     private async Task MergeHomeworkWithSnapshotAsync(Homework snapshotHomework, Homework currentHomework)
     {
-        var conflictIds = HomeworkMergeService.PreprocessHomeworksToMerge(snapshotHomework, currentHomework);
+        var conflictIds = _homeworkMergeService.PreprocessHomeworksToMerge(snapshotHomework, currentHomework);
 
         if (conflictIds.Count == 0)
         {
-            var merged = HomeworkMergeService.MergeHomework(snapshotHomework, currentHomework, []);
+            var merged = _homeworkMergeService.MergeHomework(snapshotHomework, currentHomework, []);
             _storageService.Save(merged);
             HomeworkPanel.Refresh();
             _logger.Information("无冲突，作业已合并");
@@ -756,7 +774,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        var mergedHomework = HomeworkMergeService.MergeHomework(snapshotHomework, currentHomework, options);
+        var mergedHomework = _homeworkMergeService.MergeHomework(snapshotHomework, currentHomework, options);
         _storageService.Save(mergedHomework);
         HomeworkPanel.Refresh();
         _logger.Information("作业合并完成");

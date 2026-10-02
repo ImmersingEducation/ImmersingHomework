@@ -1,21 +1,23 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Enums;
 using ImmersingHomework.Shared.Models;
 
 namespace ImmersingHomework.Services;
 
-public class HomeworkMergeService
+public class HomeworkMergeService : IHomeworkMergeService
 {
-    public static List<Guid> PreprocessHomeworksToMerge(Homework oldHomework, Homework newHomework)
+    public List<Guid> PreprocessHomeworksToMerge(Homework oldHomework, Homework newHomework)
     {
         var oldIds = oldHomework.HomeworkItems.Select(item => item.Id);
         var newIds = newHomework.HomeworkItems.Select(item => item.Id);
         return oldIds.Union(newIds).ToList();
     }
-    
-    public static Homework MergeHomework(Homework oldHomework, Homework newHomework, Dictionary<Guid, HomeworkMergeOption> options)
+
+    public Homework MergeHomework(Homework oldHomework, Homework newHomework,
+        Dictionary<Guid, HomeworkMergeOption> options)
     {
         var conflictIds = PreprocessHomeworksToMerge(oldHomework, newHomework).ToHashSet();
         var validOptions = options
