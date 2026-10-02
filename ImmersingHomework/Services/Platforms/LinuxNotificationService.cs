@@ -19,14 +19,14 @@ internal static class LinuxNotificationService
     {
         try
         {
-            var address = Address.Session;
+            var address = DBusAddress.Session;
             if (string.IsNullOrEmpty(address))
             {
                 Logger.Warning("无法获取 DBus 会话地址，跳过系统通知");
                 return;
             }
 
-            using var connection = new Connection(address);
+            using var connection = new DBusConnection(address);
             await connection.ConnectAsync();
 
             var writer = connection.GetMessageWriter();
