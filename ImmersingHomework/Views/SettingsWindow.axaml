@@ -73,11 +73,11 @@
                     <fa:FASymbolIconSource Symbol="OpenFolder"/>
                 </fa:FANavigationViewItem.IconSource>
             </fa:FANavigationViewItem>
-            <!-- <fa:FANavigationViewItem Content="更新设置" Tag="Update"> -->
-            <!--     <fa:FANavigationViewItem.IconSource> -->
-            <!--         <fa:FASymbolIconSource Symbol="Sync"/> -->
-            <!--     </fa:FANavigationViewItem.IconSource> -->
-            <!-- </fa:FANavigationViewItem> -->
+            <fa:FANavigationViewItem Content="更新设置" Tag="Update">
+                <fa:FANavigationViewItem.IconSource>
+                    <fa:FASymbolIconSource Symbol="Sync"/>
+                </fa:FANavigationViewItem.IconSource>
+            </fa:FANavigationViewItem>
         </fa:FANavigationView.MenuItems>
             <fa:FANavigationView.FooterMenuItems>
                 <fa:FANavigationViewItem Content="关于软件" Tag="About">
