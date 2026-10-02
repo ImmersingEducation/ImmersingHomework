@@ -3,7 +3,6 @@ using System.Net.Http;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Controls;
-using ImmersingHomework.Models;
 using ImmersingHomework.Services;
 using ImmersingHomework.Services.Platforms;
 using ImmersingHomework.Views;
@@ -23,8 +22,6 @@ public static class ServiceCollectionExtensions
     {
         // ---------- 基础设施 ----------
         services.AddSingleton(_ => new HttpClient());
-        services.AddSingleton<IAppSettingsStorageService, AppSettingsStorageService>();
-        services.AddSingleton<AppSettings>();
 
         // ---------- 业务服务 ----------
         services.AddSingleton<IHomeworkStorageService, HomeworkStorageService>();

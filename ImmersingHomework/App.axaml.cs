@@ -59,9 +59,6 @@ public partial class App : Application
         // 按 Avalonia 官方推荐的方式构建依赖注入容器：集中注册、构造函数注入
         _services = BuildServiceProvider();
 
-        // AppSettings 是全局设置单例，但同样从容器解析，以复用注入进来的存储服务
-        AppSettings.InitializeInstance(Services.GetRequiredService<AppSettings>());
-
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             _desktopLifetime = desktop;
@@ -76,8 +73,9 @@ public partial class App : Application
             }
         }
 
-        AppSettings.Instance.Initialize();
-        _logger.Information("应用设置已初始化");
+        // AppSettings 自带读盘与自动保存，这里提前触发一次懒加载，让后续逻辑可以直接读 Instance
+        _ = AppSettings.Instance;
+        _logger.Information("应用设置已就绪");
 
         ApplyThemeMode();
         SubscribeToThemeModeChanges();
@@ -92,6 +90,9 @@ public partial class App : Application
         if (_desktopLifetime != null)
         {
             var platformService = Services.GetRequiredService<IPlatformService>();
+
+            // 退出前补一次落盘，避免防抖窗口内的改动随进程一起消失
+            _desktopLifetime.ShutdownRequested += (_, _) => AppSettings.Instance.Save();
 
             // 应用当前的开机自启动设置
             ApplyLaunchAtStartupSetting(platformService);
