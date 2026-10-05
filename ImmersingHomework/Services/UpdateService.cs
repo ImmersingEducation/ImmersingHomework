@@ -64,6 +64,9 @@ public class UpdateService : IUpdateService
 
         var latestVersion = json["latest_version"]?.GetValue<string>();
         var downloadUrl = json["download_url"]?[GetCurrentPlatform()]?.GetValue<string>();
+        
+        if (string.IsNullOrWhiteSpace(downloadUrl))
+            _logger.Information("检查更新完成，发现新版本: {Version}，但服务器并未提供平台版本的下载地址", latestVersion);
 
         _logger.Information("检查更新完成，发现新版本: {Version}，下载地址: {DownloadUrl}", latestVersion, downloadUrl);
         return new CheckUpdateResponse(true, latestVersion, null, downloadUrl, false);
