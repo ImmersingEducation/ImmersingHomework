@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.IO;
+using ImmersingHomework.Helper;
 using Serilog;
 
 namespace ImmersingHomework.Services.Platforms;
@@ -38,7 +39,8 @@ internal static class LinuxUrlSchemeService
     {
         try
         {
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+            // 指向 Launcher：外壳会透传参数给主程序，同时保证待处理的更新能被应用
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
                 Logger.Error("URL 协议注册失败: 无法获取可执行文件路径");

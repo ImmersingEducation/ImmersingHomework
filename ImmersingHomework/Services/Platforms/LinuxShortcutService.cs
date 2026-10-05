@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.Versioning;
 using Avalonia.Platform;
+using ImmersingHomework.Helper;
 using Serilog;
 
 namespace ImmersingHomework.Services.Platforms;
@@ -43,7 +44,8 @@ internal static class LinuxShortcutService
     {
         try
         {
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+            // 指向 Launcher，保证从快捷方式启动时外壳有机会应用待处理的更新
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
                 Logger.Error("创建{Location}快捷方式失败: 无法获取可执行文件路径", location);

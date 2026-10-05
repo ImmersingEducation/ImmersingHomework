@@ -47,6 +47,9 @@ CodeCoverage/
 # Launcher 运行日志
 launcher.log
 
+# 自动更新暂存目录（下载中的更新包）
+Temp/
+
 # MSBuild Binary and Structured Log
 *.binlog
 

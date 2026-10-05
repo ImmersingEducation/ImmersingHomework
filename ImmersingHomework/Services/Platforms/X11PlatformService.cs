@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.Versioning;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Helper;
 using Serilog;
 
 namespace ImmersingHomework.Services.Platforms;
@@ -67,7 +68,8 @@ public class X11PlatformService : PlatformServiceBase
             Directory.CreateDirectory(autostartDir);
             
             var desktopFile = Path.Combine(autostartDir, "immersinghomework.desktop");
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+            // 指向 Launcher，保证开机启动时外壳有机会应用待处理的更新
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
 
             if (string.IsNullOrEmpty(exePath))
             {

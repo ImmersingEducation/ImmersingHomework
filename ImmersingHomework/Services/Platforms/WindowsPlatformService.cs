@@ -6,6 +6,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Helper;
 using Microsoft.Win32;
 using Serilog;
 
@@ -79,7 +80,8 @@ public class WindowsPlatformService : PlatformServiceBase
         try
         {
             var appName = "ImmersingHomework";
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+            // 指向 Launcher，保证开机启动时外壳有机会应用待处理的更新
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
 
             if (string.IsNullOrEmpty(exePath))
             {
@@ -288,7 +290,7 @@ public class WindowsPlatformService : PlatformServiceBase
     {
         try
         {
-            var exePath = Environment.ProcessPath;
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
                 _logger.Error("创建{Location}快捷方式失败: 无法获取可执行文件路径", location);

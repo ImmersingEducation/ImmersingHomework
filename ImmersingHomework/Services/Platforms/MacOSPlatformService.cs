@@ -6,6 +6,7 @@ using System.Runtime.Versioning;
 using System.Text;
 using Avalonia.Controls;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Helper;
 using Serilog;
 
 namespace ImmersingHomework.Services.Platforms;
@@ -100,7 +101,7 @@ public class MacOSPlatformService : PlatformServiceBase
     {
         try
         {
-            var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+            var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
             if (string.IsNullOrEmpty(exePath))
             {
                 _logger.Error("Could not get executable path");

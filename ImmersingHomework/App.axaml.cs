@@ -13,6 +13,7 @@ using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.DependencyInjection;
 using ImmersingHomework.Enums;
+using ImmersingHomework.Helper;
 using ImmersingHomework.Models;
 using ImmersingHomework.Views;
 using Microsoft.Extensions.DependencyInjection;
@@ -390,15 +391,37 @@ public partial class App : Application
 
     public void RestartApplication()
     {
-        if (_desktopLifetime != null)
+        if (_desktopLifetime == null)
+            return;
+
+        // 优先重启 Launcher：待应用的更新由 Launcher 应用，直接重启自身会跳过这一步。
+        var entryPoint = LauncherContext.ResolveRestartEntryPoint();
+        if (string.IsNullOrEmpty(entryPoint))
         {
-            var processPath = Environment.ProcessPath;
-            Program.ReleaseLock();
-            _desktopLifetime.Shutdown();
-            if (!string.IsNullOrEmpty(processPath))
+            _logger.Warning("无法确定重启入口，取消重启");
+            return;
+        }
+
+        // 工作目录决定 Data/、Outputs/、Logs/ 与 Temp/ 的位置，必须与 Launcher 保持一致，
+        // 否则重启后读写到的是另一份数据。
+        var workingDirectory = LauncherContext.RootDirectory;
+
+        _logger.Information("重启应用程序: {EntryPoint}", entryPoint);
+        Program.ReleaseLock();
+        _desktopLifetime.Shutdown();
+
+        try
+        {
+            var startInfo = new ProcessStartInfo(entryPoint)
             {
-                Process.Start(processPath);
-            }
+                WorkingDirectory = workingDirectory,
+                UseShellExecute = true,
+            };
+            Process.Start(startInfo);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "重启应用程序失败: {EntryPoint}", entryPoint);
         }
     }
 

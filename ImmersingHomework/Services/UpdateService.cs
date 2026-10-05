@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
@@ -6,6 +7,7 @@ using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Helper;
 using ImmersingHomework.Models;
 using Serilog;
 
@@ -104,26 +106,80 @@ public class UpdateService : IUpdateService
 
         var totalBytes = response.Content.Headers.ContentLength ?? 0;
         await using var contentStream = await response.Content.ReadAsStreamAsync(ct);
-        await using var fileStream = File.Create(fileLocation);
 
-        var buffer = new byte[81920];
-        long totalRead = 0;
-        int bytesRead;
-        while ((bytesRead = await contentStream.ReadAsync(buffer, ct)) > 0)
+        // 先写入 .part 再改名，避免中断下载留下的半截文件被误认为完整更新包
+        var partialLocation = fileLocation + ".part";
+        try
         {
-            await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
-            totalRead += bytesRead;
-            if (totalBytes > 0)
-                progress?.Report((double)totalRead / totalBytes * 100);
+            await using (var fileStream = File.Create(partialLocation))
+            {
+                var buffer = new byte[81920];
+                long totalRead = 0;
+                int bytesRead;
+                while ((bytesRead = await contentStream.ReadAsync(buffer, ct)) > 0)
+                {
+                    await fileStream.WriteAsync(buffer.AsMemory(0, bytesRead), ct);
+                    totalRead += bytesRead;
+                    if (totalBytes > 0)
+                        progress?.Report((double)totalRead / totalBytes * 100);
+                }
+            }
+
+            File.Move(partialLocation, fileLocation, overwrite: true);
         }
+        catch
+        {
+            TryDeletePartial(partialLocation);
+            throw;
+        }
+
+        WriteUpdateFlag(update, fileLocation);
 
         _logger.Information("更新下载完成: {FileLocation}", fileLocation);
         return fileLocation;
     }
 
+    /// <summary>
+    /// 写入待应用更新标记，供 Launcher 在下次启动时识别并应用。
+    /// </summary>
+    /// <remarks>
+    /// 标记必须写在 Launcher 读取的同一位置；未经过 Launcher 启动时该标记不会被消费，
+    /// 此时直接跳过，避免遗留无人清理的文件。
+    /// </remarks>
+    private void WriteUpdateFlag(CheckUpdateResponse update, string fileLocation)
+    {
+        if (!LauncherContext.IsLaunchedByLauncher)
+        {
+            _logger.Information("当前不是由 Launcher 启动，无需写入更新标记");
+            return;
+        }
+
+        var flagPath = LauncherContext.UpdateFlagPath;
+        var content = string.Join('\n',
+            update.LatestVersion ?? "unknown",
+            fileLocation,
+            DateTimeOffset.Now.ToString("O", CultureInfo.InvariantCulture));
+
+        File.WriteAllText(flagPath, content);
+        _logger.Information("已写入更新标记: {FlagPath}", flagPath);
+    }
+
+    private void TryDeletePartial(string partialLocation)
+    {
+        try
+        {
+            if (File.Exists(partialLocation))
+                File.Delete(partialLocation);
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "清理未完成的下载文件失败: {Path}", partialLocation);
+        }
+    }
+
     public string GetUpdateDirectory(string version)
     {
-        return Path.Combine(Directory.GetCurrentDirectory(), "Temp", $"Update_v{version}");
+        return LauncherContext.GetUpdateVersionDirectory(version);
     }
 
     private string GetFileNameFromUrl(string url, string version)
