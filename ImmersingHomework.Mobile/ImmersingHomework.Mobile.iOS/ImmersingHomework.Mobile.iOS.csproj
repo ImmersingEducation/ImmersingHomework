@@ -4,8 +4,8 @@
     <TargetFramework>net10.0-ios</TargetFramework>
     <SupportedOSPlatformVersion>13.0</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
-    <ApplicationVersion>30000</ApplicationVersion>
-    <ApplicationDisplayVersion>0.3.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>40000</ApplicationVersion>
+    <ApplicationDisplayVersion>0.4.0.0</ApplicationDisplayVersion>
   </PropertyGroup>
 
   <ItemGroup>

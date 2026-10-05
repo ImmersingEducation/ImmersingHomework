@@ -5,8 +5,8 @@
     <SupportedOSPlatformVersion>23</SupportedOSPlatformVersion>
     <Nullable>enable</Nullable>
     <ApplicationId>com.CompanyName.ImmersingHomework.Mobile</ApplicationId>
-    <ApplicationVersion>30000</ApplicationVersion>
-    <ApplicationDisplayVersion>0.3.0.0</ApplicationDisplayVersion>
+    <ApplicationVersion>40000</ApplicationVersion>
+    <ApplicationDisplayVersion>0.4.0.0</ApplicationDisplayVersion>
     <AndroidPackageFormat>apk</AndroidPackageFormat>
     <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
   </PropertyGroup>
