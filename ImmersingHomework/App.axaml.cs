@@ -98,7 +98,18 @@ public partial class App : Application
             var platformService = Services.GetRequiredService<IPlatformService>();
 
             // 退出前补一次落盘，避免防抖窗口内的改动随进程一起消失
-            _desktopLifetime.ShutdownRequested += (_, _) => AppSettings.Instance.Save();
+            _desktopLifetime.ShutdownRequested += (_, _) =>
+            {
+                AppSettings.Instance.Save();
+
+                // 正常退出不该留下崩溃记录，否则下次崩溃会凭空多算一次而误判成重启循环。
+                // 崩溃触发的重启同样会走到这里，用 _isHandlingFatalException 区分。
+                if (!_isHandlingFatalException)
+                    CrashGuard.Reset();
+            };
+
+            // 存活够久即认为本次启动成功，清空崩溃计数，让后续偶发崩溃仍能自动重启
+            DispatcherTimer.RunOnce(CrashGuard.Reset, CrashGuard.StableRunTime);
 
             // 应用当前的开机自启动设置
             ApplyLaunchAtStartupSetting(platformService);
@@ -216,7 +227,7 @@ public partial class App : Application
                 ExitApplication();
                 break;
             case TeachingSecurityMode.AutoRestart:
-                RestartApplication();
+                RestartAfterCrash(ex);
                 break;
             default:
                 ShowExceptionWindow(ex);
@@ -233,17 +244,44 @@ public partial class App : Application
         try
         {
             var mode = AppSettings.Instance.TeachingSecurityMode.Value;
-            if (Enum.IsDefined(mode))
-                return mode;
+            if (!Enum.IsDefined(mode))
+            {
+                _logger.Warning("未知的教学安全模式: {Mode}", (int)mode);
+                mode = TeachingSecurityMode.ShowNotification;
+            }
 
-            _logger.Warning("未知的教学安全模式: {Mode}", (int)mode);
+            // 已经陷入自动重启的循环说明重启治不好这个崩溃，再转下去用户只会看到应用反复闪退
+            if (mode == TeachingSecurityMode.AutoRestart && CrashGuard.IsCrashLoopDetected())
+            {
+                _logger.Warning("已连续崩溃 {Count} 次，本次不再自动重启，改为显示异常窗口", CrashGuard.RecentCrashCount);
+                mode = TeachingSecurityMode.ShowNotification;
+            }
+
+            return mode;
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "读取教学安全模式失败，降级为显示提醒");
+            return TeachingSecurityMode.ShowNotification;
+        }
+    }
+
+    /// <summary>
+    /// 崩溃后重启：先落一次崩溃计数，再走正常重启。
+    /// 计数用于下次启动判断是否已陷入循环，因此拿不到重启入口时不能记 —— 否则会把“根本没能重启”算成一次崩溃循环。
+    /// </summary>
+    private void RestartAfterCrash(Exception ex)
+    {
+        if (string.IsNullOrEmpty(LauncherContext.ResolveRestartEntryPoint()))
+        {
+            _logger.Warning("无法确定重启入口，改为显示异常窗口");
+            _isHandlingFatalException = false;
+            ShowExceptionWindow(ex);
+            return;
         }
 
-        return TeachingSecurityMode.ShowNotification;
+        CrashGuard.RecordCrash();
+        RestartApplication();
     }
 
     private void ShowExceptionWindow(Exception ex)
