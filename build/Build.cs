@@ -23,12 +23,8 @@ internal class Build : StageKitBuild
         PackagingTypes =
         [
             ApplicationPackagingType.Portable,
-            ApplicationPackagingType.DotNetSingleFile,
             ApplicationPackagingType.LinuxDeb,
-            ApplicationPackagingType.LinuxRpm,
             ApplicationPackagingType.MacOSAppBundle,
-            ApplicationPackagingType.MacOSDmg,
-            ApplicationPackagingType.MacOSPkg,
             ApplicationPackagingType.WindowsInstaller,
         ];
 
