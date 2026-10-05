@@ -3,54 +3,201 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             xmlns:conv="clr-namespace:Avalonia.Data.Converters;assembly=Avalonia.Base"
+             xmlns:enums="clr-namespace:ImmersingHomework.Enums"
+             xmlns:local="clr-namespace:ImmersingHomework.Views.SettingsPages"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="ImmersingHomework.Views.SettingsPages.UpdateSettingsPage">
+             x:Class="ImmersingHomework.Views.SettingsPages.UpdateSettingsPage"
+             x:DataType="local:UpdateSettingsPage"
+             d:DataContext="{d:DesignInstance local:UpdateSettingsPage}"
+             Loaded="Control_OnLoaded" Unloaded="Control_OnUnloaded">
     <ScrollViewer>
         <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
             <TextBlock Text="更新设置" FontSize="36" FontWeight="Bold"/>
-            <TextBlock Text="管理更新行为。" FontSize="18"/>
-            <fa:FASettingsExpander Header="更新系统状态" IsExpanded="True">
-                <fa:FASettingsExpander.IconSource>
-                    <fa:FASymbolIconSource Symbol="Sync"/>
-                </fa:FASettingsExpander.IconSource>
-                <fa:FASettingsExpander.Footer>
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <Button x:Name="CheckUpdateButton" Click="CheckUpdateButton_OnClick">检查更新</Button>
-                        <Button x:Name="DownloadButton" IsVisible="False" Click="DownloadButton_OnClick">下载</Button>
+            <TextBlock Text="管理更新检查、渠道与更新行为。" FontSize="18"/>
+
+            <!-- 更新状态总览：图标在检查 / 下载时旋转，右侧为状态文案与补充说明 -->
+            <Grid ColumnDefinitions="Auto *" RowDefinitions="Auto Auto" Margin="0 8 0 0">
+                <fa:FASymbolIcon Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
+                                Margin="0 0 12 0" FontSize="48" VerticalAlignment="Center"
+                                RenderTransformOrigin="50%, 50%"
+                                Symbol="{Binding Status, Converter={x:Static local:UpdateSettingsPage.UpdateStatusToIconConverter}}">
+                    <fa:FASymbolIcon.RenderTransform>
+                        <RotateTransform/>
+                    </fa:FASymbolIcon.RenderTransform>
+                    <Classes.Spinning>
+                        <Binding Path="WorkingStatus" Converter="{x:Static conv:ObjectConverters.NotEqual}">
+                            <Binding.ConverterParameter>
+                                <enums:UpdateWorkingStatus>Idle</enums:UpdateWorkingStatus>
+                            </Binding.ConverterParameter>
+                        </Binding>
+                    </Classes.Spinning>
+                    <fa:FASymbolIcon.Styles>
+                        <Style Selector="fa|FASymbolIcon.Spinning">
+                            <Style.Animations>
+                                <Animation Duration="0:0:1" IterationCount="Infinite" Easing="0.50, 0.25, 0.50, 0.75">
+                                    <KeyFrame Cue="0%">
+                                        <Setter Property="RotateTransform.Angle" Value="0"/>
+                                    </KeyFrame>
+                                    <KeyFrame Cue="100%">
+                                        <Setter Property="RotateTransform.Angle" Value="360"/>
+                                    </KeyFrame>
+                                </Animation>
+                            </Style.Animations>
+                        </Style>
+                    </fa:FASymbolIcon.Styles>
+                </fa:FASymbolIcon>
+                <TextBlock Grid.Row="0" Grid.Column="1" FontSize="24" FontWeight="Medium"
+                           Text="{Binding Status, Converter={x:Static local:UpdateSettingsPage.UpdateStatusToMessageConverter}}"/>
+                <TextBlock Grid.Row="1" Grid.Column="1" Margin="0 4 0 0" Opacity="0.75" TextWrapping="Wrap"
+                           Text="{Binding StatusDetail}"/>
+            </Grid>
+
+            <fa:FAInfoBar Severity="Error" Title="检查更新时发生错误，请检查您的网络连接后重试。"
+                          Message="{Binding CheckError.Message, FallbackValue=''}"
+                          IsOpen="{Binding CheckErrorVisible, Mode=TwoWay}"/>
+            <fa:FAInfoBar Severity="Error" Title="下载更新时发生错误，请稍后重试。"
+                          Message="{Binding DownloadError.Message, FallbackValue=''}"
+                          IsOpen="{Binding DownloadErrorVisible, Mode=TwoWay}"/>
+            <fa:FAInfoBar Severity="Warning" Title="该版本为强制更新"
+                          Message="该版本修复了重要问题，建议尽快更新。"
+                          IsOpen="{Binding IsForceUpdate}"/>
+            <fa:FAInfoBar Severity="Informational" Title="更新将在重启后应用"
+                          Message="更新包已下载完成，重启方圆作业板即可使用新版本。"
+                          IsOpen="{Binding Status, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter={x:Static enums:UpdateStatus.UpdateDownloaded}}"/>
+
+            <!-- 操作区：仅在空闲时可用，按钮随更新状态切换 -->
+            <WrapPanel>
+                <WrapPanel.IsEnabled>
+                    <Binding Path="WorkingStatus" Converter="{x:Static conv:ObjectConverters.Equal}">
+                        <Binding.ConverterParameter>
+                            <enums:UpdateWorkingStatus>Idle</enums:UpdateWorkingStatus>
+                        </Binding.ConverterParameter>
+                    </Binding>
+                </WrapPanel.IsEnabled>
+                <Button Content="检查更新" Classes="accent" Margin="4" Click="ButtonCheckUpdate_OnClick"
+                        IsVisible="{Binding Status, Converter={x:Static local:UpdateSettingsPage.ShowCheckUpdateConverter}}"/>
+                <SplitButton Content="下载并重启" Classes="accent" Margin="4" Click="ButtonDownloadAndRestart_OnClick"
+                             IsVisible="{Binding Status, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter={x:Static enums:UpdateStatus.UpdateAvailable}}">
+                    <SplitButton.Flyout>
+                        <MenuFlyout>
+                            <MenuItem Header="仅下载" Click="MenuItemDownloadOnly_OnClick"/>
+                            <MenuItem Header="打开更新目录" Click="MenuItemOpenUpdateDirectory_OnClick"/>
+                        </MenuFlyout>
+                    </SplitButton.Flyout>
+                </SplitButton>
+                <Button Content="重启并应用更新" Classes="accent" Margin="4" Click="ButtonRestart_OnClick"
+                        IsVisible="{Binding Status, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter={x:Static enums:UpdateStatus.UpdateDownloaded}}"/>
+                <Button Content="重新检查更新" Margin="4" Click="ButtonCheckUpdate_OnClick"
+                        IsVisible="{Binding Status, Converter={x:Static local:UpdateSettingsPage.ShowRecheckUpdateConverter}}"/>
+            </WrapPanel>
+
+            <!-- 下载进行中：主操作区此时不可用，取消按钮需要单独放在可用的容器里 -->
+            <WrapPanel>
+                <Button Content="取消下载" Margin="4" Click="ButtonCancelDownload_OnClick"
+                        IsVisible="{Binding WorkingStatus, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter={x:Static enums:UpdateWorkingStatus.DownloadingUpdates}}"/>
+            </WrapPanel>
+
+            <!-- 进度区：检查更新时为不确定进度条，下载时按百分比推进 -->
+            <StackPanel Spacing="4"
+                        IsVisible="{Binding WorkingStatus, Converter={x:Static conv:ObjectConverters.NotEqual}, ConverterParameter={x:Static enums:UpdateWorkingStatus.Idle}}">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding DownloadProgress}"
+                             IsIndeterminate="{Binding WorkingStatus, Converter={x:Static conv:ObjectConverters.Equal}, ConverterParameter={x:Static enums:UpdateWorkingStatus.CheckingUpdates}}"/>
+                <TextBlock Opacity="0.75"
+                           Text="{Binding WorkingStatus, Converter={x:Static local:UpdateSettingsPage.UpdateWorkingStatusToMessageConverter}}"/>
+            </StackPanel>
+
+            <Separator/>
+
+            <TabControl Padding="0" Margin="0">
+                <TabControl.IsEnabled>
+                    <Binding Path="WorkingStatus" Converter="{x:Static conv:ObjectConverters.Equal}">
+                        <Binding.ConverterParameter>
+                            <enums:UpdateWorkingStatus>Idle</enums:UpdateWorkingStatus>
+                        </Binding.ConverterParameter>
+                    </Binding>
+                </TabControl.IsEnabled>
+
+                <TabItem Header="更新日志">
+                    <Grid>
+                        <TextBlock Margin="12" TextWrapping="Wrap" Text="{Binding ChangeLog}"
+                                   IsVisible="{Binding HasChangeLog}"/>
+                        <StackPanel Spacing="8" VerticalAlignment="Center" HorizontalAlignment="Center" Margin="0 40"
+                                    IsVisible="{Binding ChangeLog, Converter={x:Static conv:ObjectConverters.IsNull}, Mode=OneWay}">
+                            <TextBlock Text="暂无更新日志" FontSize="20" FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"/>
+                            <TextBlock Text="发现新版本后，可在此查看该版本的更新内容。"
+                                       Opacity="0.7" HorizontalAlignment="Center"/>
+                            <Button Content="检查更新" HorizontalAlignment="Center"
+                                    Click="ButtonCheckUpdate_OnClick"/>
+                        </StackPanel>
+                    </Grid>
+                </TabItem>
+
+                <TabItem Header="更新选项">
+                    <StackPanel Orientation="Vertical" Margin="12" Spacing="8">
+                        <fa:FASettingsExpander Header="更新渠道" IsExpanded="True"
+                                               Description="选择从哪个渠道接收更新。版本的发行节奏与稳定程度因渠道而异。">
+                            <fa:FASettingsExpander.IconSource>
+                                <fa:FASymbolIconSource Symbol="Globe"/>
+                            </fa:FASettingsExpander.IconSource>
+                            <fa:FASettingsExpander.Footer>
+                                <fa:FAComboBox SelectedIndex="{Binding SelectedChannelIndex, Mode=TwoWay}">
+                                    <fa:FAComboBoxItem Content="稳定版"/>
+                                    <fa:FAComboBoxItem Content="测试版"/>
+                                </fa:FAComboBox>
+                            </fa:FASettingsExpander.Footer>
+                            <fa:FASettingsExpanderItem>
+                                <TextBlock TextWrapping="Wrap"
+                                           Text="{Binding SelectedChannelIndex, Converter={x:Static local:UpdateSettingsPage.UpdateChannelToDescriptionConverter}}"/>
+                            </fa:FASettingsExpanderItem>
+                        </fa:FASettingsExpander>
+
+                        <fa:FASettingsExpander Header="更新行为" IsExpanded="True"
+                                               Description="设置启动软件时，或在设置页中发现更新后的默认处理方式。">
+                            <fa:FASettingsExpander.IconSource>
+                                <fa:FASymbolIconSource Symbol="Download"/>
+                            </fa:FASettingsExpander.IconSource>
+                            <fa:FASettingsExpander.Footer>
+                                <fa:FAComboBox SelectedIndex="{Binding SelectedCheckBehaviorIndex, Mode=TwoWay}">
+                                    <fa:FAComboBoxItem Content="立即安装"/>
+                                    <fa:FAComboBoxItem Content="立即下载"/>
+                                    <fa:FAComboBoxItem Content="立即通知"/>
+                                    <fa:FAComboBoxItem Content="不执行任何操作"/>
+                                </fa:FAComboBox>
+                            </fa:FASettingsExpander.Footer>
+                        </fa:FASettingsExpander>
+
+                        <fa:FASettingsExpander Header="更新信息" IsExpanded="True">
+                            <fa:FASettingsExpander.IconSource>
+                                <fa:FASymbolIconSource Symbol="Document"/>
+                            </fa:FASettingsExpander.IconSource>
+                            <fa:FASettingsExpanderItem Content="当前版本">
+                                <fa:FASettingsExpanderItem.Footer>
+                                    <TextBlock Text="{Binding CurrentVersion}"/>
+                                </fa:FASettingsExpanderItem.Footer>
+                            </fa:FASettingsExpanderItem>
+                            <fa:FASettingsExpanderItem Content="运行平台">
+                                <fa:FASettingsExpanderItem.Footer>
+                                    <TextBlock Text="{Binding Platform}"/>
+                                </fa:FASettingsExpanderItem.Footer>
+                            </fa:FASettingsExpanderItem>
+                            <fa:FASettingsExpanderItem Content="上次检查更新">
+                                <fa:FASettingsExpanderItem.Footer>
+                                    <TextBlock Text="{Binding LastCheckTimeText}"/>
+                                </fa:FASettingsExpanderItem.Footer>
+                            </fa:FASettingsExpanderItem>
+                            <fa:FASettingsExpanderItem Content="更新包目录"
+                                                       Description="{Binding UpdateDirectory}"
+                                                       IsClickEnabled="True" Click="SettingsExpanderItemOpenUpdateDirectory_OnClick">
+                                <fa:FASettingsExpanderItem.ActionIconSource>
+                                    <fa:FASymbolIconSource Symbol="Folder"/>
+                                </fa:FASettingsExpanderItem.ActionIconSource>
+                            </fa:FASettingsExpanderItem>
+                        </fa:FASettingsExpander>
                     </StackPanel>
-                </fa:FASettingsExpander.Footer>
-                <fa:FASettingsExpanderItem x:Name="UpdateStatusItem">
-                    <fa:FASettingsExpanderItem.Footer>
-                        <ProgressBar x:Name="UpdateProgressBar" Width="220" IsVisible="False"/>
-                    </fa:FASettingsExpanderItem.Footer>
-                </fa:FASettingsExpanderItem>
-            </fa:FASettingsExpander>
-            <fa:FASettingsExpander Header="更新渠道" Description="选择从哪个渠道接收更新。">
-                <fa:FASettingsExpander.IconSource>
-                    <fa:FASymbolIconSource Symbol="Globe"/>
-                </fa:FASettingsExpander.IconSource>
-                <fa:FASettingsExpander.Footer>
-                    <fa:FAComboBox x:Name="UpdateChannelComboBox"
-                                   SelectionChanged="UpdateChannelComboBox_OnSelectionChanged">
-                        <fa:FAComboBoxItem Content="稳定版"/>
-                        <fa:FAComboBoxItem Content="测试版"/>
-                    </fa:FAComboBox>
-                </fa:FASettingsExpander.Footer>
-            </fa:FASettingsExpander>
-            <fa:FASettingsExpander Header="更新行为" Description="发现更新后的默认处理方式。">
-                <fa:FASettingsExpander.IconSource>
-                    <fa:FASymbolIconSource Symbol="Download"/>
-                </fa:FASettingsExpander.IconSource>
-                <fa:FASettingsExpander.Footer>
-                    <fa:FAComboBox x:Name="UpdateCheckBehaviorComboBox"
-                                   SelectionChanged="UpdateCheckBehaviorComboBox_OnSelectionChanged">
-                        <fa:FAComboBoxItem Content="立即安装"/>
-                        <fa:FAComboBoxItem Content="立即下载"/>
-                        <fa:FAComboBoxItem Content="立即通知"/>
-                        <fa:FAComboBoxItem Content="不执行任何操作"/>
-                    </fa:FAComboBox>
-                </fa:FASettingsExpander.Footer>
-            </fa:FASettingsExpander>
+                </TabItem>
+            </TabControl>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
