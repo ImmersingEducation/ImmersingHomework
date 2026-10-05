@@ -30,7 +30,12 @@ public partial class App : Application
     private SettingsWindow? _settingsWindow;
     private IClassicDesktopStyleApplicationLifetime? _desktopLifetime;
     private TrayIcon? _trayIcon;
-    private bool _isShowingExceptionWindow;
+
+    /// <summary>
+    /// 异常处理动作是否正在进行。退出/重启会终止进程，异常窗口则一直挂到用户关掉为止，
+    /// 期间再来的异常只需记录日志，避免重复退出或弹出一堆窗口。
+    /// </summary>
+    private bool _isHandlingFatalException;
 
     private ServiceProvider? _services;
 
@@ -171,13 +176,13 @@ public partial class App : Application
         {
             var ex = e.ExceptionObject as Exception ?? new Exception(e.ExceptionObject?.ToString());
             _logger.Fatal(ex, "未处理的异常 (AppDomain)");
-            ShowExceptionWindow(ex);
+            HandleExceptionWithTeachingSecurity(ex);
         };
         TaskScheduler.UnobservedTaskException += (_, e) =>
         {
             e.SetObserved();
             _logger.Error(e.Exception, "未观察的任务异常");
-            ShowExceptionWindow(e.Exception);
+            HandleExceptionWithTeachingSecurity(e.Exception);
         };
     }
 
@@ -185,27 +190,80 @@ public partial class App : Application
     {
         e.Handled = true;
         _logger.Fatal(e.Exception, "未处理的异常 (UI 线程)");
-        ShowExceptionWindow(e.Exception);
+        HandleExceptionWithTeachingSecurity(e.Exception);
+    }
+
+    private void HandleExceptionWithTeachingSecurity(Exception ex)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => HandleExceptionWithTeachingSecurity(ex));
+            return;
+        }
+
+        // 退出、重启与弹窗都会再次经过这里（例如 Shutdown 期间 Save() 失败），先挡住重入
+        if (_isHandlingFatalException)
+            return;
+        _isHandlingFatalException = true;
+
+        var mode = ReadTeachingSecurityMode();
+
+        _logger.Fatal("未处理的异常，按教学安全模式 {Mode} 处理", mode);
+
+        switch (mode)
+        {
+            case TeachingSecurityMode.AutoExit:
+                ExitApplication();
+                break;
+            case TeachingSecurityMode.AutoRestart:
+                RestartApplication();
+                break;
+            default:
+                ShowExceptionWindow(ex);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// 读取教学安全模式。异常处理器本身不该再抛异常，因此设置文件损坏时降级为显示提醒而不是重启。
+    /// 非法枚举值（如手改过的 Settings.json）同样降级，让 switch 不必保留会屏蔽编译警告的 default 分支。
+    /// </summary>
+    private TeachingSecurityMode ReadTeachingSecurityMode()
+    {
+        try
+        {
+            var mode = AppSettings.Instance.TeachingSecurityMode.Value;
+            if (Enum.IsDefined(mode))
+                return mode;
+
+            _logger.Warning("未知的教学安全模式: {Mode}", (int)mode);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "读取教学安全模式失败，降级为显示提醒");
+        }
+
+        return TeachingSecurityMode.ShowNotification;
     }
 
     private void ShowExceptionWindow(Exception ex)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => ShowExceptionWindow(ex));
-            return;
-        }
-
-        if (_isShowingExceptionWindow)
-            return;
-        _isShowingExceptionWindow = true;
-
         try
         {
-            new ExceptionWindow(ex.ToString()).Show();
+            var window = new ExceptionWindow(ex.ToString())
+            {
+                // 主窗口是全屏的，不居中就容易藏在后面；这里不能用 CenterOwner，因为 MainWindow 是浮窗
+                WindowStartupLocation = WindowStartupLocation.CenterScreen
+            };
+
+            // 窗口关闭即视为本次处理结束，下一次异常仍可再次提醒
+            window.Closed += (_, _) => _isHandlingFatalException = false;
+
+            window.Show();
         }
         catch (Exception windowEx)
         {
+            _isHandlingFatalException = false;
             _logger.Error(windowEx, "显示异常窗口失败");
         }
     }

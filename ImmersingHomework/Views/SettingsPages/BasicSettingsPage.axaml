@@ -38,6 +38,19 @@
                     </fa:FAComboBox>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="教学安全模式" Description="选择当应用出现异常时的处理方式。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Important"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="TeachingSecurityModeComboBox"
+                                   SelectionChanged="TeachingSecurityModeComboBox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="自动关闭"/>
+                        <fa:FAComboBoxItem Content="自动重启"/>
+                        <fa:FAComboBoxItem Content="显示提醒"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

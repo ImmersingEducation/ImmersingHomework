@@ -60,4 +60,14 @@ public partial class BasicSettingsPage : UserControl
             AppSettings.Instance.ThemeMode.Value = mode;
         }
     }
+
+    private void TeachingSecurityModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (TeachingSecurityModeComboBox.SelectedIndex >= 0)
+        {
+            var mode = (TeachingSecurityMode)TeachingSecurityModeComboBox.SelectedIndex;
+            _logger.Information("教学安全模式设置变更: {Mode}", mode);
+            AppSettings.Instance.TeachingSecurityMode.Value = mode;
+        }
+    }
 }

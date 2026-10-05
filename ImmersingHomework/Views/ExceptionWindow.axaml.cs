@@ -32,7 +32,17 @@ public partial class ExceptionWindow : FAAppWindow
     {
         if (Application.Current is App app)
         {
+            // 重启会走 Shutdown，先关掉自己，免得留下一个无主的窗口
+            Close();
             app.RestartApplication();
+        }
+    }
+
+    private void ExitButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (Application.Current is App app)
+        {
+            app.ExitApplication();
         }
     }
 

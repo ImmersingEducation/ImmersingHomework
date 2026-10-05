@@ -10,6 +10,11 @@ using Serilog;
 
 namespace ImmersingHomework.Models;
 
+public enum TeachingSecurityMode
+{
+    AutoExit, AutoRestart, ShowNotification
+}
+
 public enum HitokotoDisplayMode
 {
     Hide, Content, ContentAndAuthor
@@ -65,6 +70,9 @@ public class AppSettings
     public ObservableProperty<bool> UrlSchemaRegistered { get; set; } = new(false);
 
     public ObservableProperty<ThemeMode> ThemeMode { get; set; } = new(Enums.ThemeMode.System);
+
+    public ObservableProperty<TeachingSecurityMode> TeachingSecurityMode { get; set; } =
+        new(Models.TeachingSecurityMode.AutoRestart);
 
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
         new(Models.HitokotoDisplayMode.Content);
@@ -152,6 +160,7 @@ public class AppSettings
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
         UrlSchemaRegistered.Value = loaded.UrlSchemaRegistered.Value;
         ThemeMode.Value = loaded.ThemeMode.Value;
+        TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         ShowHomeworkAfterSchool.Value = loaded.ShowHomeworkAfterSchool.Value;
@@ -185,6 +194,7 @@ public class AppSettings
         Watch(LaunchAtStartup, ScheduleAutoSave);
         Watch(UrlSchemaRegistered, ScheduleAutoSave);
         Watch(ThemeMode, ScheduleAutoSave);
+        Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
         Watch(ShowHomeworkAfterSchool, ScheduleAutoSave);

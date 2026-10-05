@@ -5,10 +5,11 @@
         xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.ExceptionWindow"
-        Title="ExceptionWindow" Width="600" Height="400">
+        Title="方圆作业板 - 发生异常" Width="600" Height="400"
+        WindowStartupLocation="CenterScreen">
         <StackPanel Orientation="Vertical" HorizontalAlignment="Stretch" Spacing="16" Margin="24">
                 <TextBlock FontSize="32" FontWeight="Bold">Oops！看来开发者要背锅了。</TextBlock>
-                <TextBlock FontSize="16">软件发生了致命错误，需要重启。</TextBlock>
+                <TextBlock FontSize="16">软件发生了致命错误。重启软件后可以继续使用，如果反复出现请向开发者反馈。</TextBlock>
                 <TextBox x:Name="StackTraceTextBox"
                          IsReadOnly="True"
                          AcceptsReturn="True"
@@ -21,9 +22,10 @@
                          Background="Transparent"
                          HorizontalAlignment="Stretch"
                          VerticalAlignment="Stretch"/>
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                         <Button Grid.Column="0" HorizontalAlignment="Stretch" Click="FeedbackButton_OnClick">向开发者反馈</Button>
                         <Button Grid.Column="1" HorizontalAlignment="Stretch" Click="RestartButton_OnClick">重启软件</Button>
+                        <Button Grid.Column="2" HorizontalAlignment="Stretch" Click="ExitButton_OnClick">退出软件</Button>
                 </Grid>
         </StackPanel>
 </wnd:FAAppWindow>
