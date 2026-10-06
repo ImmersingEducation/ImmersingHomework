@@ -7,6 +7,7 @@
              xmlns:enums="clr-namespace:ImmersingHomework.Enums"
              xmlns:local="clr-namespace:ImmersingHomework.Views.SettingsPages"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             MaxWidth="1024"
              x:Class="ImmersingHomework.Views.SettingsPages.UpdateSettingsPage"
              x:DataType="local:UpdateSettingsPage"
              d:DataContext="{d:DesignInstance local:UpdateSettingsPage}"
