@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -12,6 +13,9 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class LinkageSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<LinkageSettingsPage>();
+
+    private bool _flag = false;
+    
     public LinkageSettingsPage()
     {
         _logger.Debug("LinkageSettingsPage 初始化");
@@ -30,14 +34,29 @@ public partial class LinkageSettingsPage : UserControl
         ShowHomeworkAfterSchoolSwitch.IsChecked = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         AfterSchoolWaitSecondCombobox.Text = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value.ToString();
         ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked = AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value;
+        _flag = true;
     }
     
-    private void ClassIslandSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    private async void ClassIslandSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
     {
         if (ClassIslandSwitch.IsChecked.HasValue)
         {
             _logger.Information("ClassIsland 联动设置变更: {Value}", ClassIslandSwitch.IsChecked.Value);
             AppSettings.Instance.EnableClassIslandIPCService.Value = ClassIslandSwitch.IsChecked.Value;
+
+            if (!_flag) return;
+            var window = TopLevel.GetTopLevel(this) as Window;
+            if (window is null) return;
+            var dialog = new FAContentDialog
+            {
+                Title = "重启软件",
+                Content = "该设置需要重启生效。",
+                PrimaryButtonText = "重启",
+                CloseButtonText = "取消"
+            };
+            var result = await dialog.ShowAsync(window);
+            if (result is FAContentDialogResult.Primary)
+                ((App)Application.Current!).RestartApplication();
         }
     }
     
