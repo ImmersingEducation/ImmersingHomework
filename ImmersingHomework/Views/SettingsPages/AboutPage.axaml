@@ -7,7 +7,7 @@
              x:Class="ImmersingHomework.Views.SettingsPages.AboutPage">
     <ScrollViewer>
         <StackPanel Orientation="Vertical">
-            <Image Source="avares://ImmersingHomework/Assets/banner-2-3.png" />
+            <Image Source="avares://ImmersingHomework/Assets/banner-mini.png" />
             <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
                 <TextBlock Text="关于软件" FontSize="36" FontWeight="Bold"/>
                 <TextBlock Text="展示软件详细信息。" FontSize="18"/>
