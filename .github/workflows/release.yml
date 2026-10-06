@@ -280,13 +280,13 @@ jobs:
         include:
           - os: windows-latest
             rid: win-x64
-            packaging: Portable DotNetSingleFile WindowsInstaller
+            packaging: Portable WindowsInstaller
           - os: ubuntu-latest
             rid: linux-x64
-            packaging: Portable DotNetSingleFile LinuxDeb LinuxRpm LinuxAppImage
+            packaging: Portable LinuxDeb
           - os: macos-latest
             rid: osx-arm64
-            packaging: Portable DotNetSingleFile MacOSAppBundle MacOSDmg MacOSPkg
+            packaging: Portable
     runs-on: ${{ matrix.os }}
     env:
       VERSION: ${{ needs.prepare.outputs.version }}
