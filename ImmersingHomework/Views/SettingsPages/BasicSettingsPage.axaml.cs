@@ -31,6 +31,7 @@ public partial class BasicSettingsPage : UserControl
         LaunchAtStartupSwitch.IsChecked = AppSettings.Instance.LaunchAtStartup.Value;
         UrlSchemaRegisteredSwitch.IsChecked = AppSettings.Instance.UrlSchemaRegistered.Value;
         ThemeModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.ThemeMode.Value);
+        TeachingSecurityModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.TeachingSecurityMode.Value);
     }
 
     private void LaunchAtStartupSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
