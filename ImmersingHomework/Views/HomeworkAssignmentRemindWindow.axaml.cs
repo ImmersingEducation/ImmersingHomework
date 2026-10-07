@@ -21,6 +21,7 @@ public partial class HomeworkAssignmentRemindWindow : FAAppWindow
     private void OpenButton_OnClick(object? sender, RoutedEventArgs e)
     {
         ((App)Application.Current!).ShowMainWindow();
+        Close();
     }
 
     private void CloseButton_OnClick(object? sender, RoutedEventArgs e)
