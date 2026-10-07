@@ -31,6 +31,7 @@ public partial class LinkageSettingsPage : UserControl
     {
         ClassIslandSwitch.IsChecked = AppSettings.Instance.EnableClassIslandIPCService.Value;
         TakeoverSubjectsSwitch.IsChecked = AppSettings.Instance.ClassIslandTakeoverSubjects.Value;
+        RemindHomeworkAssignmentSwitch.IsChecked  = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         ShowHomeworkAfterSchoolSwitch.IsChecked = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         AfterSchoolWaitSecondCombobox.Text = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value.ToString();
         ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked = AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value;
@@ -101,6 +102,15 @@ public partial class LinkageSettingsPage : UserControl
         {
             _logger.Information("次日第一节课前显示作业变更: {Value}", ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked.Value);
             AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value = ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked.Value;
+        }
+    }
+
+    private void RemindHomeworkAssignmentSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        if (RemindHomeworkAssignmentSwitch.IsChecked.HasValue)
+        {
+            _logger.Information("课后提醒布置作业设置项变更：{Value}", RemindHomeworkAssignmentSwitch.IsChecked.Value);
+            AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value = RemindHomeworkAssignmentSwitch.IsChecked.Value;
         }
     }
 }

@@ -36,6 +36,7 @@ public class ClassIslandService : IClassIslandService
 
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnBreakingTimeNotifyId, () =>
         {
+            if (!AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value) return;
             _logger.Information("收到课间通知（OnBreakingTime）");
             var lessonService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
             if (GetPreviousClassSubject() == lessonService.NextClassSubject) return;

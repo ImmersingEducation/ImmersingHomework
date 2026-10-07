@@ -25,6 +25,13 @@
                                       IsCheckedChanged="TakeoverSubjectsSwitch_OnIsCheckedChanged"/>
                     </fa:FASettingsExpanderItem.Footer>
                 </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="课后提醒布置作业"
+                                           IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="RemindHomeworkAssignmentSwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="RemindHomeworkAssignmentSwitch_OnIsCheckedChanged"></ToggleSwitch>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
                 <fa:FASettingsExpanderItem Content="放学后显示作业"
                                            Description="放学后自动显示主界面，方便查看当天作业。"
                                            IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">

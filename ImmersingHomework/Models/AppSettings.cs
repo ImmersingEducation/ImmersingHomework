@@ -84,6 +84,8 @@ public class AppSettings
     public ObservableProperty<bool> EnableClassIslandIPCService { get; set; } = new(false);
 
     public ObservableProperty<bool> ClassIslandTakeoverSubjects { get; set; } = new(false);
+
+    public ObservableProperty<bool> RemindHomeworkAssignmentAfterClass { get; set; } = new(false);
     
     public ObservableProperty<bool> ShowHomeworkAfterSchool { get; set; } = new(false);
 
@@ -163,6 +165,7 @@ public class AppSettings
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
+        RemindHomeworkAssignmentAfterClass.Value = loaded.RemindHomeworkAssignmentAfterClass.Value;
         ShowHomeworkAfterSchool.Value = loaded.ShowHomeworkAfterSchool.Value;
         AfterSchoolShowMainWindowWaitSecond.Value = loaded.AfterSchoolShowMainWindowWaitSecond.Value;
         ShowHomeworkBeforeFirstClassNextDay.Value = loaded.ShowHomeworkBeforeFirstClassNextDay.Value;
@@ -197,6 +200,7 @@ public class AppSettings
         Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
+        Watch(RemindHomeworkAssignmentAfterClass, ScheduleAutoSave);
         Watch(ShowHomeworkAfterSchool, ScheduleAutoSave);
         Watch(AfterSchoolShowMainWindowWaitSecond, ScheduleAutoSave);
         Watch(ShowHomeworkBeforeFirstClassNextDay, ScheduleAutoSave);
