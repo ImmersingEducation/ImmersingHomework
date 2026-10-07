@@ -38,47 +38,62 @@ public class ClassIslandService : IClassIslandService
         {
             if (!AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value) return;
             _logger.Information("收到课间通知（OnBreakingTime）");
-            var lessonService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
-            if (GetPreviousClassSubject() == lessonService.NextClassSubject) return;
-            ((App)Application.Current!).OpenHomeworkAssignmentRemindWindow();
+            RemindHomeworkAssignmentAfterClass();
         });
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnAfterSchoolNotifyId, async () =>
         {
             if (!AppSettings.Instance.ShowHomeworkAfterSchool.Value) return;
             var waitSeconds = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value;
             _logger.Information("收到放学通知（OnAfterSchool），{WaitSeconds} 秒后显示主界面", waitSeconds);
-            await Task.Delay(waitSeconds * 1000);
-            // IPC 回调运行在后台线程，await 之后也不保证回到 UI 线程，操作窗口前必须切回 UI 线程
-            Dispatcher.UIThread.Post(() =>
-            {
-                var app = (App?)Application.Current;
-                app?.ShowMainWindow();
-                _logger.Information("放学后已触发显示主界面");
-            });
+            await ShowHomeworkAfterSchool(waitSeconds);
         });
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnClassNotifyId, () =>
         {
             if (!AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value) return;
             _logger.Information("收到上课通知（OnClass）");
-            var lessonsService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
-            var layoutItems = lessonsService.CurrentClassPlan?.TimeLayout?.Layouts;
-            var firstClassLayoutItem = layoutItems?.FirstOrDefault(i => i.TimeType == 0);
-            if (firstClassLayoutItem is null)
-            {
-                _logger.Warning("未找到第一节课的时间布局项，无法判断上课时间");
-                return;
-            }
-            var span = DateTime.Now - DateTime.Today;
-            if (firstClassLayoutItem.StartTime <= span && span <= firstClassLayoutItem.EndTime)
-            {
-                _logger.Information("当前处于第一节课时间段（{StartTime} - {EndTime}），隐藏主界面",
-                    firstClassLayoutItem.StartTime, firstClassLayoutItem.EndTime);
-                // IPC 回调运行在后台线程，操作窗口前必须切回 UI 线程
-                Dispatcher.UIThread.Post(() => ((App?)Application.Current)?.HideMainWindow());
-            }
+            CloseHomeworkOnFirstClass();
         });
         
         Connect();
+    }
+
+    private void CloseHomeworkOnFirstClass()
+    {
+        var lessonsService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
+        var layoutItems = lessonsService.CurrentClassPlan?.TimeLayout?.Layouts;
+        var firstClassLayoutItem = layoutItems?.FirstOrDefault(i => i.TimeType == 0);
+        if (firstClassLayoutItem is null)
+        {
+            _logger.Warning("未找到第一节课的时间布局项，无法判断上课时间");
+            return;
+        }
+        var span = DateTime.Now - DateTime.Today;
+        if (firstClassLayoutItem.StartTime <= span && span <= firstClassLayoutItem.EndTime)
+        {
+            _logger.Information("当前处于第一节课时间段（{StartTime} - {EndTime}），隐藏主界面",
+                firstClassLayoutItem.StartTime, firstClassLayoutItem.EndTime);
+            // IPC 回调运行在后台线程，操作窗口前必须切回 UI 线程
+            Dispatcher.UIThread.Post(() => ((App?)Application.Current)?.HideMainWindow());
+        }
+    }
+
+    private async Task ShowHomeworkAfterSchool(int waitSeconds)
+    {
+        await Task.Delay(waitSeconds * 1000);
+        // IPC 回调运行在后台线程，await 之后也不保证回到 UI 线程，操作窗口前必须切回 UI 线程
+        Dispatcher.UIThread.Post(() =>
+        {
+            var app = (App?)Application.Current;
+            app?.ShowMainWindow();
+            _logger.Information("放学后已触发显示主界面");
+        });
+    }
+
+    private void RemindHomeworkAssignmentAfterClass()
+    {
+        var lessonService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
+        if (GetPreviousClassSubject() == lessonService.NextClassSubject) return;
+        ((App)Application.Current!).OpenHomeworkAssignmentRemindWindow();
     }
 
     public List<string> GetSubjects()
