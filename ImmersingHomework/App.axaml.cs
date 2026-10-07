@@ -465,9 +465,22 @@ public partial class App : Application
 
     public void OpenHomeworkAssignmentRemindWindow()
     {
-        var remindWindow = Services.GetRequiredService<HomeworkAssignmentRemindWindow>();
-        remindWindow.Activate();
-        remindWindow.Show();
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(OpenHomeworkAssignmentRemindWindow);
+            return;
+        }
+
+        try
+        {
+            var remindWindow = Services.GetRequiredService<HomeworkAssignmentRemindWindow>();
+            remindWindow.Show();
+            remindWindow.Activate();
+        }
+        catch (Exception e)
+        {
+            _logger.Error(e, "打开作业提醒窗口失败");
+        }
     }
 
     private void ToggleFloatingButton()
@@ -571,7 +584,7 @@ public partial class App : Application
     public void ShowMainWindow()
     {
         if (_mainWindow is null) return;
-        _mainWindow.WindowState = Avalonia.Controls.WindowState.FullScreen;
+        _mainWindow.WindowState = WindowState.FullScreen;
         _mainWindow.Activate();
         _mainWindow.Show();
         _mainWindow.HomeworkPanel.Refresh();

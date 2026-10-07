@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Threading;
 using ClassIsland.Shared.IPC;
 using ClassIsland.Shared.IPC.Abstractions.Services;
 using ClassIsland.Shared.Models.Profile;
@@ -46,9 +47,13 @@ public class ClassIslandService : IClassIslandService
             var waitSeconds = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value;
             _logger.Information("收到放学通知（OnAfterSchool），{WaitSeconds} 秒后显示主界面", waitSeconds);
             await Task.Delay(waitSeconds * 1000);
-            var app = (App?)Application.Current;
-            app?.ShowMainWindow();
-            _logger.Information("放学后已触发显示主界面");
+            // IPC 回调运行在后台线程，await 之后也不保证回到 UI 线程，操作窗口前必须切回 UI 线程
+            Dispatcher.UIThread.Post(() =>
+            {
+                var app = (App?)Application.Current;
+                app?.ShowMainWindow();
+                _logger.Information("放学后已触发显示主界面");
+            });
         });
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnClassNotifyId, () =>
         {
@@ -67,8 +72,8 @@ public class ClassIslandService : IClassIslandService
             {
                 _logger.Information("当前处于第一节课时间段（{StartTime} - {EndTime}），隐藏主界面",
                     firstClassLayoutItem.StartTime, firstClassLayoutItem.EndTime);
-                var app = (App?)Application.Current;
-                app?.HideMainWindow();
+                // IPC 回调运行在后台线程，操作窗口前必须切回 UI 线程
+                Dispatcher.UIThread.Post(() => ((App?)Application.Current)?.HideMainWindow());
             }
         });
         
