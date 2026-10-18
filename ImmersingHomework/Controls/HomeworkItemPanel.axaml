@@ -9,7 +9,7 @@
     <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="24">
         <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto" RowSpacing="8" Margin="8">
             <StackPanel Grid.Row="0" Grid.Column="0" Grid.RowSpan="2" Orientation="Vertical" Margin="8" Spacing="8">
-                <TextBlock x:Name="ContentText" FontSize="24"/>
+                <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
                 <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
             </StackPanel>
             <Button x:Name="MoreButton" Grid.Row="0" Grid.Column="1" Width="48" Height="48" CornerRadius="24" BorderThickness="0" Background="Transparent" Click="MoreButton_OnClick">
