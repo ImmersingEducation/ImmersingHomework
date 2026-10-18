@@ -14,6 +14,12 @@ public partial class TagPicker : UserControl
     private readonly List<PickableTag> _pickableTags = [];
     private readonly Dictionary<string, TagModel> _tagModelMap = [];
 
+    /// <summary>
+    /// 已选标签名集合。由于 <see cref="SetSelectedTags"/> 可能在标签控件加载（附加到视觉树）之前被调用，
+    /// 选中状态需先记录在此，并在 <see cref="LoadTags"/> 重建控件时重新应用，避免选中状态丢失。
+    /// </summary>
+    private readonly HashSet<string> _selectedTagNames = [];
+
     public TagPicker()
     {
         _logger.Debug("TagPicker 初始化");
@@ -41,14 +47,15 @@ public partial class TagPicker : UserControl
             var pickableTag = new PickableTag
             {
                 TagName = tagModel.Name,
-                TagColor = tagModel.Color.ToSolidColorBrush()
+                TagColor = tagModel.Color.ToSolidColorBrush(),
+                IsChecked = _selectedTagNames.Contains(tagModel.Name)
             };
             PickableTagPanel.Children.Add(pickableTag);
             _pickableTags.Add(pickableTag);
             _tagModelMap[tagModel.Name] = tagModel;
         }
         
-        _logger.Debug("标签加载完成，共 {Count} 个", _pickableTags.Count);
+        _logger.Debug("标签加载完成，共 {Count} 个，已恢复选中 {SelectedCount} 个", _pickableTags.Count, _selectedTagNames.Count);
     }
 
     public List<TagModel> GetSelectedTags()
@@ -66,16 +73,24 @@ public partial class TagPicker : UserControl
     public void SetSelectedTags(List<TagModel> selectedTags)
     {
         _logger.Debug("设置选中的标签，共 {Count} 个", selectedTags.Count);
-        var selectedNames = new HashSet<string>(selectedTags.Select(t => t.Name));
+        _selectedTagNames.Clear();
+        foreach (var tag in selectedTags)
+        {
+            if (!string.IsNullOrEmpty(tag.Name)) _selectedTagNames.Add(tag.Name);
+        }
+
+        // 标签控件尚未加载（如编辑对话框附加到视觉树早于本控件）时，
+        // 选中状态记录在 _selectedTagNames 中，待 LoadTags 时应用。
         foreach (var pickableTag in _pickableTags)
         {
-            pickableTag.IsChecked = selectedNames.Contains(pickableTag.TagName);
+            pickableTag.IsChecked = _selectedTagNames.Contains(pickableTag.TagName);
         }
     }
 
     public void ClearSelection()
     {
         _logger.Debug("清除所有标签选择");
+        _selectedTagNames.Clear();
         foreach (var pickableTag in _pickableTags)
         {
             pickableTag.IsChecked = false;

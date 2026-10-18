@@ -47,6 +47,7 @@ public partial class PickableTag : UserControl
         IsCheckedProperty.Changed.AddClassHandler<PickableTag>((tag, e) => 
         {
             _logger.Debug("选中状态变化: {IsChecked}", tag.IsChecked);
+            tag.UpdateToggleButtonState();
             tag.UpdateVisual();
         });
         TagNameProperty.Changed.AddClassHandler<PickableTag>((tag, e) => 
@@ -77,6 +78,18 @@ public partial class PickableTag : UserControl
         if (TagText != null && !string.IsNullOrEmpty(TagName))
         {
             TagText.Text = TagName;
+        }
+    }
+
+    /// <summary>
+    /// 将 <see cref="IsChecked"/> 同步到底层 ToggleButton，保证程序化设置选中状态时视觉表现一致。
+    /// 值相同时不会触发变更事件，因此不会与 ToggleButton.IsCheckedChanged 形成循环。
+    /// </summary>
+    private void UpdateToggleButtonState()
+    {
+        if (TagToggleButton != null && TagToggleButton.IsChecked != IsChecked)
+        {
+            TagToggleButton.IsChecked = IsChecked;
         }
     }
 
