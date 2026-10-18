@@ -3,7 +3,7 @@ using Avalonia.Controls;
 using Avalonia.Media;
 using Serilog;
 
-namespace ImmersingHomework.Controls;
+namespace ImmersingHomework.Shared.Controls;
 
 public partial class Tag : UserControl
 {

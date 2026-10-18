@@ -12,7 +12,6 @@
       <Folder Include="Assets\" />
       <Folder Include="Enums\" />
       <Folder Include="Models\" />
-      <Folder Include="Services\" />
     </ItemGroup>
 
     <ItemGroup>
@@ -30,6 +29,13 @@
 
     <ItemGroup>
       <ProjectReference Include="..\ImmersingHomework.Uaf.Core\ImmersingHomework.Uaf.Core.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Update="Controls\Tag.axaml.cs">
+        <DependentUpon>Tag.axaml</DependentUpon>
+        <SubType>Code</SubType>
+      </Compile>
     </ItemGroup>
 
 </Project>

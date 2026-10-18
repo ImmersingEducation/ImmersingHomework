@@ -7,6 +7,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using ImmersingHomework.Models;
+using ImmersingHomework.Shared.Controls;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
