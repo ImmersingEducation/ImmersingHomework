@@ -4,12 +4,11 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             MaxWidth="1024"
              x:Class="ImmersingHomework.Views.SettingsPages.AboutPage">
     <ScrollViewer>
         <StackPanel Orientation="Vertical">
             <Image Source="avares://ImmersingHomework/Assets/banner-mini.png" />
-            <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+            <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 12" MaxWidth="1024">
                 <TextBlock Text="关于软件" FontSize="36" FontWeight="Bold"/>
                 <TextBlock Text="展示软件详细信息。" FontSize="18"/>
                 <fa:FASettingsExpander Header="方圆作业板" IsExpanded="True">
@@ -20,6 +19,30 @@
                         <TextBlock x:Name="VersionText"/>
                     </fa:FASettingsExpander.Footer>
                 </fa:FASettingsExpander>
+                <fa:FASettingsExpander Header="鸣谢">
+                    <fa:FASettingsExpander.IconSource>
+                        <fa:FASymbolIconSource Symbol="Star"/>
+                    </fa:FASettingsExpander.IconSource>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock>本项目使用微软 .NET 开发平台与 C# 语言进行开发。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock>项目 UI 界面使用 Avalonia 与 FluentAvalonia 编写。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock TextWrapping="Wrap">PDF 导出部分由 UAF 提供技术支持。统一作业展示与交换格式 UnifiedAssignmentFormat 是一套基于 PDF 包装 csv 的可展示可交换的格式。你可以在 ClassWorks，StickyHomeworks2，AssignSticker，方圆作业板，zooni-next 中将作业导出为PDF并可被人类阅读，同时你也可以自由的将符合标准的PDF文件导入导出至各类软件，便于您便携的交换分享您的作业数据。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock>应用字体使用华为出品的 HarmonyOS Sans。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock>感谢 ClassIsland、SecRandom 项目源码为本项目提供参考。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                    <fa:FASettingsExpanderItem>
+                        <TextBlock>感谢我的所有同学们，你们为我提供了开发本项目的灵感，你们的使用也让我发现了软件的诸多 Bug 并修复。</TextBlock>
+                    </fa:FASettingsExpanderItem>
+                </fa:FASettingsExpander>
+                <TextBlock HorizontalAlignment="Center">真希望所有的故事都没有结局，那样我就有了不停翻页的勇气。</TextBlock>
             </StackPanel>
         </StackPanel>
     </ScrollViewer>

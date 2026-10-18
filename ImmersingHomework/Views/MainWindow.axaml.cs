@@ -436,7 +436,7 @@ public partial class MainWindow : Window
             if (exportFormat == ExportFormat.Image)
             {
                 var outputPath = $"Outputs/{Date:yyyy-MM-dd}_{DateTime.Now:HH-mm-ss}.png";
-                HomeworkImageService.HomeworkToImage(homework, outputPath);
+                HomeworkImageService.SaveHomeworkImage(homework, outputPath);
                 ShowSuccess("图片已导出", Path.GetFullPath(outputPath));
                 await ShowExportResultDialog(outputPath, isImage: true);
             }
