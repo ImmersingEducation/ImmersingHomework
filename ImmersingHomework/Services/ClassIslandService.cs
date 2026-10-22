@@ -36,7 +36,9 @@ public class ClassIslandService : IClassIslandService
 
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnBreakingTimeNotifyId, () =>
         {
-            if (!AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value || GetPreviousClassSubject() is null) return;
+            if (!AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value
+                || GetPreviousClassSubject() is null
+                || AppSettings.Instance.RemindEnableSubjects.Contains(GetPreviousClassSubject()?.Name ?? "")) return;
             _logger.Information("收到课间通知（OnBreakingTime）");
             RemindHomeworkAssignmentAfterClass();
         });
