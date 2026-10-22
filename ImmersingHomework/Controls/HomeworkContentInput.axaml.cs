@@ -27,7 +27,7 @@ public partial class HomeworkContentInput : UserControl
     private string? _templateName;
     private readonly List<string> _templateParameters = [];
     private bool _isFreeTextMode = true;
-    private bool _suppressTemplateRadioRebuild;
+    private bool _suppressTemplateSelectionChanged;
 
     public HomeworkContentInput()
     {
@@ -46,8 +46,7 @@ public partial class HomeworkContentInput : UserControl
 
     private void OnTemplatesChanged(object? sender, NotifyCollectionChangedEventArgs e)
     {
-        if (!_suppressTemplateRadioRebuild)
-            BuildTemplateRadios();
+        BuildTemplateRadios();
     }
 
     private void BuildTemplateRadios()
@@ -60,7 +59,7 @@ public partial class HomeworkContentInput : UserControl
         };
         noneRadio.IsCheckedChanged += (sender, _) =>
         {
-            if (sender is RadioButton rb && rb.IsChecked == true)
+            if (!_suppressTemplateSelectionChanged && sender is RadioButton rb && rb.IsChecked == true)
                 SwitchToFreeTextMode();
         };
         TemplateRadioPanel.Children.Add(noneRadio);
@@ -73,24 +72,39 @@ public partial class HomeworkContentInput : UserControl
             };
             radio.IsCheckedChanged += (sender, _) =>
             {
-                if (sender is RadioButton rb && rb.IsChecked == true)
+                if (!_suppressTemplateSelectionChanged && sender is RadioButton rb && rb.IsChecked == true)
                     SwitchToTemplateMode(template);
             };
             TemplateRadioPanel.Children.Add(radio);
         }
 
         if (_isFreeTextMode)
-            noneRadio.IsChecked = true;
+            SelectTemplateRadio("无");
         else if (_templateName != null)
+            SelectTemplateRadio(_templateName);
+    }
+
+    /// <summary>
+    /// 以编程方式选中模板单选项。不触发 <see cref="SwitchToTemplateMode"/>，
+    /// 避免重建参数时清空 <see cref="SetHomeworkContent"/> 刚恢复的参数。
+    /// </summary>
+    private void SelectTemplateRadio(string templateName)
+    {
+        _suppressTemplateSelectionChanged = true;
+        try
         {
             foreach (var child in TemplateRadioPanel.Children)
             {
-                if (child is RadioButton rb && rb.Content?.ToString() == _templateName)
+                if (child is RadioButton rb && rb.Content?.ToString() == templateName)
                 {
                     rb.IsChecked = true;
                     break;
                 }
             }
+        }
+        finally
+        {
+            _suppressTemplateSelectionChanged = false;
         }
     }
 
@@ -123,12 +137,26 @@ public partial class HomeworkContentInput : UserControl
         SyncTextProperty();
     }
 
+    /// <summary>
+    /// 使参数值与模板中的占位符数量一致，兼容参数列表缺失或数量不足的旧数据。
+    /// </summary>
+    private void EnsureTemplateParameterCount()
+    {
+        var paramCount = CountParameters(_templateName);
+        while (_templateParameters.Count < paramCount)
+            _templateParameters.Add("");
+        if (_templateParameters.Count > paramCount)
+            _templateParameters.RemoveRange(paramCount, _templateParameters.Count - paramCount);
+    }
+
     private void BuildParameterInputs()
     {
         ParameterInputsPanel.Children.Clear();
 
         if (_templateName == null)
             return;
+
+        EnsureTemplateParameterCount();
 
         var paramCount = CountParameters(_templateName);
         for (var i = 0; i < paramCount; i++)
@@ -205,23 +233,15 @@ public partial class HomeworkContentInput : UserControl
         _logger.Debug("设置作业内容, TemplateName: {TemplateName}, FreeText: {IsFreeText}",
             templateName, templateName == null);
 
-        if (!string.IsNullOrEmpty(templateName) && parameters != null)
+        if (!string.IsNullOrEmpty(templateName))
         {
             _isFreeTextMode = false;
             _templateName = templateName;
             _templateParameters.Clear();
-            _templateParameters.AddRange(parameters);
+            if (parameters != null)
+                _templateParameters.AddRange(parameters);
 
-            _suppressTemplateRadioRebuild = true;
-            foreach (var child in TemplateRadioPanel.Children)
-            {
-                if (child is RadioButton rb && rb.Content?.ToString() == templateName)
-                {
-                    rb.IsChecked = true;
-                    break;
-                }
-            }
-            _suppressTemplateRadioRebuild = false;
+            SelectTemplateRadio(templateName);
 
             FreeTextBox.IsVisible = false;
             TemplatePanel.IsVisible = true;
@@ -234,16 +254,7 @@ public partial class HomeworkContentInput : UserControl
             _templateName = null;
             _templateParameters.Clear();
 
-            _suppressTemplateRadioRebuild = true;
-            foreach (var child in TemplateRadioPanel.Children)
-            {
-                if (child is RadioButton rb && rb.Content?.ToString() == "无")
-                {
-                    rb.IsChecked = true;
-                    break;
-                }
-            }
-            _suppressTemplateRadioRebuild = false;
+            SelectTemplateRadio("无");
 
             FreeTextBox.Text = content;
             FreeTextBox.IsVisible = true;
