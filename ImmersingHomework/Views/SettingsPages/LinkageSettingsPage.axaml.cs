@@ -31,7 +31,7 @@ public partial class LinkageSettingsPage : UserControl
     {
         ClassIslandSwitch.IsChecked = AppSettings.Instance.EnableClassIslandIPCService.Value;
         TakeoverSubjectsSwitch.IsChecked = AppSettings.Instance.ClassIslandTakeoverSubjects.Value;
-        RemindHomeworkAssignmentSwitch.IsChecked  = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
+        RemindHomeworkAssignmentSwitch.IsChecked  = AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value;
         ShowHomeworkAfterSchoolSwitch.IsChecked = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         AfterSchoolWaitSecondCombobox.Text = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value.ToString();
         ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked = AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value;
