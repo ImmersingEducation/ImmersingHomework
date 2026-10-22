@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
+using System.Reactive.Linq;
 using System.Text.Json;
 using System.Threading;
 using ImmersingHomework.Enums;
@@ -86,6 +87,8 @@ public class AppSettings
     public ObservableProperty<bool> ClassIslandTakeoverSubjects { get; set; } = new(false);
 
     public ObservableProperty<bool> RemindHomeworkAssignmentAfterClass { get; set; } = new(false);
+
+    public ObservableCollection<string> RemindEnableSubjects { get; set; } = [];
     
     public ObservableProperty<bool> ShowHomeworkAfterSchool { get; set; } = new(false);
 
@@ -157,6 +160,7 @@ public class AppSettings
         Replace(Subjects, loaded.Subjects);
         Replace(Tags, loaded.Tags);
         Replace(HomeworkTemplates, loaded.HomeworkTemplates);
+        Replace(RemindEnableSubjects, loaded.RemindEnableSubjects);
 
         FirstLaunch = loaded.FirstLaunch;
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
@@ -193,6 +197,7 @@ public class AppSettings
         Watch(Subjects, ScheduleAutoSave);
         Watch(Tags, ScheduleAutoSave);
         Watch(HomeworkTemplates, ScheduleAutoSave);
+        Watch(RemindEnableSubjects, ScheduleAutoSave);
 
         Watch(LaunchAtStartup, ScheduleAutoSave);
         Watch(UrlSchemaRegistered, ScheduleAutoSave);

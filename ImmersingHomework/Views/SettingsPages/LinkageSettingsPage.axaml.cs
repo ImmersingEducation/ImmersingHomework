@@ -1,9 +1,13 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Abstractions;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -13,13 +17,15 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class LinkageSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<LinkageSettingsPage>();
+    private IClassIslandService _classIslandService;
 
     private bool _flag = false;
     
-    public LinkageSettingsPage()
+    public LinkageSettingsPage(IClassIslandService classIslandService)
     {
         _logger.Debug("LinkageSettingsPage 初始化");
         InitializeComponent();
+        _classIslandService = classIslandService;
         this.AttachedToVisualTree += (_, _) => 
         {
             _logger.Debug("LinkageSettingsPage 附加到视觉树，初始化控件状态");
@@ -32,10 +38,33 @@ public partial class LinkageSettingsPage : UserControl
         ClassIslandSwitch.IsChecked = AppSettings.Instance.EnableClassIslandIPCService.Value;
         TakeoverSubjectsSwitch.IsChecked = AppSettings.Instance.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentSwitch.IsChecked  = AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value;
+        BuildSubjectCheckWrapPanel();
         ShowHomeworkAfterSchoolSwitch.IsChecked = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         AfterSchoolWaitSecondCombobox.Text = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value.ToString();
         ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked = AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value;
         _flag = true;
+    }
+
+    private void BuildSubjectCheckWrapPanel()
+    {
+        var subjects = _classIslandService.GetSubjects();
+        foreach (var subject in subjects)
+        {
+            var checkBox = new CheckBox { Content = subject, IsChecked = AppSettings.Instance.RemindEnableSubjects.Contains(subject) };
+            checkBox.IsCheckedChanged += (_, _) =>
+            {
+                if (checkBox.IsChecked.HasValue && checkBox.IsChecked.Value)
+                {
+                    if (!AppSettings.Instance.RemindEnableSubjects.Contains(checkBox.Content as string ?? ""))
+                        AppSettings.Instance.RemindEnableSubjects.Add(checkBox.Content as string ?? "");
+                }
+                else
+                {
+                    if (AppSettings.Instance.RemindEnableSubjects.Contains(checkBox.Content as string ?? ""))
+                        AppSettings.Instance.RemindEnableSubjects.Remove(checkBox.Content as string ?? "");
+                }
+            };
+        }
     }
     
     private async void ClassIslandSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
