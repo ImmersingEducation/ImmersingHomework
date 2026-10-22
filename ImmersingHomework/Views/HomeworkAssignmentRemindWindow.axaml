@@ -3,9 +3,11 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:wnd="clr-namespace:FluentAvalonia.UI.Windowing;assembly=FluentAvalonia"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        mc:Ignorable="d" d:DesignWidth="300" d:DesignHeight="200"
         x:Class="ImmersingHomework.Views.HomeworkAssignmentRemindWindow"
-        Title="方圆作业板 - 作业布置提醒">
+        Title="方圆作业板 - 作业布置提醒"
+        Width="300" Height="200"
+        WindowStartupLocation="CenterScreen">
     <StackPanel Orientation="Vertical" Spacing="8" Margin="16">
         <TextBlock FontSize="32" FontWeight="Bold">作业布置提醒</TextBlock>
         <TextBlock x:Name="DetailTextBlock" TextWrapping="WrapWithOverflow"/>
