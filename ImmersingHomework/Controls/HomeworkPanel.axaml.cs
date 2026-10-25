@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
@@ -15,6 +16,14 @@ namespace ImmersingHomework.Controls;
 
 public partial class  HomeworkPanel : UserControl
 {
+    /// <summary>
+    /// HomeworkGrid 的列数。每一列是一个独立的 StackPanel，各列高度互不影响。
+    /// </summary>
+    private const int HomeworkColumnCount = 4;
+
+    private readonly List<StackPanel> _homeworkColumns = [];
+    private int _subjectPanelCount;
+
     private readonly ILogger _logger = Log.ForContext<HomeworkPanel>();
     public static readonly StyledProperty<DateOnly> DateProperty =
         AvaloniaProperty.Register<HomeworkPanel, DateOnly>(nameof(Date));
@@ -96,8 +105,8 @@ public partial class  HomeworkPanel : UserControl
     public void DisplayHomework(Homework homework)
     {
         _logger.Debug("直接展示作业内容，日期: {Date}", homework.Date);
-        SubjectHomeworkPanels.IsVisible = false;
-        SubjectHomeworkPanels.Children.Clear();
+        HomeworkGrid.IsVisible = false;
+        ClearHomeworkGrid();
         IsFrozen = homework.Frozen;
 
         var hasHomework = false;
@@ -112,13 +121,13 @@ public partial class  HomeworkPanel : UserControl
                     var subjectPanel = new SubjectHomeworkPanel();
                     subjectPanel.SetData(subject, subjectItems);
                     subjectPanel.IsFrozen = IsFrozen;
-                    SubjectHomeworkPanels.Children.Add(subjectPanel);
+                    AddSubjectPanel(subjectPanel);
                     hasHomework = true;
                 }
             }
         }
 
-        SubjectHomeworkPanels.IsVisible = true;
+        HomeworkGrid.IsVisible = true;
         NoHomeworkText.IsVisible = !hasHomework;
         _logger.Debug("作业内容展示完成");
     }
@@ -134,8 +143,8 @@ public partial class  HomeworkPanel : UserControl
         var sw = Stopwatch.StartNew();
 #endif
         _logger.Debug("刷新作业面板，日期: {Date}", date);
-        SubjectHomeworkPanels.IsVisible = false;
-        SubjectHomeworkPanels.Children.Clear();
+        HomeworkGrid.IsVisible = false;
+        ClearHomeworkGrid();
         var homework = await StorageService.LoadAsync(date);
         IsFrozen = homework?.Frozen ?? false;
 
@@ -180,7 +189,7 @@ public partial class  HomeworkPanel : UserControl
                             subjectPanel.SetData(subject, subjectItems);
                             subjectPanel.EditRequested += OnEditRequested;
                             subjectPanel.IsFrozen = IsFrozen;
-                            SubjectHomeworkPanels.Children.Add(subjectPanel);
+                            AddSubjectPanel(subjectPanel);
                             hasHomework = true;
                         }
                     }
@@ -188,7 +197,7 @@ public partial class  HomeworkPanel : UserControl
             }
         }
 
-        SubjectHomeworkPanels.IsVisible = true;
+        HomeworkGrid.IsVisible = true;
 
         if (NoHomeworkText != null)
         {
@@ -202,13 +211,48 @@ public partial class  HomeworkPanel : UserControl
 #endif
     }
 
+    private void ClearHomeworkGrid()
+    {
+        HomeworkGrid.Children.Clear();
+        HomeworkGrid.ColumnDefinitions.Clear();
+        HomeworkGrid.RowDefinitions.Clear();
+        _homeworkColumns.Clear();
+        _subjectPanelCount = 0;
+
+        for (var column = 0; column < HomeworkColumnCount; column++)
+        {
+            HomeworkGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
+
+            var columnPanel = new StackPanel
+            {
+                Orientation = Orientation.Vertical,
+                Spacing = 32,
+                VerticalAlignment = VerticalAlignment.Top
+            };
+            Grid.SetColumn(columnPanel, column);
+            HomeworkGrid.Children.Add(columnPanel);
+            _homeworkColumns.Add(columnPanel);
+        }
+    }
+
+    private void AddSubjectPanel(SubjectHomeworkPanel subjectPanel)
+    {
+        // 按顺序轮流放入各列，每列内部纵向堆叠，高度互不影响。
+        var column = _subjectPanelCount % HomeworkColumnCount;
+        _homeworkColumns[column].Children.Add(subjectPanel);
+        _subjectPanelCount++;
+    }
+
     private void ApplyFrozenStateToSubjects()
     {
-        foreach (var child in SubjectHomeworkPanels.Children)
+        foreach (var column in _homeworkColumns)
         {
-            if (child is SubjectHomeworkPanel subjectPanel)
+            foreach (var child in column.Children)
             {
-                subjectPanel.IsFrozen = IsFrozen;
+                if (child is SubjectHomeworkPanel subjectPanel)
+                {
+                    subjectPanel.IsFrozen = IsFrozen;
+                }
             }
         }
     }
