@@ -147,9 +147,10 @@
                                                                                 Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
                                                                                 HorizontalContentAlignment="Stretch"
                                                                                 VerticalContentAlignment="Stretch">
-                                                                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                                                        <ScrollViewer x:Name="MainDrawerScrollViewer"
+                                                                                      HorizontalScrollBarVisibility="Disabled"
                                                                                       VerticalScrollBarVisibility="Auto">
-                                                                                <controls:HomeworkEditView/>
+                                                                                <controls:HomeworkEditView x:Name="MainDrawerEditView"/>
                                                                         </ScrollViewer>
                                                                 </ContentControl>
                                                         </Grid>

@@ -144,8 +144,13 @@ public partial class MainWindow : Window
         _hitokotoService = hitokotoService;
         _classIslandService = classIslandService;
 
-        // HomeworkPanel 由 MainWindow.axaml 以 XAML 方式创建，无法使用构造函数注入，由这里显式注入
+        // HomeworkPanel / HomeworkEditView 由 MainWindow.axaml 以 XAML 方式创建，
+        // 无法使用构造函数注入，由这里显式注入
         HomeworkPanel.Initialize(storageService, classIslandService);
+        MainDrawerEditView.Initialize(classIslandService, storageService);
+
+        MainDrawerEditView.Saved += OnMainDrawerHomeworkSaved;
+        MainDrawerEditView.Deleted += OnMainDrawerHomeworkDeleted;
 
         WindowState = WindowState.FullScreen;
         
@@ -370,15 +375,46 @@ public partial class MainWindow : Window
     public void OpenMainDrawer(HomeworkItem? homeworkItem = null)
     {
         MainDrawerHomeworkItem = homeworkItem;
-        // 抽屉内容尚未实现，先通过 DataContext 把对应的作业传给内容视图
+        // DataContext 供后续绑定使用；编辑表单本身通过 LoadHomework 显式填充
         MainDrawerContent.DataContext = homeworkItem;
+        MainDrawerEditView.LoadHomework(homeworkItem, Date);
+        MainDrawerScrollViewer.Offset = new Avalonia.Vector(0, 0);
         SetMainDrawerState(MainDrawerState.Opened);
     }
 
     /// <summary>
-    /// 关闭主抽屉
+    /// 关闭主抽屉。科目和内容都存在时会自动保存。
     /// </summary>
-    public void CloseMainDrawer() => SetMainDrawerState(MainDrawerState.Closed);
+    public void CloseMainDrawer()
+    {
+        if (_mainDrawerState == MainDrawerState.Closed)
+            return;
+
+        if (!MainDrawerEditView.TrySaveIfReady())
+            return;
+
+        SetMainDrawerState(MainDrawerState.Closed);
+    }
+
+    private void OnMainDrawerHomeworkSaved(HomeworkItem item, bool isNew)
+    {
+        MainDrawerHomeworkItem = item;
+        MainDrawerContent.DataContext = item;
+        HomeworkPanel.Refresh();
+        ShowSuccess(
+            isNew ? "作业已添加" : "作业已修改",
+            $"{item.Subject}：{Summarize(item.Content)}");
+    }
+
+    private void OnMainDrawerHomeworkDeleted(HomeworkItem item)
+    {
+        MainDrawerHomeworkItem = null;
+        HomeworkPanel.Refresh();
+        ShowInfoBar(FAInfoBarSeverity.Informational, "作业已删除",
+            $"已删除 {item.Subject} 的作业");
+        // 删除后直接关闭抽屉，避免退出时又把表单内容保存回来
+        SetMainDrawerState(MainDrawerState.Closed);
+    }
 
     private void DrawerButton_OnClick(object? sender, RoutedEventArgs e)
     {

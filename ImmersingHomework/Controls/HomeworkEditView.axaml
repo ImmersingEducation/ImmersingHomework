@@ -2,9 +2,39 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:controls="clr-namespace:ImmersingHomework.Controls"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkEditView">
     <StackPanel Spacing="16" Margin="0,8,0,16">
-        
+        <StackPanel Spacing="6">
+            <TextBlock FontSize="16" FontWeight="Bold">科目</TextBlock>
+            <fa:FAComboBox x:Name="SubjectComboBox"
+                           HorizontalAlignment="Stretch"
+                           PlaceholderText="请选择科目"
+                           SelectionChanged="SubjectComboBox_OnSelectionChanged"/>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock FontSize="16" FontWeight="Bold">作业内容</TextBlock>
+            <controls:HomeworkContentInput x:Name="ContentInput"/>
+        </StackPanel>
+
+        <StackPanel Spacing="6">
+            <TextBlock FontSize="16" FontWeight="Bold">标签</TextBlock>
+            <controls:TagPicker x:Name="TagPicker"/>
+        </StackPanel>
+
+        <TextBlock x:Name="ValidationText"
+                   Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                   TextWrapping="Wrap"
+                   IsVisible="False"/>
+
+        <Button x:Name="DeleteButton"
+                Content="删除"
+                HorizontalAlignment="Left"
+                Foreground="{DynamicResource SystemFillColorCriticalBrush}"
+                IsVisible="False"
+                Click="DeleteButton_OnClick"/>
     </StackPanel>
 </UserControl>
