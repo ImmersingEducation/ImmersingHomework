@@ -33,6 +33,10 @@
                                   IsCheckedChanged="RemindHomeworkAssignmentSwitch_OnIsCheckedChanged"></ToggleSwitch>
                 </fa:FASettingsExpander.Footer>
                 <fa:FASettingsExpanderItem Content="指定提醒科目" IsEnabled="{Binding #RemindHomeworkAssignmentSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Resources>
+                        <!-- 科目较多，页脚始终放在内容下方并占满整行，WrapPanel 才能获得确定的可用宽度并自动换行 -->
+                        <x:Double x:Key="SettingsExpanderItemAdaptiveWidthTrigger">10000</x:Double>
+                    </fa:FASettingsExpanderItem.Resources>
                     <fa:FASettingsExpanderItem.Footer>
                         <WrapPanel x:Name="SubjectCheckWrapPanel" ItemSpacing="8" LineSpacing="8"/>
                     </fa:FASettingsExpanderItem.Footer>

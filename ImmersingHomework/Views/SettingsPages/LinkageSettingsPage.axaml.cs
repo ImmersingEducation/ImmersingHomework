@@ -65,6 +65,7 @@ public partial class LinkageSettingsPage : UserControl
                         AppSettings.Instance.RemindEnableSubjects.Remove(checkBox.Content as string ?? "");
                 }
             };
+            SubjectCheckWrapPanel.Children.Add(checkBox);
         }
     }
     
