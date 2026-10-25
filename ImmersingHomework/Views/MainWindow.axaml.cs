@@ -136,72 +136,18 @@ public partial class MainWindow : Window
             WindowDeactivated?.Invoke(this, EventArgs.Empty);
         };
 
-        if (AppSettings.Instance.HitokotoDisplayMode.Value is not HitokotoDisplayMode.Hide)
-            SetupHitokotoTimer();
-
         HomeworkPanel.FrozenChanged += ApplyFrozenState;
         HomeworkPanel.NotificationRequested += (severity, title, message) => ShowInfoBar(severity, title, message);
         HomeworkPanel.Refresh();
         _logger.Information("MainWindow 初始化完成");
     }
 
-    protected void SetupHitokotoTimer()
-    {
-        _logger.Debug("初始化 Hitokoto 定时器，间隔 {Span} 秒", AppSettings.Instance.HitokotoRefreshTimeSpan);
-        _hitokotoTimer = new Timer(AppSettings.Instance.HitokotoRefreshTimeSpan.Value * 1000);
-        AppSettings.Instance.HitokotoRefreshTimeSpan.ValueChanged += UpdateHitokotoTimerInterval;
-        _hitokotoTimer.Elapsed += async (s, e) =>
-        {
-            _logger.Debug("Hitokoto 定时器触发，开始获取新的 Hitokoto");
-            Models.Hitokoto? hitokoto = await _hitokotoService.GetHitokoto();
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (hitokoto is null)
-                {
-                    _logger.Debug("获取到的 Hitokoto 为空，使用默认文本");
-                    _lastHitokotoText = AppSettings.Instance.HitokotoDisplayMode.Value switch
-                    {
-                        HitokotoDisplayMode.Hide => "",
-                        HitokotoDisplayMode.Content => "咕咕嘎嘎！",
-                        HitokotoDisplayMode.ContentAndAuthor => "咕咕嘎嘎！ —— progcc"
-                    };
-                }
-                else
-                {
-                    _logger.Debug("更新 Hitokoto 显示: {Sentence} —— {Author}", hitokoto.Value.Sentence, hitokoto.Value.Author);
-                    _lastHitokotoText = AppSettings.Instance.HitokotoDisplayMode.Value switch
-                    {
-                        HitokotoDisplayMode.Hide => "",
-                        HitokotoDisplayMode.Content => hitokoto.Value.Sentence,
-                        HitokotoDisplayMode.ContentAndAuthor => $"{hitokoto.Value.Sentence} —— {hitokoto.Value.Author}"
-                    };
-                }
-
-                if (!_isFrozen)
-                {
-                    Hitokoto.Text = _lastHitokotoText;
-                }
-            });
-        };
-        _hitokotoTimer.AutoReset = true;
-        Closing += (s, e) =>
-        {
-            _logger.Debug("窗口关闭，停止并释放 Hitokoto 定时器");
-            _hitokotoTimer.Stop();
-            _hitokotoTimer.Dispose();
-        };
-        _hitokotoTimer.Start();
-        _logger.Debug("Hitokoto 定时器已启动");
-    }
-
-    private void UpdateHitokotoTimerInterval(int span)
-    {
-        _hitokotoTimer.Interval = span * 1000;
-    }
+    
     
     public void UpdateDateText(DateOnly date)
     {
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
+        DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
     }
 
     /// <summary>
@@ -607,7 +553,6 @@ public partial class MainWindow : Window
         AddHomeworkButton.IsEnabled = !frozen;
         RestoreButton.IsEnabled = !frozen;
         FreezeButton.Background = frozen ? FrozenBrush : Brushes.Transparent;
-        Hitokoto.Text = frozen ? FrozenHintText : (_lastHitokotoText ?? "");
     }
 
     private async void RestoreButton_OnClick(object? sender, RoutedEventArgs e)
