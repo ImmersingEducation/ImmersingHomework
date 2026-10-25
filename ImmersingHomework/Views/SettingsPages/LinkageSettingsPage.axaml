@@ -30,6 +30,12 @@
                         <WrapPanel x:Name="SubjectCheckWrapPanel" ItemSpacing="8" LineSpacing="8"/>
                     </fa:FASettingsExpanderItem.Footer>
                 </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="若连堂也触发提醒">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="RemindWhenDoublePeriodToggleSwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="RemindWhenDoublePeriodToggleSwitch_OnIsCheckedChanged"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
             </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="课后提醒布置作业"
                                    IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">

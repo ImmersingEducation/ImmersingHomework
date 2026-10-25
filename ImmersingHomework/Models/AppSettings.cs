@@ -90,6 +90,8 @@ public class AppSettings
 
     public ObservableCollection<string> RemindEnableSubjects { get; set; } = [];
     
+    public ObservableProperty<bool> RemindWhenDoublePeriod { get; set; } = new(false);
+    
     public ObservableProperty<bool> ShowHomeworkAfterSchool { get; set; } = new(false);
 
     public ObservableProperty<int> AfterSchoolShowMainWindowWaitSecond { get; set; } = new(120);
@@ -170,6 +172,7 @@ public class AppSettings
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentAfterClass.Value = loaded.RemindHomeworkAssignmentAfterClass.Value;
+        RemindWhenDoublePeriod.Value = loaded.RemindWhenDoublePeriod.Value;
         ShowHomeworkAfterSchool.Value = loaded.ShowHomeworkAfterSchool.Value;
         AfterSchoolShowMainWindowWaitSecond.Value = loaded.AfterSchoolShowMainWindowWaitSecond.Value;
         ShowHomeworkBeforeFirstClassNextDay.Value = loaded.ShowHomeworkBeforeFirstClassNextDay.Value;
@@ -206,6 +209,7 @@ public class AppSettings
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
         Watch(RemindHomeworkAssignmentAfterClass, ScheduleAutoSave);
+        Watch(RemindWhenDoublePeriod, ScheduleAutoSave);
         Watch(ShowHomeworkAfterSchool, ScheduleAutoSave);
         Watch(AfterSchoolShowMainWindowWaitSecond, ScheduleAutoSave);
         Watch(ShowHomeworkBeforeFirstClassNextDay, ScheduleAutoSave);

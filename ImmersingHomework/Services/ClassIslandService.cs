@@ -36,9 +36,11 @@ public class ClassIslandService : IClassIslandService
 
         _client.JsonIpcProvider.AddNotifyHandler(IpcRoutedNotifyIds.OnBreakingTimeNotifyId, () =>
         {
+            var lessonsService = _client.Provider.CreateIpcProxy<IPublicLessonsService>(_client.PeerProxy);
             if (!AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value
                 || GetPreviousClassSubject() is null
-                || AppSettings.Instance.RemindEnableSubjects.Contains(GetPreviousClassSubject()?.Name ?? "")) return;
+                || AppSettings.Instance.RemindEnableSubjects.Contains(GetPreviousClassSubject()?.Name ?? "")
+                || (!AppSettings.Instance.RemindWhenDoublePeriod.Value && GetPreviousClassSubject() == lessonsService.NextClassSubject)) return;
             _logger.Information("收到课间通知（OnBreakingTime）");
             RemindHomeworkAssignmentAfterClass();
         });

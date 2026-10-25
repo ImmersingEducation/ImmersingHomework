@@ -39,6 +39,7 @@ public partial class LinkageSettingsPage : UserControl
         TakeoverSubjectsSwitch.IsChecked = AppSettings.Instance.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentSwitch.IsChecked  = AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value;
         BuildSubjectCheckWrapPanel();
+        RemindWhenDoublePeriodToggleSwitch.IsChecked = AppSettings.Instance.RemindWhenDoublePeriod.Value;
         ShowHomeworkAfterSchoolSwitch.IsChecked = AppSettings.Instance.ShowHomeworkAfterSchool.Value;
         AfterSchoolWaitSecondCombobox.Text = AppSettings.Instance.AfterSchoolShowMainWindowWaitSecond.Value.ToString();
         ShowHomeworkBeforeFirstClassNextDaySwitch.IsChecked = AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value;
@@ -140,6 +141,15 @@ public partial class LinkageSettingsPage : UserControl
         {
             _logger.Information("课后提醒布置作业设置项变更：{Value}", RemindHomeworkAssignmentSwitch.IsChecked.Value);
             AppSettings.Instance.RemindHomeworkAssignmentAfterClass.Value = RemindHomeworkAssignmentSwitch.IsChecked.Value;
+        }
+    }
+
+    private void RemindWhenDoublePeriodToggleSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        if (RemindWhenDoublePeriodToggleSwitch.IsChecked.HasValue)
+        {
+            _logger.Information("连堂提醒设置项变更：{Value}", RemindWhenDoublePeriodToggleSwitch.IsChecked.Value);
+            AppSettings.Instance.RemindWhenDoublePeriod.Value = RemindWhenDoublePeriodToggleSwitch.IsChecked.Value;
         }
     }
 }
