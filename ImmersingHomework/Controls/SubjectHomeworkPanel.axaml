@@ -4,10 +4,8 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.SubjectHomeworkPanel">
-    <StackPanel Orientation="Vertical" Spacing="16" Width="400">
-        <TextBlock x:Name="SubjectText" FontSize="36" FontWeight="Bold" />
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
-            <StackPanel x:Name="HomeworkItemPanels" Orientation="Vertical" Spacing="12" />
-        </ScrollViewer>
+    <StackPanel Orientation="Vertical" Spacing="16" Width="320">
+        <TextBlock x:Name="SubjectText" FontSize="32" FontWeight="Bold" TextWrapping="Wrap"/>
+        <StackPanel x:Name="HomeworkItemPanels" Orientation="Vertical" Spacing="12" />
     </StackPanel>
 </UserControl>

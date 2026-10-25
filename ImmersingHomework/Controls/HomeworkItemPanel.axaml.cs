@@ -21,6 +21,8 @@ public partial class HomeworkItemPanel : UserControl
     public static readonly StyledProperty<HomeworkItem> HomeworkItemProperty =
         AvaloniaProperty.Register<HomeworkItemPanel, HomeworkItem>(nameof(HomeworkItem));
 
+    private bool _flag = true;
+
     public HomeworkItem HomeworkItem
     {
         get => GetValue(HomeworkItemProperty);
@@ -47,15 +49,12 @@ public partial class HomeworkItemPanel : UserControl
             _logger.Debug("作业项属性变化");
             panel.UpdatePanel();
         });
-        IsFrozenProperty.Changed.AddClassHandler<HomeworkItemPanel>((panel, e) =>
-        {
-            panel.MoreButton.IsEnabled = !panel.IsFrozen;
-        });
     }
 
     private void MoreButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        _logger.Debug("用户点击了更多按钮，请求编辑作业，ID: {Id}", HomeworkItem?.Id);
+        if (IsFrozen) return;
+        _logger.Debug("用户点击了作业，请求编辑作业，ID: {Id}", HomeworkItem?.Id);
         EditRequested?.Invoke(HomeworkItem);
     }
 
