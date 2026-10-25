@@ -55,7 +55,7 @@ public partial class HomeworkEditView : UserControl
     {
         _classIslandService = classIslandService;
         _storageService = storageService;
-        BuildSubjectComboBox();
+        BuildSubjectWheel();
     }
 
     /// <summary>
@@ -68,11 +68,10 @@ public partial class HomeworkEditView : UserControl
 
         HideValidation();
         DeleteButton.IsVisible = item is not null;
-        BuildSubjectComboBox();
+        BuildSubjectWheel();
 
         if (item is null)
         {
-            SubjectComboBox.SelectedItem = null;
             ContentInput.SetHomeworkContent(string.Empty, null, null);
             TagPicker.ClearSelection();
             UpdateTagEmptyState();
@@ -87,7 +86,7 @@ public partial class HomeworkEditView : UserControl
         UpdateContentCounter();
     }
 
-    public void BuildSubjectComboBox()
+    private void BuildSubjectWheel()
     {
         var useClassIslandSubjects = AppSettings.Instance.EnableClassIslandIPCService.Value
                                      && AppSettings.Instance.ClassIslandTakeoverSubjects.Value;
@@ -110,14 +109,26 @@ public partial class HomeworkEditView : UserControl
             subjects = AppSettings.Instance.Subjects.ToList();
         }
 
-        var currentSubject = GetSelectedSubject();
-        SubjectComboBox.Items.Clear();
+        var wheelSubjects = new List<string>();
+        var seenSubjects = new HashSet<string>(StringComparer.Ordinal);
 
-        foreach (var subject in subjects.Where(s => !string.IsNullOrWhiteSpace(s)).Distinct(StringComparer.Ordinal))
-            SubjectComboBox.Items.Add(new FAComboBoxItem { Content = subject });
+        void AddSubject(string? subject)
+        {
+            if (string.IsNullOrWhiteSpace(subject) || !seenSubjects.Add(subject))
+                return;
 
-        if (!string.IsNullOrWhiteSpace(currentSubject))
-            SelectSubject(currentSubject);
+            wheelSubjects.Add(subject);
+        }
+
+        // 设置中的顺序优先；当前选择和正在编辑的科目若已不在列表中，则补到末尾，
+        // 避免编辑旧作业时因为科目被删除而丢失原科目。
+        foreach (var subject in subjects)
+            AddSubject(subject);
+
+        AddSubject(GetSelectedSubject());
+        AddSubject(_editingItem?.Subject);
+
+        SubjectWheel.ItemsSource = wheelSubjects;
     }
 
     /// <summary>
@@ -227,45 +238,15 @@ public partial class HomeworkEditView : UserControl
         }
     }
 
-    private void SubjectComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e) =>
+    private void SubjectWheel_OnSelectedSubjectChanged(string? subject) =>
         HideValidation();
 
-    private string? GetSelectedSubject() =>
-        SubjectComboBox.SelectedItem is FAComboBoxItem item
-            ? item.Content?.ToString()
-            : SubjectComboBox.SelectedItem?.ToString();
+    private string? GetSelectedSubject() => SubjectWheel.SelectedSubject;
 
     private void SelectSubject(string? subject)
     {
-        if (string.IsNullOrWhiteSpace(subject))
-        {
-            SubjectComboBox.SelectedItem = null;
-            return;
-        }
-
-        EnsureSubjectItem(subject);
-
-        foreach (var item in SubjectComboBox.Items)
-        {
-            if (item is FAComboBoxItem comboItem &&
-                string.Equals(comboItem.Content?.ToString(), subject, StringComparison.Ordinal))
-            {
-                SubjectComboBox.SelectedItem = comboItem;
-                return;
-            }
-        }
-    }
-
-    private void EnsureSubjectItem(string subject)
-    {
-        foreach (var item in SubjectComboBox.Items)
-        {
-            if (item is FAComboBoxItem comboItem &&
-                string.Equals(comboItem.Content?.ToString(), subject, StringComparison.Ordinal))
-                return;
-        }
-
-        SubjectComboBox.Items.Add(new FAComboBoxItem { Content = subject });
+        if (!string.IsNullOrWhiteSpace(subject))
+            SubjectWheel.SelectSubject(subject);
     }
 
     private void UpdateTagEmptyState() =>

@@ -35,30 +35,28 @@
     </UserControl.Styles>
 
     <StackPanel Margin="0,4,0,12" Spacing="10">
+        <Border Classes="editor-card">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Classes="icon-chip">
+                        <fa:FASymbolIcon Symbol="Library"
+                                         FontSize="15"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Classes="card-title" Text="科目"/>
+                        <TextBlock Classes="card-hint" Text="左右滑动或点击两侧科目切换"/>
+                    </StackPanel>
+                </Grid>
+
+                <controls:SubjectWheel x:Name="SubjectWheel"
+                                       SelectedSubjectChanged="SubjectWheel_OnSelectedSubjectChanged"/>
+            </StackPanel>
+        </Border>
+
         <Grid ColumnDefinitions="280,*" ColumnSpacing="12">
             <StackPanel Grid.Column="0" Spacing="12">
-                <Border Classes="editor-card">
-                    <StackPanel Spacing="12">
-                        <Grid ColumnDefinitions="Auto,*">
-                            <Border Classes="icon-chip">
-                                <fa:FASymbolIcon Symbol="Library"
-                                                 FontSize="15"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"/>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
-                                <TextBlock Classes="card-title" Text="科目"/>
-                                <TextBlock Classes="card-hint" Text="选择这条作业所属的科目"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <fa:FAComboBox x:Name="SubjectComboBox"
-                                       HorizontalAlignment="Stretch"
-                                       PlaceholderText="请选择科目"
-                                       SelectionChanged="SubjectComboBox_OnSelectionChanged"/>
-                    </StackPanel>
-                </Border>
-
                 <Border Classes="editor-card">
                     <StackPanel Spacing="10">
                         <Grid ColumnDefinitions="Auto,*">
