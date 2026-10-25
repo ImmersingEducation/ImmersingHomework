@@ -7,6 +7,8 @@
     <StackPanel Orientation="Vertical" Spacing="8">
         <WrapPanel x:Name="TemplateRadioPanel" ItemSpacing="8" LineSpacing="8"/>
         <TextBox x:Name="FreeTextBox" AcceptsReturn="True" TextWrapping="Wrap" Height="200"
+                 PlaceholderText="例如：完成练习册第 32-34 页"
+                 VerticalContentAlignment="Top"
                  IsVisible="True" />
         <StackPanel x:Name="TemplatePanel" Spacing="4" IsVisible="False">
             <TextBlock x:Name="TemplatePreviewText" TextWrapping="Wrap"

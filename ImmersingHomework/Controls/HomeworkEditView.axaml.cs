@@ -33,6 +33,16 @@ public partial class HomeworkEditView : UserControl
     public HomeworkEditView()
     {
         InitializeComponent();
+
+        AppSettings.Instance.Tags.CollectionChanged += (_, _) => UpdateTagEmptyState();
+        ContentInput.PropertyChanged += (_, e) =>
+        {
+            if (e.Property == HomeworkContentInput.TextProperty)
+                UpdateContentCounter();
+        };
+
+        UpdateTagEmptyState();
+        UpdateContentCounter();
     }
 
     private IHomeworkStorageService StorageService =>
@@ -65,12 +75,16 @@ public partial class HomeworkEditView : UserControl
             SubjectComboBox.SelectedItem = null;
             ContentInput.SetHomeworkContent(string.Empty, null, null);
             TagPicker.ClearSelection();
+            UpdateTagEmptyState();
+            UpdateContentCounter();
             return;
         }
 
         SelectSubject(item.Subject);
         ContentInput.SetHomeworkContent(item.Content, item.TemplateName, item.TemplateParameters);
         TagPicker.SetSelectedTags(item.Tags ?? []);
+        UpdateTagEmptyState();
+        UpdateContentCounter();
     }
 
     public void BuildSubjectComboBox()
@@ -254,15 +268,23 @@ public partial class HomeworkEditView : UserControl
         SubjectComboBox.Items.Add(new FAComboBoxItem { Content = subject });
     }
 
+    private void UpdateTagEmptyState() =>
+        NoTagsText.IsVisible = AppSettings.Instance.Tags.Count == 0;
+
+    private void UpdateContentCounter()
+    {
+        ContentCountText.Text = $"{ContentInput.GetContent().Length} 字";
+    }
+
     private void ShowValidation(string message)
     {
-        ValidationText.Text = message;
-        ValidationText.IsVisible = true;
+        ValidationBar.Message = message;
+        ValidationBar.IsOpen = true;
     }
 
     private void HideValidation()
     {
-        ValidationText.Text = string.Empty;
-        ValidationText.IsVisible = false;
+        ValidationBar.Message = string.Empty;
+        ValidationBar.IsOpen = false;
     }
 }

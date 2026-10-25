@@ -375,6 +375,7 @@ public partial class MainWindow : Window
     public void OpenMainDrawer(HomeworkItem? homeworkItem = null)
     {
         MainDrawerHomeworkItem = homeworkItem;
+        MainDrawerTitle.Text = homeworkItem is null ? "新增作业" : "编辑作业";
         // DataContext 供后续绑定使用；编辑表单本身通过 LoadHomework 显式填充
         MainDrawerContent.DataContext = homeworkItem;
         MainDrawerEditView.LoadHomework(homeworkItem, Date);
