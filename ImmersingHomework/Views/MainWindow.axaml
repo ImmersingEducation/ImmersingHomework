@@ -91,5 +91,72 @@
                         </StackPanel.Styles>
                 </StackPanel>
                 </Grid>
+                <!-- 主抽屉（只有主抽屉，没有副抽屉）：
+                     打开 = Opened，占窗口高度的 50%；
+                     关闭 = Closed，整个面板移到画布下方。
+                     点击外部或按 Esc 直接关闭抽屉。 -->
+                <Panel x:Name="MainDrawerRoot" Grid.RowSpan="2" ZIndex="100" IsHitTestVisible="False">
+                        <!-- 透明命中层：抽屉打开时拦截外部点击并关闭抽屉；
+                             主抽屉不显示烟雾遮罩。 -->
+                        <Border x:Name="MainDrawerDismissLayer"
+                                Background="Transparent"
+                                IsHitTestVisible="False"
+                                PointerPressed="MainDrawerDismissLayer_OnPointerPressed"/>
+                        <!-- 抽屉从窗口底边滑出，层级高于底部按钮栏 -->
+                        <Canvas x:Name="MainDrawerCanvas"
+                                ClipToBounds="True"
+                                SizeChanged="MainDrawerCanvas_OnSizeChanged">
+                                <Panel x:Name="MainDrawerPanel"
+                                       Width="{Binding Bounds.Width, ElementName=MainDrawerCanvas}"
+                                       Height="0"
+                                       Canvas.Bottom="-100000">
+                                        <Panel.Transitions>
+                                                <Transitions>
+                                                        <DoubleTransition Property="Canvas.Bottom" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+                                                        <DoubleTransition Property="Height" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+                                                </Transitions>
+                                        </Panel.Transitions>
+                                        <Border x:Name="MainDrawerBackground"
+                                                Width="960"
+                                                MaxWidth="{Binding Bounds.Width, ElementName=MainDrawerCanvas}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Stretch"
+                                                Background="{DynamicResource ContentDialogBackground}"
+                                                BorderBrush="{DynamicResource ContentDialogBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8 8 0 0"
+                                                BoxShadow="0 8 32 0 #66000000">
+                                                <Border ClipToBounds="True" CornerRadius="8 8 0 0" Padding="8 8 8 0">
+                                                        <Grid RowDefinitions="32,*" ColumnDefinitions="*,Auto">
+                                                                <TextBlock x:Name="MainDrawerTitle"
+                                                                           Grid.Row="0" Grid.Column="0"
+                                                                           VerticalAlignment="Center"
+                                                                           FontSize="16" FontWeight="SemiBold"
+                                                                           Text="作业编辑"/>
+                                                                <StackPanel Grid.Row="0" Grid.Column="1"
+                                                                            Orientation="Horizontal" Spacing="4">
+                                                                        <Button x:Name="MainDrawerCloseButton"
+                                                                                Theme="{StaticResource TransparentButton}"
+                                                                                Width="32" Height="32"
+                                                                                ToolTip.Tip="关闭"
+                                                                                Click="MainDrawerCloseButton_OnClick">
+                                                                                <fa:FASymbolIcon Symbol="Dismiss" FontSize="14"/>
+                                                                        </Button>
+                                                                </StackPanel>
+                                                                <ContentControl x:Name="MainDrawerContent"
+                                                                                Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+                                                                                HorizontalContentAlignment="Stretch"
+                                                                                VerticalContentAlignment="Stretch">
+                                                                        <ScrollViewer HorizontalScrollBarVisibility="Disabled"
+                                                                                      VerticalScrollBarVisibility="Auto">
+                                                                                <controls:HomeworkEditView/>
+                                                                        </ScrollViewer>
+                                                                </ContentControl>
+                                                        </Grid>
+                                                </Border>
+                                        </Border>
+                                </Panel>
+                        </Canvas>
+                </Panel>
         </Grid>
 </Window>

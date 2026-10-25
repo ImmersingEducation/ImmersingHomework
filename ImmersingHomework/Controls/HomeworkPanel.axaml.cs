@@ -7,7 +7,6 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
-using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -36,9 +35,9 @@ public partial class  HomeworkPanel : UserControl
     public event Action<bool>? FrozenChanged;
 
     /// <summary>
-    /// 请求在窗口的 InfoBar 区域显示一条消息，由 <see cref="Views.MainWindow"/> 订阅并转发
+    /// 用户点击了某个作业项，请求编辑该作业。由 <see cref="Views.MainWindow"/> 订阅并打开主抽屉。
     /// </summary>
-    public event Action<FAInfoBarSeverity, string, string?>? NotificationRequested;
+    public event Action<HomeworkItem>? EditRequested;
 
     public bool IsFrozen
     {
@@ -120,6 +119,7 @@ public partial class  HomeworkPanel : UserControl
                 {
                     var subjectPanel = new SubjectHomeworkPanel();
                     subjectPanel.SetData(subject, subjectItems);
+                    subjectPanel.EditRequested += OnEditRequested;
                     subjectPanel.IsFrozen = IsFrozen;
                     AddSubjectPanel(subjectPanel);
                     hasHomework = true;
@@ -257,51 +257,9 @@ public partial class  HomeworkPanel : UserControl
         }
     }
 
-    private async void OnEditRequested(HomeworkItem item)
+    private void OnEditRequested(HomeworkItem item)
     {
-        var window = TopLevel.GetTopLevel(this) as Window;
-        if (window == null) return;
-
-        var control = new AddHomeworkWindow(item, ClassIslandService);
-        var dialog = new FAContentDialog()
-        {
-            Title = control.Title,
-            Content = control,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消",
-            SecondaryButtonText = control.SecondaryButtonText
-        };
-        
-        control.SetDialog(dialog);
-        dialog.PrimaryButtonClick += (s, args) => control.OnPrimaryButtonClick(args);
-        dialog.SecondaryButtonClick += (s, args) => control.OnSecondaryButtonClick();
-        
-        var result = await dialog.ShowAsync(window);
-
-        if (result == FAContentDialogResult.Primary || result == FAContentDialogResult.Secondary)
-        {
-            var currentHomework = StorageService.Load(Date) ?? new Homework(Date, []);
-            
-            if (control.IsDeleted)
-            {
-                currentHomework.RemoveHomeworkItem(item);
-                NotificationRequested?.Invoke(FAInfoBarSeverity.Informational, "作业已删除",
-                    $"已删除 {item.Subject} 的作业");
-            }
-            else if (control.Result != null)
-            {
-                var oldItem = currentHomework.GetHomeworkItem(item.Id);
-                if (oldItem != null)
-                {
-                    currentHomework.RemoveHomeworkItem(oldItem);
-                    currentHomework.AddHomeworkItem(control.Result);
-                    NotificationRequested?.Invoke(FAInfoBarSeverity.Success, "作业已修改",
-                        $"{control.Result.Subject} 的作业内容已更新");
-                }
-            }
-            
-            StorageService.Save(currentHomework);
-            await RefreshAsync(Date);
-        }
+        _logger.Debug("作业项请求编辑，ID: {Id}", item.Id);
+        EditRequested?.Invoke(item);
     }
 }

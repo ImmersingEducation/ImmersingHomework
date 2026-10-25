@@ -8,6 +8,7 @@
         <entry key="ImmersingHomework/Controls/AddHomeworkDialog.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/AddHomeworkWindow.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkContentInput.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Controls/HomeworkEditView.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkItemPanel.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkPanel.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Controls/HomeworkStorageManageDialogContent.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />

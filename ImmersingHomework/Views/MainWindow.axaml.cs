@@ -10,6 +10,7 @@ using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Input;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -37,6 +38,24 @@ public partial class MainWindow : Window
     private Timer _hitokotoTimer;
     private bool _isFrozen;
     private string? _lastHitokotoText;
+
+    /// <summary>
+    /// 主抽屉的状态
+    /// </summary>
+    private enum MainDrawerState
+    {
+        Closed,
+        Opened
+    }
+
+    /// <summary>
+    /// 主抽屉面板高度占可用高度的比例，0.5 即半模态
+    /// </summary>
+    private const double MainDrawerContentHeightRatio = 0.5;
+
+    private MainDrawerState _mainDrawerState = MainDrawerState.Closed;
+    private double _mainDrawerContainerHeight;
+    private bool _mainDrawerLayoutInitialized;
 
     /// <summary>
     /// 冻结状态下长按解冻所需的时间
@@ -135,6 +154,18 @@ public partial class MainWindow : Window
         Date = DateOnly.FromDateTime(DateTime.Now);
         
         CalendarPopup.PlacementTarget = DateButton;
+
+        // 打开状态下按 Esc 直接关闭主抽屉
+        KeyDown += MainWindow_OnKeyDown;
+
+        // Button 会在自己的 PointerPressed/Released 中把事件标记为已处理，
+        // 因此需要 handledEventsToo 才能可靠地驱动冻结长按进度
+        FreezeButton.AddHandler(PointerPressedEvent, FreezeButton_OnPointerPressed,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FreezeButton.AddHandler(PointerReleasedEvent, FreezeButton_OnPointerReleased,
+            RoutingStrategies.Tunnel, handledEventsToo: true);
+        FreezeButton.AddHandler(PointerCaptureLostEvent, FreezeButton_OnPointerCaptureLost,
+            RoutingStrategies.Direct);
         
         this.Activated += (s, e) => 
         {
@@ -148,7 +179,7 @@ public partial class MainWindow : Window
         };
 
         HomeworkPanel.FrozenChanged += ApplyFrozenState;
-        HomeworkPanel.NotificationRequested += (severity, title, message) => ShowInfoBar(severity, title, message);
+        HomeworkPanel.EditRequested += item => OpenMainDrawer(item);
         HomeworkPanel.Refresh();
         _logger.Information("MainWindow 初始化完成");
     }
@@ -326,33 +357,105 @@ public partial class MainWindow : Window
             : Date;
     }
 
-    private async void AddHomeworkButton_OnClick(object? sender, RoutedEventArgs e)
+    #region 主抽屉
+
+    /// <summary>
+    /// 主抽屉当前关联的作业；<see langword="null"/> 表示新增作业
+    /// </summary>
+    public HomeworkItem? MainDrawerHomeworkItem { get; private set; }
+
+    /// <summary>
+    /// 打开主抽屉。传入作业时抽屉内容绑定该作业，不传表示新增作业。
+    /// </summary>
+    public void OpenMainDrawer(HomeworkItem? homeworkItem = null)
     {
-        _logger.Information("用户点击了添加作业按钮");
-        var control = new AddHomeworkWindow(_classIslandService);
-        var dialog = new FAContentDialog()
+        MainDrawerHomeworkItem = homeworkItem;
+        // 抽屉内容尚未实现，先通过 DataContext 把对应的作业传给内容视图
+        MainDrawerContent.DataContext = homeworkItem;
+        SetMainDrawerState(MainDrawerState.Opened);
+    }
+
+    /// <summary>
+    /// 关闭主抽屉
+    /// </summary>
+    public void CloseMainDrawer() => SetMainDrawerState(MainDrawerState.Closed);
+
+    private void DrawerButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        if (_mainDrawerState == MainDrawerState.Opened)
+            CloseMainDrawer();
+        else
+            OpenMainDrawer();
+    }
+
+    private void MainDrawerCloseButton_OnClick(object? sender, RoutedEventArgs e) =>
+        CloseMainDrawer();
+
+    private void MainDrawerDismissLayer_OnPointerPressed(object? sender, PointerPressedEventArgs e) =>
+        CloseMainDrawer();
+
+    private void MainWindow_OnKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Handled || e.Key != Key.Escape)
+            return;
+
+        if (_mainDrawerState != MainDrawerState.Opened)
+            return;
+
+        CloseMainDrawer();
+        e.Handled = true;
+    }
+
+    private void SetMainDrawerState(MainDrawerState state)
+    {
+        if (_mainDrawerState == state)
+            return;
+
+        _mainDrawerState = state;
+        _logger.Debug("主抽屉状态切换为: {State}", state);
+
+        // 关闭时整层不参与命中测试，避免影响主界面
+        MainDrawerRoot.IsHitTestVisible = state != MainDrawerState.Closed;
+
+        // 打开时拦截外部点击并关闭抽屉
+        MainDrawerDismissLayer.IsHitTestVisible = state == MainDrawerState.Opened;
+
+        UpdateMainDrawerPosition();
+    }
+
+    private void MainDrawerCanvas_OnSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        var canvasHeight = MainDrawerCanvas.Bounds.Height;
+        if (canvasHeight <= 0)
+            return;
+
+        _mainDrawerContainerHeight = canvasHeight * MainDrawerContentHeightRatio;
+        MainDrawerPanel.Height = _mainDrawerContainerHeight;
+        _mainDrawerLayoutInitialized = true;
+        UpdateMainDrawerPosition();
+    }
+
+    private void UpdateMainDrawerPosition()
+    {
+        if (!_mainDrawerLayoutInitialized)
+            return;
+
+        // Opened 贴底，Closed 整体移到画布下方
+        var bottom = _mainDrawerState switch
         {
-            Title = control.Title,
-            Content = control,
-            PrimaryButtonText = "确定",
-            CloseButtonText = "取消"
+            MainDrawerState.Opened => 0d,
+            _ => -_mainDrawerContainerHeight - 2
         };
-        
-        control.SetDialog(dialog);
-        dialog.PrimaryButtonClick += (s, args) => control.OnPrimaryButtonClick(args);
-        
-        var result = await dialog.ShowAsync(this);
-        
-        if (result == FAContentDialogResult.Primary && control.Result != null)
-        {
-            _logger.Information("用户确认添加新作业");
-            var currentHomework = _storageService.Load(Date) ?? new Homework(Date, []);
-            currentHomework.AddHomeworkItem(control.Result);
-            _storageService.Save(currentHomework);
-            HomeworkPanel.Refresh();
-            _logger.Information("作业已保存");
-            ShowSuccess("作业已添加", $"{control.Result.Subject}：{Summarize(control.Result.Content)}");
-        }
+
+        Canvas.SetBottom(MainDrawerPanel, bottom);
+    }
+
+    #endregion
+
+    private void AddHomeworkButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        _logger.Information("用户点击了添加作业按钮，打开主抽屉");
+        OpenMainDrawer();
     }
 
     private void MinimizeButton_OnClick(object? sender, RoutedEventArgs e)
