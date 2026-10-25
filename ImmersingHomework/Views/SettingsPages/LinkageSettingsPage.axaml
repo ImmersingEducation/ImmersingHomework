@@ -25,17 +25,6 @@
                     <ToggleSwitch x:Name="TakeoverSubjectsSwitch" OnContent="" OffContent=""
                                   IsCheckedChanged="TakeoverSubjectsSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
-                <fa:FASettingsExpanderItem Content="指定提醒科目">
-                    <fa:FASettingsExpanderItem.Footer>
-                        <WrapPanel x:Name="SubjectCheckWrapPanel" ItemSpacing="8" LineSpacing="8"/>
-                    </fa:FASettingsExpanderItem.Footer>
-                </fa:FASettingsExpanderItem>
-                <fa:FASettingsExpanderItem Content="若连堂也触发提醒">
-                    <fa:FASettingsExpanderItem.Footer>
-                        <ToggleSwitch x:Name="RemindWhenDoublePeriodToggleSwitch" OnContent="" OffContent=""
-                                      IsCheckedChanged="RemindWhenDoublePeriodToggleSwitch_OnIsCheckedChanged"/>
-                    </fa:FASettingsExpanderItem.Footer>
-                </fa:FASettingsExpanderItem>
             </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="课后提醒布置作业"
                                    IsEnabled="{Binding #ClassIslandSwitch.IsChecked}">
@@ -43,6 +32,17 @@
                     <ToggleSwitch x:Name="RemindHomeworkAssignmentSwitch" OnContent="" OffContent=""
                                   IsCheckedChanged="RemindHomeworkAssignmentSwitch_OnIsCheckedChanged"></ToggleSwitch>
                 </fa:FASettingsExpander.Footer>
+                <fa:FASettingsExpanderItem Content="指定提醒科目" IsEnabled="{Binding #RemindHomeworkAssignmentSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <WrapPanel x:Name="SubjectCheckWrapPanel" ItemSpacing="8" LineSpacing="8"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
+                <fa:FASettingsExpanderItem Content="若连堂也触发提醒" IsEnabled="{Binding #RemindHomeworkAssignmentSwitch.IsChecked}">
+                    <fa:FASettingsExpanderItem.Footer>
+                        <ToggleSwitch x:Name="RemindWhenDoublePeriodToggleSwitch" OnContent="" OffContent=""
+                                      IsCheckedChanged="RemindWhenDoublePeriodToggleSwitch_OnIsCheckedChanged"/>
+                    </fa:FASettingsExpanderItem.Footer>
+                </fa:FASettingsExpanderItem>
             </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="放学后显示作业"
                                    Description="放学后自动显示主界面，方便查看当天作业。"
