@@ -25,9 +25,19 @@
                                         <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
                                 </Button>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
-                                        <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" Click="FreezeButton_OnClick">
-                                                <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
-                                        </Button>
+                                        <Grid Width="60" Height="60">
+                                                <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" Click="FreezeButton_OnClick">
+                                                        <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
+                                                </Button>
+                                                <!-- 冻结时长按解冻的进度环：控件比按钮大，通过负 Margin 抵消布局占用，
+                                                     实际绘制的圆环位于按钮外圈 -->
+                                                <fa:FAProgressRing x:Name="FreezeProgressRing"
+                                                                   Width="96" Height="96" Margin="-18"
+                                                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                                   Minimum="0" Maximum="100" Value="0"
+                                                                   IsIndeterminate="False" IsActive="False"
+                                                                   IsHitTestVisible="False"/>
+                                        </Grid>
                                         <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
                                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                                         <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">

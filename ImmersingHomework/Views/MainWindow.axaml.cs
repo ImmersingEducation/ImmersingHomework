@@ -37,6 +37,16 @@ public partial class MainWindow : Window
     private Timer _hitokotoTimer;
     private bool _isFrozen;
     private string? _lastHitokotoText;
+
+    /// <summary>
+    /// 冻结状态下长按解冻所需的时间
+    /// </summary>
+    private static readonly TimeSpan FreezeHoldDuration = TimeSpan.FromMilliseconds(500);
+
+    private readonly Stopwatch _freezeHoldStopwatch = new();
+    private DispatcherTimer? _freezeHoldTimer;
+    private bool _isFreezeHoldActive;
+    private bool _suppressFreezeClick;
     private const string FrozenHintText = "作业已冻结，请解除冻结后编辑作业";
     private static readonly IBrush FrozenBrush = new SolidColorBrush(Avalonia.Media.Color.FromRgb(211, 211, 211));
     
@@ -541,12 +551,151 @@ public partial class MainWindow : Window
 
     private void FreezeButton_OnClick(object? sender, RoutedEventArgs e)
     {
-        var homework = _storageService.Load(Date) ?? new Homework(Date, []);
-        homework.Frozen = !homework.Frozen;
-        _storageService.Save(homework);
-        _logger.Information("作业冻结状态切换为: {Frozen}", homework.Frozen);
-        HomeworkPanel.IsFrozen = homework.Frozen;
+        // 长按解冻完成后，同一次按住松开时触发的 Click 需要吞掉
+        if (_suppressFreezeClick)
+        {
+            _suppressFreezeClick = false;
+            return;
+        }
+
+        // 冻结状态下只能长按解冻，普通点击不生效
+        if (_isFrozen)
+            return;
+
+        SetFrozen(true);
     }
+
+    private void SetFrozen(bool frozen)
+    {
+        var homework = _storageService.Load(Date) ?? new Homework(Date, []);
+        homework.Frozen = frozen;
+        _storageService.Save(homework);
+        _logger.Information("作业冻结状态切换为: {Frozen}", frozen);
+        HomeworkPanel.IsFrozen = frozen;
+    }
+
+    #region 冻结长按解冻
+
+    private void FreezeButton_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        _suppressFreezeClick = false;
+
+        if (!_isFrozen)
+            return;
+
+        if (!e.GetCurrentPoint(FreezeButton).Properties.IsLeftButtonPressed)
+            return;
+
+        // 显式捕获到按钮，确保按住后移出按钮再松开也能收到 Released / CaptureLost
+        e.Pointer.Capture(FreezeButton);
+        StartFreezeHold();
+    }
+
+    private void FreezeButton_OnPointerReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        if (!_isFreezeHoldActive)
+            return;
+
+        // 松开时刚好达到时长，即使定时器还没来得及 tick，也按完成处理
+        if (_freezeHoldStopwatch.Elapsed >= FreezeHoldDuration)
+        {
+            CompleteFreezeHold();
+            return;
+        }
+
+        // 提前松开：取消本次解冻，并吞掉随后可能触发的普通点击
+        CancelFreezeHold();
+        _suppressFreezeClick = true;
+    }
+
+    private void FreezeButton_OnPointerCaptureLost(object? sender, PointerCaptureLostEventArgs e)
+    {
+        CancelFreezeHold();
+        _suppressFreezeClick = false;
+    }
+
+    private void StartFreezeHold()
+    {
+        _freezeHoldTimer ??= CreateFreezeHoldTimer();
+        _freezeHoldTimer.Stop();
+        _freezeHoldStopwatch.Restart();
+
+        FreezeProgressRing.IsActive = true;
+        SetFreezeProgressImmediate(0);
+
+        _isFreezeHoldActive = true;
+        _freezeHoldTimer.Start();
+    }
+
+    private DispatcherTimer CreateFreezeHoldTimer()
+    {
+        // 用 Render 优先级按帧更新圆环，Stopwatch 负责计算真实进度
+        var timer = new DispatcherTimer(DispatcherPriority.Render)
+        {
+            Interval = TimeSpan.FromMilliseconds(16)
+        };
+        timer.Tick += FreezeHoldTimer_OnTick;
+        return timer;
+    }
+
+    private void FreezeHoldTimer_OnTick(object? sender, EventArgs e)
+    {
+        var elapsed = _freezeHoldStopwatch.Elapsed;
+        if (elapsed >= FreezeHoldDuration)
+        {
+            CompleteFreezeHold();
+            return;
+        }
+
+        SetFreezeProgressImmediate(
+            elapsed.TotalMilliseconds / FreezeHoldDuration.TotalMilliseconds * 100);
+    }
+
+    private void CompleteFreezeHold()
+    {
+        _freezeHoldTimer?.Stop();
+        _freezeHoldStopwatch.Stop();
+        _isFreezeHoldActive = false;
+
+        // 让圆环先以填满状态渲染一帧，再在下一轮消息循环中隐藏
+        SetFreezeProgressImmediate(99.99);
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!_isFreezeHoldActive)
+                HideFreezeProgressRing();
+        }, DispatcherPriority.Background);
+
+        SetFrozen(false);
+
+        // 本次按住松开时 Button 仍会触发 Click，吞掉它，避免解冻后立刻又冻结
+        _suppressFreezeClick = true;
+    }
+
+    private void CancelFreezeHold()
+    {
+        _freezeHoldTimer?.Stop();
+        _freezeHoldStopwatch.Stop();
+        _isFreezeHoldActive = false;
+        HideFreezeProgressRing();
+    }
+
+    private void HideFreezeProgressRing()
+    {
+        FreezeProgressRing.IsActive = false;
+        FreezeProgressRing.Value = 0;
+    }
+
+    /// <summary>
+    /// FAProgressRing 对 Value 的增加内置了固定 2s 动画，无法通过公开属性调整。
+    /// 先设到 100 再设回目标值，可以让圆环立即跳到目标进度，由外部计时器控制填充速度。
+    /// </summary>
+    private void SetFreezeProgressImmediate(double progress)
+    {
+        FreezeProgressRing.Value = 100;
+        FreezeProgressRing.Value = progress;
+    }
+
+    #endregion
 
     private void ApplyFrozenState(bool frozen)
     {
