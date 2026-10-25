@@ -13,6 +13,7 @@ using Avalonia.Controls.Primitives;
 using Avalonia.Input.Platform;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
@@ -78,10 +79,10 @@ public partial class MainWindow : Window
     private const double InfoBarPanelSpacing = 8;
 
     /// <summary>
-    /// 有消息时消息浮层的外边距，底部留出按钮区的高度使其不遮挡按钮
+    /// 有消息时消息浮层的外边距，底部留出按钮区的高度和底部外边距使其不遮挡按钮
     /// </summary>
     private Avalonia.Thickness InfoBarPanelMargin =>
-        new(0, 0, 0, ButtonBar.Bounds.Height + InfoBarPanelSpacing);
+        new(0, 0, 0, ButtonBar.Bounds.Height + ButtonBar.Margin.Bottom + InfoBarPanelSpacing);
 
     /// <summary>
     /// InfoBar 入场动画的起始 Y 偏移，即从上方滑入的距离
@@ -552,7 +553,13 @@ public partial class MainWindow : Window
         _isFrozen = frozen;
         AddHomeworkButton.IsEnabled = !frozen;
         RestoreButton.IsEnabled = !frozen;
-        FreezeButton.Background = frozen ? FrozenBrush : Brushes.Transparent;
+
+        // 冻结时用柔和的状态提示色突出显示，解冻后恢复默认卡片背景色；
+        // 前景色同步切换，保证图标在提示色背景上仍然清晰
+        FreezeButton.Bind(BackgroundProperty, new DynamicResourceExtension(
+            frozen ? "SystemFillColorAttentionBackgroundBrush" : "CardBackgroundFillColorDefaultBrush"));
+        FreezeButton.Bind(ForegroundProperty, new DynamicResourceExtension(
+            frozen ? "SystemFillColorAttentionBrush" : "TextFillColorPrimaryBrush"));
     }
 
     private async void RestoreButton_OnClick(object? sender, RoutedEventArgs e)

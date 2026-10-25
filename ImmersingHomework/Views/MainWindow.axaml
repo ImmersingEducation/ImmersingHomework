@@ -15,29 +15,33 @@
                                 <TextBlock x:Name="PanelTitleTextBlock" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </StackPanel>
                 </Border>
-                <Grid Grid.Row="1" Margin="16">
-                <Grid RowDefinitions="Auto,*,Auto">
-                        <controls:HomeworkPanel x:Name="HomeworkPanel" Grid.Row="1"/>
-                        <Grid x:Name="ButtonBar" Grid.Row="2" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
+                <!-- 底部不留外边距，作业面板一直延伸到窗口下边缘 -->
+                <Grid Grid.Row="1" Margin="16,16,16,0">
+                <Grid>
+                        <controls:HomeworkPanel x:Name="HomeworkPanel"/>
+                        <!-- 按钮栏悬浮于作业面板之上，不占用布局行；保留 16 的底部外边距，位置与原来保持一致 -->
+                        <Grid x:Name="ButtonBar" VerticalAlignment="Bottom" Margin="0,0,0,16" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
                                 <Button Grid.Column="0" x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left" Click="MinimizeButton_OnClick">
                                         <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
                                 </Button>
-                                <Border Grid.Column="1" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
-                                        <StackPanel Orientation="Horizontal" Spacing="10">
-                                                <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="Add" FontSize="24"/>
-                                                </Button>
-                                                <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="FreezeButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
-                                                </Button>
-                                                <Button x:Name="RestoreButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="RestoreButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="Restore" FontSize="24"/>
-                                                </Button>
-                                                <Button Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="ShareButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="Share" FontSize="24"/>
-                                                </Button>
-                                        </StackPanel>
-                                </Border>
+                                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
+                                        <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" Click="FreezeButton_OnClick">
+                                                <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
+                                        </Button>
+                                        <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
+                                                <StackPanel Orientation="Horizontal" Spacing="16">
+                                                        <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">
+                                                                <fa:FASymbolIcon Symbol="Add" FontSize="24"/>
+                                                        </Button>
+                                                        <Button x:Name="RestoreButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="RestoreButton_OnClick">
+                                                                <fa:FASymbolIcon Symbol="Restore" FontSize="24"/>
+                                                        </Button>
+                                                        <Button Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="ShareButton_OnClick">
+                                                                <fa:FASymbolIcon Symbol="Share" FontSize="24"/>
+                                                        </Button>
+                                                </StackPanel>
+                                        </Border>
+                                </StackPanel>
                                 <Button Grid.Column="2" x:Name="DateButton" Width="90" Height="60" CornerRadius="30" HorizontalAlignment="Right" Click="DateButton_OnClick">
                                         <TextBlock x:Name="DateText"></TextBlock>
                                 </Button>
@@ -51,7 +55,7 @@
                                 </Popup>
                         </Grid>
                 </Grid>
-                <!-- 消息浮层：位于根 Grid 的最后一层，悬浮在主布局之上，不占用任何行空间；
+                <!-- 消息浮层：叠加在主布局之上，不占用任何行空间；
                      底部留出的 Margin 由 ShowInfoBar 按按钮区实际高度设置 -->
                 <StackPanel x:Name="InfoBarPanel"
                             Spacing="8"
