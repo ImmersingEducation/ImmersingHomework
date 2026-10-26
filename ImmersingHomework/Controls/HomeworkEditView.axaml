@@ -137,7 +137,7 @@
                         <TextBlock Text="关闭抽屉时自动保存"
                                    FontSize="12"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
-                        <TextBlock Text="需填写科目和内容"
+                        <TextBlock Text="需填写科目和内容，使用模板时需填满参数"
                                    FontSize="11"
                                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
                     </StackPanel>

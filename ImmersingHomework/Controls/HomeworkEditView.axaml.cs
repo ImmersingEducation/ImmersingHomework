@@ -132,8 +132,9 @@ public partial class HomeworkEditView : UserControl
     }
 
     /// <summary>
-    /// 抽屉退出时调用。科目和内容都存在时自动保存；字段不完整时直接放弃，允许关闭。
-    /// 返回 <see langword="false"/> 表示保存失败，此时应保持抽屉打开。
+    /// 抽屉退出时调用。科目和内容都存在且模板参数已填满时自动保存；
+    /// 任一条件不满足则放弃本次更改，允许直接关闭抽屉。
+    /// 返回 <see langword="false"/> 仅表示保存过程失败，此时应保持抽屉打开。
     /// </summary>
     public bool TrySaveIfReady()
     {
@@ -143,6 +144,12 @@ public partial class HomeworkEditView : UserControl
         var content = ContentInput.GetContent().Trim();
         if (string.IsNullOrWhiteSpace(subject) || string.IsNullOrWhiteSpace(content))
             return true;
+
+        if (ContentInput.HasUnfilledTemplateParameters())
+        {
+            _logger.Information("作业模板参数未填写完整，放弃自动保存");
+            return true;
+        }
 
         var isNew = _editingItem is null;
         var item = CreateHomeworkItem(subject, content);

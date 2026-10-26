@@ -270,6 +270,24 @@ public partial class HomeworkContentInput : UserControl
     public List<string>? GetTemplateParameters() =>
         _isFreeTextMode ? null : new List<string>(_templateParameters);
 
+    /// <summary>
+    /// 当前选中模板时，是否仍有未填写的参数。自由文本模式下始终返回 <see langword="false"/>。
+    /// </summary>
+    public bool HasUnfilledTemplateParameters()
+    {
+        if (_isFreeTextMode || _templateName is null)
+            return false;
+
+        var paramCount = CountParameters(_templateName);
+        for (var i = 0; i < paramCount; i++)
+        {
+            if (i >= _templateParameters.Count || string.IsNullOrWhiteSpace(_templateParameters[i]))
+                return true;
+        }
+
+        return false;
+    }
+
     private static int CountParameters(string? text)
     {
         if (string.IsNullOrEmpty(text))

@@ -384,7 +384,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 关闭主抽屉。科目和内容都存在时会自动保存。
+    /// 关闭主抽屉。科目和内容都存在且模板参数已填满时自动保存；
+    /// 否则放弃本次更改并关闭抽屉。
     /// </summary>
     public void CloseMainDrawer()
     {
