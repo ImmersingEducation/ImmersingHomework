@@ -55,58 +55,54 @@
             </StackPanel>
         </Border>
 
-        <Grid ColumnDefinitions="280,*" ColumnSpacing="12">
-            <StackPanel Grid.Column="0" Spacing="12">
-                <Border Classes="editor-card">
-                    <StackPanel Spacing="10">
-                        <Grid ColumnDefinitions="Auto,*">
-                            <Border Classes="icon-chip">
-                                <fa:FASymbolIcon Symbol="Tag"
-                                                 FontSize="15"
-                                                 HorizontalAlignment="Center"
-                                                 VerticalAlignment="Center"/>
-                            </Border>
-                            <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
-                                <TextBlock Classes="card-title" Text="标签"/>
-                                <TextBlock Classes="card-hint" Text="可多选，标签会显示在作业列表中"/>
-                            </StackPanel>
-                        </Grid>
-
-                        <controls:TagPicker x:Name="TagPicker"/>
-
-                        <TextBlock x:Name="NoTagsText"
-                                   Classes="card-hint"
-                                   Text="还没有标签，可在“设置 → 标签设置”中添加。"
-                                   IsVisible="False"/>
+        <Border Classes="editor-card">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <Border Classes="icon-chip">
+                        <fa:FASymbolIcon Symbol="Document"
+                                         FontSize="15"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Classes="card-title" Text="作业内容"/>
+                        <TextBlock Classes="card-hint" Text="输入作业要求，或选择模板快速生成内容"/>
                     </StackPanel>
-                </Border>
+                    <TextBlock x:Name="ContentCountText"
+                               Grid.Column="2"
+                               Classes="card-hint"
+                               Text="0 字"
+                               Margin="8,0,0,0"
+                               VerticalAlignment="Center"/>
+                </Grid>
+
+                <controls:HomeworkContentInput x:Name="ContentInput"/>
             </StackPanel>
+        </Border>
 
-            <Border Grid.Column="1" Classes="editor-card">
-                <StackPanel Spacing="10">
-                    <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Border Classes="icon-chip">
-                            <fa:FASymbolIcon Symbol="Document"
-                                             FontSize="15"
-                                             HorizontalAlignment="Center"
-                                             VerticalAlignment="Center"/>
-                        </Border>
-                        <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
-                            <TextBlock Classes="card-title" Text="作业内容"/>
-                            <TextBlock Classes="card-hint" Text="输入作业要求，或选择模板快速生成内容"/>
-                        </StackPanel>
-                        <TextBlock x:Name="ContentCountText"
-                                   Grid.Column="2"
-                                   Classes="card-hint"
-                                   Text="0 字"
-                                   Margin="8,0,0,0"
-                                   VerticalAlignment="Center"/>
-                    </Grid>
+        <Border Classes="editor-card">
+            <StackPanel Spacing="10">
+                <Grid ColumnDefinitions="Auto,*">
+                    <Border Classes="icon-chip">
+                        <fa:FASymbolIcon Symbol="Tag"
+                                         FontSize="15"
+                                         HorizontalAlignment="Center"
+                                         VerticalAlignment="Center"/>
+                    </Border>
+                    <StackPanel Grid.Column="1" Margin="10,0,0,0" Spacing="1" VerticalAlignment="Center">
+                        <TextBlock Classes="card-title" Text="标签"/>
+                        <TextBlock Classes="card-hint" Text="可多选，标签会显示在作业列表中"/>
+                    </StackPanel>
+                </Grid>
 
-                    <controls:HomeworkContentInput x:Name="ContentInput"/>
-                </StackPanel>
-            </Border>
-        </Grid>
+                <controls:TagPicker x:Name="TagPicker"/>
+
+                <TextBlock x:Name="NoTagsText"
+                           Classes="card-hint"
+                           Text="还没有标签，可在“设置 → 标签设置”中添加。"
+                           IsVisible="False"/>
+            </StackPanel>
+        </Border>
 
         <fa:FAInfoBar x:Name="ValidationBar"
                       Severity="Error"
