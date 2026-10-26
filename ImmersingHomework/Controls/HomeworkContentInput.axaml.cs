@@ -5,6 +5,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Interactivity;
+using Avalonia.Media;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -133,7 +134,6 @@ public partial class HomeworkContentInput : UserControl
         FreeTextBox.IsVisible = false;
         TemplatePanel.IsVisible = true;
         BuildParameterInputs();
-        UpdateTemplatePreview();
         SyncTextProperty();
     }
 
@@ -149,53 +149,55 @@ public partial class HomeworkContentInput : UserControl
             _templateParameters.RemoveRange(paramCount, _templateParameters.Count - paramCount);
     }
 
+    /// <summary>
+    /// 将模板按 [] 拆分，文本片段与参数输入框依次内联排列。
+    /// 例如“小册P[]-[]”显示为“小册P [输入框] - [输入框]”。
+    /// </summary>
     private void BuildParameterInputs()
     {
-        ParameterInputsPanel.Children.Clear();
+        TemplateInlinePanel.Children.Clear();
 
         if (_templateName == null)
             return;
 
         EnsureTemplateParameterCount();
 
-        var paramCount = CountParameters(_templateName);
-        for (var i = 0; i < paramCount; i++)
+        var segments = _templateName.Split("[]", StringSplitOptions.None);
+        for (var i = 0; i < segments.Length; i++)
         {
-            var index = i;
-            var label = new TextBlock
+            if (segments[i].Length > 0)
             {
-                Text = $"参数 {i + 1}：",
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
-            };
+                TemplateInlinePanel.Children.Add(new TextBlock
+                {
+                    Text = segments[i],
+                    FontSize = 16,
+                    TextWrapping = TextWrapping.Wrap,
+                    VerticalAlignment = VerticalAlignment.Center
+                });
+            }
+
+            if (i == segments.Length - 1)
+                break;
+
+            var index = i;
             var textBox = new TextBox
             {
-                Text = _templateParameters.Count > i ? _templateParameters[i] : "",
-                PlaceholderText = $"请输入参数 {i + 1}",
-                Width = 300,
-                HorizontalAlignment = HorizontalAlignment.Stretch
+                Text = _templateParameters[index],
+                PlaceholderText = $"参数 {index + 1}",
+                Width = 80,
+                FontSize = 16,
+                VerticalAlignment = VerticalAlignment.Center
             };
             textBox.TextChanged += (_, _) =>
             {
                 if (_isFreeTextMode || index >= _templateParameters.Count)
                     return;
                 _templateParameters[index] = textBox.Text ?? "";
-                UpdateTemplatePreview();
                 SyncTextProperty();
             };
 
-            var row = new StackPanel
-            {
-                Orientation = Orientation.Horizontal,
-                Spacing = 4,
-                Children = { label, textBox }
-            };
-            ParameterInputsPanel.Children.Add(row);
+            TemplateInlinePanel.Children.Add(textBox);
         }
-    }
-
-    private void UpdateTemplatePreview()
-    {
-        TemplatePreviewText.Text = GetRenderedTemplate();
     }
 
     private string GetRenderedTemplate()
@@ -246,7 +248,6 @@ public partial class HomeworkContentInput : UserControl
             FreeTextBox.IsVisible = false;
             TemplatePanel.IsVisible = true;
             BuildParameterInputs();
-            UpdateTemplatePreview();
         }
         else
         {

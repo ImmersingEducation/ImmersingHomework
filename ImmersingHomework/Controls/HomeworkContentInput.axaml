@@ -11,9 +11,8 @@
                  VerticalContentAlignment="Top"
                  IsVisible="True" />
         <StackPanel x:Name="TemplatePanel" Spacing="4" IsVisible="False">
-            <TextBlock x:Name="TemplatePreviewText" TextWrapping="Wrap"
-                       FontSize="16" HorizontalAlignment="Center"/>
-            <StackPanel x:Name="ParameterInputsPanel" Spacing="4" />
+            <WrapPanel x:Name="TemplateInlinePanel" ItemSpacing="4" LineSpacing="8"
+                       HorizontalAlignment="Center" ItemsAlignment="Center" />
         </StackPanel>
     </StackPanel>
 </UserControl>
