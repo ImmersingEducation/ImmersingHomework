@@ -18,7 +18,11 @@
                 <!-- 底部不留外边距，作业面板一直延伸到窗口下边缘 -->
                 <Grid Grid.Row="1" Margin="16,16,16,0">
                 <Grid>
-                        <controls:HomeworkPanel x:Name="HomeworkPanel"/>
+                        <!-- 作业内容宿主：主面板与时光机预览面板叠放在一起，
+                             切换快照时两个面板一前一后横向滑动，宿主负责裁剪。 -->
+                        <Grid x:Name="HomeworkContentHost" ClipToBounds="True">
+                                <controls:HomeworkPanel x:Name="HomeworkPanel"/>
+                        </Grid>
                         <!-- 按钮栏悬浮于作业面板之上，不占用布局行；保留 16 的底部外边距，位置与原来保持一致 -->
                         <Grid x:Name="ButtonBar" VerticalAlignment="Bottom" Margin="0,0,0,16" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
                                 <Button Grid.Column="0" x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left" Click="MinimizeButton_OnClick">
@@ -153,6 +157,110 @@
                                                                                 <controls:HomeworkEditView x:Name="MainDrawerEditView"/>
                                                                         </ScrollViewer>
                                                                 </ContentControl>
+                                                        </Grid>
+                                                </Border>
+                                        </Border>
+                                </Panel>
+                        </Canvas>
+                </Panel>
+                <!-- 时光机：点击还原按钮后从窗口底部上浮。
+                     打开时拦截外部点击并关闭；按 Esc 也会关闭。 -->
+                <Panel x:Name="TimeMachineRoot" Grid.RowSpan="2" ZIndex="110" IsHitTestVisible="False">
+                        <Border x:Name="TimeMachineDismissLayer"
+                                Background="Transparent"
+                                IsHitTestVisible="False"
+                                PointerPressed="TimeMachineDismissLayer_OnPointerPressed"/>
+                        <Canvas x:Name="TimeMachineCanvas"
+                                ClipToBounds="True"
+                                SizeChanged="TimeMachineCanvas_OnSizeChanged">
+                                <Panel x:Name="TimeMachinePanel"
+                                       Width="{Binding Bounds.Width, ElementName=TimeMachineCanvas}"
+                                       Height="0"
+                                       Canvas.Bottom="-100000">
+                                        <Panel.Transitions>
+                                                <Transitions>
+                                                        <DoubleTransition Property="Canvas.Bottom" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+                                                        <DoubleTransition Property="Height" Duration="0:0:0.25" Easing="CubicEaseOut"/>
+                                                </Transitions>
+                                        </Panel.Transitions>
+                                        <Border x:Name="TimeMachineBackground"
+                                                Width="960"
+                                                MaxWidth="{Binding Bounds.Width, ElementName=TimeMachineCanvas}"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Stretch"
+                                                Background="{DynamicResource ContentDialogBackground}"
+                                                BorderBrush="{DynamicResource ContentDialogBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="8 8 0 0"
+                                                BoxShadow="0 8 32 0 #66000000">
+                                                <Border ClipToBounds="True" CornerRadius="8 8 0 0" Padding="12,10">
+                                                        <Grid RowDefinitions="32,*,Auto" RowSpacing="10">
+                                                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                                                                        <StackPanel Orientation="Horizontal"
+                                                                                    Spacing="8"
+                                                                                    VerticalAlignment="Center">
+                                                                                <fa:FASymbolIcon Symbol="Clock"
+                                                                                                 FontSize="18"
+                                                                                                 Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+                                                                                <TextBlock Text="时光机"
+                                                                                           FontSize="16"
+                                                                                           FontWeight="SemiBold"
+                                                                                           VerticalAlignment="Center"/>
+                                                                                <Border Background="{DynamicResource ControlFillColorSecondaryBrush}"
+                                                                                        CornerRadius="8"
+                                                                                        Padding="8,2"
+                                                                                        VerticalAlignment="Center">
+                                                                                        <TextBlock x:Name="TimeMachineSubtitle"
+                                                                                                   FontSize="12"
+                                                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                                                   VerticalAlignment="Center"/>
+                                                                                </Border>
+                                                                        </StackPanel>
+                                                                        <Button Grid.Column="1"
+                                                                                x:Name="TimeMachineCloseButton"
+                                                                                Theme="{StaticResource TransparentButton}"
+                                                                                Width="32" Height="32"
+                                                                                ToolTip.Tip="关闭"
+                                                                                Click="TimeMachineCloseButton_OnClick">
+                                                                                <fa:FASymbolIcon Symbol="Dismiss" FontSize="14"/>
+                                                                        </Button>
+                                                                </Grid>
+                                                                <Border Grid.Row="1"
+                                                                        Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                                        BorderBrush="{DynamicResource CardStrokeColorDefaultBrush}"
+                                                                        BorderThickness="1"
+                                                                        CornerRadius="8"
+                                                                        Padding="12,8">
+                                                                        <Grid RowDefinitions="Auto,*" RowSpacing="4">
+                                                                                <TextBlock Text="左右滑动选择时间点，越靠右的快照越新"
+                                                                                           FontSize="12"
+                                                                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                                                <controls:HomeworkTimeMachine x:Name="TimeMachine"
+                                                                                                              Grid.Row="1"
+                                                                                                              SelectedSnapshotChanged="TimeMachine_OnSelectedSnapshotChanged"/>
+                                                                        </Grid>
+                                                                </Border>
+                                                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                                        <TextBlock x:Name="TimeMachineSelectionText"
+                                                                                   VerticalAlignment="Center"
+                                                                                   FontSize="12"
+                                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                                                   TextTrimming="CharacterEllipsis"/>
+                                                                        <StackPanel Grid.Column="1"
+                                                                                    Orientation="Horizontal"
+                                                                                    Spacing="8">
+                                                                                <Button x:Name="TimeMachineMergeButton"
+                                                                                        Content="合并"
+                                                                                        Click="TimeMachineMergeButton_OnClick"/>
+                                                                                <Button x:Name="TimeMachineReplaceButton"
+                                                                                        Content="替换"
+                                                                                        Classes="accent"
+                                                                                        Click="TimeMachineReplaceButton_OnClick"/>
+                                                                                <Button Content="取消"
+                                                                                        Theme="{StaticResource TransparentButton}"
+                                                                                        Click="TimeMachineCloseButton_OnClick"/>
+                                                                        </StackPanel>
+                                                                </Grid>
                                                         </Grid>
                                                 </Border>
                                         </Border>

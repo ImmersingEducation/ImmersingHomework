@@ -1,0 +1,88 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="80"
+             x:Class="ImmersingHomework.Controls.HomeworkTimeMachine"
+             Focusable="True"
+             ToolTip.Tip="左右滑动查看当天作业快照，也可以直接点击任意快照">
+    <!--
+        数据源：当天作业的所有快照（SnapshotInfo），控件内部按 CreatedAt 从早到晚排列。
+        每项显示文字：CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")。
+    -->
+    <UserControl.Styles>
+        <Style Selector="Border.wheel-slot">
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="CornerRadius" Value="13"/>
+            <Setter Property="Padding" Value="12,6"/>
+            <!-- 快照时间戳比科目名长，槽位适当加宽以便完整显示年月日时分秒。 -->
+            <Setter Property="Width" Value="210"/>
+            <Setter Property="Height" Value="50"/>
+            <Setter Property="Cursor" Value="Hand"/>
+        </Style>
+
+        <Style Selector="Border.wheel-slot:pointerover">
+            <Setter Property="Background" Value="{DynamicResource ControlFillColorSecondaryBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource CardStrokeColorDefaultBrush}"/>
+        </Style>
+
+        <!-- 选中项的小框：强调色描边 + 轻微底色 -->
+        <Style Selector="Border.wheel-slot.selected">
+            <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}"/>
+            <Setter Property="BorderThickness" Value="2"/>
+            <Setter Property="Padding" Value="14,5"/>
+            <Setter Property="CornerRadius" Value="14"/>
+        </Style>
+
+        <Style Selector="TextBlock.wheel-text">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextAlignment" Value="Center"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="Medium"/>
+        </Style>
+
+        <Style Selector="Border.wheel-slot.near TextBlock.wheel-text">
+            <Setter Property="FontSize" Value="15"/>
+        </Style>
+
+        <Style Selector="Border.wheel-slot.selected TextBlock.wheel-text">
+            <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}"/>
+            <Setter Property="FontSize" Value="17"/>
+            <Setter Property="FontWeight" Value="Bold"/>
+        </Style>
+
+        <Style Selector="TextBlock.empty-hint">
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="IsVisible" Value="False"/>
+        </Style>
+    </UserControl.Styles>
+
+    <Grid x:Name="WheelRoot"
+          MinHeight="72"
+          Background="Transparent"
+          ClipToBounds="True"
+          PointerPressed="WheelRoot_OnPointerPressed"
+          PointerMoved="WheelRoot_OnPointerMoved"
+          PointerReleased="WheelRoot_OnPointerReleased"
+          PointerCaptureLost="WheelRoot_OnPointerCaptureLost">
+        <!-- 所有快照都放在这里，显示区域只裁剪可视部分。 -->
+        <Canvas x:Name="SnapshotCanvas"
+                Height="62"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"/>
+
+        <TextBlock x:Name="EmptyHint"
+                   Classes="empty-hint"
+                   Text="当天暂无作业快照"
+                   IsVisible="True"/>
+    </Grid>
+</UserControl>

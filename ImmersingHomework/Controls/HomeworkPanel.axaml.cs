@@ -23,6 +23,12 @@ public partial class  HomeworkPanel : UserControl
     private readonly List<StackPanel> _homeworkColumns = [];
     private int _subjectPanelCount;
 
+    /// <summary>
+    /// 内容版本号。异步刷新开始时记录版本，加载完成后若版本已变化，
+    /// 说明期间已经直接展示了快照或开始了更新的刷新，旧结果必须丢弃。
+    /// </summary>
+    private int _contentVersion;
+
     private readonly ILogger _logger = Log.ForContext<HomeworkPanel>();
     public static readonly StyledProperty<DateOnly> DateProperty =
         AvaloniaProperty.Register<HomeworkPanel, DateOnly>(nameof(Date));
@@ -104,6 +110,8 @@ public partial class  HomeworkPanel : UserControl
     public void DisplayHomework(Homework homework)
     {
         _logger.Debug("直接展示作业内容，日期: {Date}", homework.Date);
+        // 直接展示会覆盖异步刷新的结果，使所有尚未完成的刷新失效。
+        _contentVersion++;
         HomeworkGrid.IsVisible = false;
         ClearHomeworkGrid();
         IsFrozen = homework.Frozen;
@@ -143,9 +151,18 @@ public partial class  HomeworkPanel : UserControl
         var sw = Stopwatch.StartNew();
 #endif
         _logger.Debug("刷新作业面板，日期: {Date}", date);
+        var contentVersion = ++_contentVersion;
         HomeworkGrid.IsVisible = false;
         ClearHomeworkGrid();
         var homework = await StorageService.LoadAsync(date);
+
+        // 加载期间如果直接展示了快照或开始了更新的刷新，当前结果已经过期。
+        if (contentVersion != _contentVersion)
+        {
+            _logger.Debug("作业面板刷新已过期，丢弃结果，日期: {Date}", date);
+            return;
+        }
+
         IsFrozen = homework?.Frozen ?? false;
 
         var hasHomework = false;
