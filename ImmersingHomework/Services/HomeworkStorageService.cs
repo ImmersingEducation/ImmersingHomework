@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Threading;
 using System.Threading.Tasks;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
@@ -12,6 +13,16 @@ namespace ImmersingHomework.Services;
 
 public class HomeworkStorageService : IHomeworkStorageService
 {
+    private static readonly JsonSerializerOptions ReadOptions = new()
+    {
+        PropertyNameCaseInsensitive = true
+    };
+
+    private static readonly JsonSerializerOptions WriteOptions = new()
+    {
+        WriteIndented = true
+    };
+
     private readonly ILogger _logger = Log.ForContext<HomeworkStorageService>();
     private string GetFilePath(DateOnly date)
     {
@@ -96,7 +107,7 @@ public class HomeworkStorageService : IHomeworkStorageService
         }
         if (!HasOnlyFrozenChanged(homework))
             SaveSnapshot(homework.Date);
-        string json = JsonSerializer.Serialize(homework, new JsonSerializerOptions { WriteIndented = true });
+        string json = JsonSerializer.Serialize(homework, WriteOptions);
         File.WriteAllText(GetFilePath(homework.Date), json);
         _logger.Debug("作业已保存，日期: {Date}", homework.Date);
     }
@@ -112,8 +123,8 @@ public class HomeworkStorageService : IHomeworkStorageService
         }
         if (!HasOnlyFrozenChanged(homework))
             SaveSnapshot(homework.Date);
-        string json = JsonSerializer.Serialize(homework, new JsonSerializerOptions { WriteIndented = true });
-        await File.WriteAllTextAsync(GetFilePath(homework.Date), json);
+        string json = JsonSerializer.Serialize(homework, WriteOptions);
+        await File.WriteAllTextAsync(GetFilePath(homework.Date), json).ConfigureAwait(false);
         _logger.Debug("作业已异步保存，日期: {Date}", homework.Date);
     }
 
@@ -129,8 +140,7 @@ public class HomeworkStorageService : IHomeworkStorageService
                 return new Homework(date, []);
             }
             string json = File.ReadAllText(filePath);
-            var homework = JsonSerializer.Deserialize<Homework>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var homework = JsonSerializer.Deserialize<Homework>(json, ReadOptions);
             _logger.Debug("作业已加载，日期: {Date}", date);
             return homework;
         }
@@ -152,9 +162,8 @@ public class HomeworkStorageService : IHomeworkStorageService
                 _logger.Information("作业文件不存在，返回空作业，日期: {Date}", date);
                 return new Homework(date, []);
             }
-            string json = await File.ReadAllTextAsync(filePath);
-            var homework = JsonSerializer.Deserialize<Homework>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            string json = await File.ReadAllTextAsync(filePath).ConfigureAwait(false);
+            var homework = JsonSerializer.Deserialize<Homework>(json, ReadOptions);
             _logger.Debug("作业已异步加载，日期: {Date}", date);
             return homework;
         }
@@ -176,14 +185,40 @@ public class HomeworkStorageService : IHomeworkStorageService
                 return null;
             }
             string json = File.ReadAllText(filePath);
-            var homework = JsonSerializer.Deserialize<Homework>(json,
-                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            var homework = JsonSerializer.Deserialize<Homework>(json, ReadOptions);
             _logger.Debug("作业已从文件加载: {Path}", filePath);
             return homework;
         }
         catch (Exception ex)
         {
             _logger.Warning(ex, "从文件加载作业时出错: {Path}", filePath);
+            return null;
+        }
+    }
+
+    public async Task<Homework?> LoadFromFileAsync(string filePath, CancellationToken cancellationToken = default)
+    {
+        _logger.Debug("正在异步从文件加载作业: {Path}", filePath);
+        try
+        {
+            if (!File.Exists(filePath))
+            {
+                _logger.Warning("作业文件不存在: {Path}", filePath);
+                return null;
+            }
+
+            var json = await File.ReadAllTextAsync(filePath, cancellationToken).ConfigureAwait(false);
+            var homework = JsonSerializer.Deserialize<Homework>(json, ReadOptions);
+            _logger.Debug("作业已异步从文件加载: {Path}", filePath);
+            return homework;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "异步从文件加载作业时出错: {Path}", filePath);
             return null;
         }
     }
@@ -237,8 +272,7 @@ public class HomeworkStorageService : IHomeworkStorageService
                 try
                 {
                     var content = File.ReadAllText(file);
-                    var homework = JsonSerializer.Deserialize<Homework>(content,
-                        new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                    var homework = JsonSerializer.Deserialize<Homework>(content, ReadOptions);
                     if (homework is { HomeworkItems.Count: 0 })
                         shouldDelete = true;
                 }

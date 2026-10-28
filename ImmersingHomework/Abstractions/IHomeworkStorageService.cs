@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using ImmersingHomework.Shared.Models;
 
@@ -19,6 +20,8 @@ public interface IHomeworkStorageService
     Task<Homework?> LoadAsync(DateOnly date);
 
     Homework? LoadFromFile(string filePath);
+
+    Task<Homework?> LoadFromFileAsync(string filePath, CancellationToken cancellationToken = default);
 
     List<DateOnly> GetAllHomeworkDates();
 

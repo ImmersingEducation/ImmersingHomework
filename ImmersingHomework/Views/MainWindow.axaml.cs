@@ -86,6 +86,36 @@ public partial class MainWindow : Window
     private TimeMachineState _timeMachineState = TimeMachineState.Closed;
     private double _timeMachineContainerHeight;
     private bool _timeMachineLayoutInitialized;
+    private readonly TranslateTransform _timeMachinePanelTransform = new();
+    private CancellationTokenSource? _timeMachinePanelAnimationCts;
+
+    /// <summary>
+    /// 时光机面板滑动时长。
+    /// </summary>
+    private static readonly TimeSpan TimeMachinePanelSlideDuration = TimeSpan.FromMilliseconds(250);
+
+    /// <summary>
+    /// 连续滚动轮盘时，等待用户停下来后再加载并预览快照，避免每一帧都重建作业内容。
+    /// </summary>
+    private static readonly TimeSpan PreviewSelectionDebounce = TimeSpan.FromMilliseconds(80);
+
+    private DispatcherTimer? _previewDebounceTimer;
+
+    /// <summary>
+    /// 正在进行的异步加载数量。多个加载重叠时，全部结束后才隐藏等待浮层。
+    /// </summary>
+    private int _homeworkLoadingCount;
+
+    /// <summary>
+    /// 轮盘松手后、预览加载真正开始前的等待状态。让进度环在松手时立即出现。
+    /// </summary>
+    private bool _previewSelectionLoading;
+
+    /// <summary>
+    /// 按文件路径缓存快照的异步加载任务。快照文件不会在生成后修改，
+    /// 因此同一路径可以安全复用；替换/合并使用过的快照会从缓存移除。
+    /// </summary>
+    private readonly Dictionary<string, Task<Homework?>> _snapshotHomeworkCache = new(StringComparer.Ordinal);
 
     /// <summary>
     /// 时光机预览切换时，作业内容区横向滑动的时长。
@@ -211,6 +241,11 @@ public partial class MainWindow : Window
         _logger.Information("MainWindow 初始化开始");
         InitializeComponent();
 
+        // 时光机面板通过 RenderTransform 滑动，避免动画 Canvas.Bottom/Height 触发布局。
+        TimeMachinePanel.RenderTransform = _timeMachinePanelTransform;
+        _previewDebounceTimer = new DispatcherTimer { Interval = PreviewSelectionDebounce };
+        _previewDebounceTimer.Tick += PreviewDebounceTimer_OnTick;
+
         _storageService = storageService;
         _snapshotStorageService = snapshotStorageService;
         _homeworkMergeService = homeworkMergeService;
@@ -248,6 +283,7 @@ public partial class MainWindow : Window
         // 日期变化时不播放退出动画，并让旧日期的动画结果失效。
         DateChanged += _ =>
         {
+            _snapshotHomeworkCache.Clear();
             _homeworkContentVersion++;
             CloseTimeMachine(restoreContent: true, animateRestore: false);
         };
@@ -621,9 +657,10 @@ public partial class MainWindow : Window
         TimeMachine.Focus();
 
         // 打开时光机时直接显示当前选中快照的作业内容，不播放切换动画。
+        // 快照通过异步方式加载，优先使用缓存，避免阻塞面板上浮动画。
         _previewedSnapshot = null;
         _previewedSnapshotIndex = -1;
-        PreviewTimeMachineSnapshot(TimeMachine.SelectedSnapshot);
+        _ = PreviewTimeMachineSnapshotAsync(TimeMachine.SelectedSnapshot);
     }
 
     /// <summary>
@@ -649,6 +686,11 @@ public partial class MainWindow : Window
 
         CancelPreviewTransitions();
 
+        // 先切换面板状态并开始收起动画，恢复内容的异步加载不会阻塞关闭。
+        _previewedSnapshot = null;
+        _previewedSnapshotIndex = -1;
+        SetTimeMachineState(TimeMachineState.Closed);
+
         if (restoreContent)
         {
             if (animateRestore)
@@ -656,10 +698,6 @@ public partial class MainWindow : Window
             else
                 RestoreCurrentHomeworkContent();
         }
-
-        _previewedSnapshot = null;
-        _previewedSnapshotIndex = -1;
-        SetTimeMachineState(TimeMachineState.Closed);
     }
 
     /// <summary>
@@ -667,23 +705,39 @@ public partial class MainWindow : Window
     /// </summary>
     private void StartRestoreHomeworkContentAnimation()
     {
+        _ = RestoreHomeworkContentWithAnimationAsync();
+    }
+
+    private async Task RestoreHomeworkContentWithAnimationAsync()
+    {
         var snapshot = TimeMachine.SelectedSnapshot;
-        var snapshotHomework = snapshot is null
-            ? null
-            : _storageService.LoadFromFile(snapshot.FilePath);
+        if (snapshot is null)
+        {
+            RestoreCurrentHomeworkContent();
+            return;
+        }
+
+        var contentVersion = _homeworkContentVersion;
+
+        // 快照与当前作业并行加载；两者都完成后才切换画面，避免异步结果覆盖重新打开的时光机。
+        var snapshotTask = LoadSnapshotHomeworkWithLoadingAsync(snapshot.FilePath);
+        var currentTask = LoadCurrentHomeworkWithLoadingAsync();
+        var snapshotHomework = await snapshotTask;
+        var currentHomework = await currentTask ?? new Homework(Date, []);
+
+        if (contentVersion != _homeworkContentVersion ||
+            _timeMachineState != TimeMachineState.Closed)
+            return;
 
         if (snapshotHomework is null)
         {
-            if (snapshot is not null)
-                _logger.Warning("退出时光机时无法加载所选快照: {Snapshot}", snapshot.FilePath);
-            RestoreCurrentHomeworkContent();
+            _logger.Warning("退出时光机时无法加载所选快照: {Snapshot}", snapshot.FilePath);
+            ShowHomeworkContentImmediately(currentHomework);
             return;
         }
 
         // 取消预览后主面板可能停在过渡中间，先对齐到选中快照再播放退出动画。
         ShowHomeworkContentImmediately(snapshotHomework);
-
-        var currentHomework = _storageService.Load(Date) ?? new Homework(Date, []);
         _ = AnimateRestoreHomeworkContentAsync(currentHomework);
     }
 
@@ -721,8 +775,43 @@ public partial class MainWindow : Window
         _pendingPreviewSnapshot = snapshot;
         _hasPendingPreviewSnapshot = true;
 
+        // 松手后立刻显示等待浮层，不等待防抖计时器或异步加载开始。
+        ShowPreviewSelectionLoading();
+
+        // 快速滚动轮盘时不要每个选中项都重建内容；等选中状态稳定后再处理。
         if (!_isPreviewTransitionRunning)
-            _ = ProcessPreviewTransitionsAsync();
+            SchedulePreviewTransition();
+    }
+
+    private void SchedulePreviewTransition()
+    {
+        if (_previewDebounceTimer is null)
+            return;
+
+        _previewDebounceTimer.Stop();
+        _previewDebounceTimer.Start();
+    }
+
+    private void PreviewDebounceTimer_OnTick(object? sender, EventArgs e)
+    {
+        _previewDebounceTimer?.Stop();
+
+        if (_timeMachineState != TimeMachineState.Opened ||
+            !_hasPendingPreviewSnapshot)
+        {
+            HidePreviewSelectionLoading();
+            return;
+        }
+
+        // 正在播放上一段预览动画时，由动画循环继续处理等待目标，
+        // 期间保持松手时出现的等待浮层。
+        if (_isPreviewTransitionRunning)
+            return;
+
+        // 交给 ProcessPreviewTransitionsAsync 内部的加载流程继续维持浮层；
+        // 这里先收起松手提示，避免动画阶段仍然显示“正在加载”。
+        HidePreviewSelectionLoading();
+        _ = ProcessPreviewTransitionsAsync();
     }
 
     private void UpdateTimeMachineSelection(SnapshotInfo? snapshot)
@@ -737,7 +826,7 @@ public partial class MainWindow : Window
             : $"已选择：{snapshot.CreatedAt:yyyy-MM-dd HH:mm:ss}";
     }
 
-    private void TimeMachineReplaceButton_OnClick(object? sender, RoutedEventArgs e)
+    private async void TimeMachineReplaceButton_OnClick(object? sender, RoutedEventArgs e)
     {
         if (_isTimeMachineActionInProgress)
             return;
@@ -758,7 +847,7 @@ public partial class MainWindow : Window
             if (snapshot is null)
                 return;
 
-            var snapshotHomework = _storageService.LoadFromFile(snapshot.FilePath);
+            var snapshotHomework = await LoadSnapshotHomeworkWithLoadingAsync(snapshot.FilePath);
             if (snapshotHomework is null)
             {
                 _logger.Warning("加载快照失败: {Snapshot}", snapshot.FilePath);
@@ -766,9 +855,13 @@ public partial class MainWindow : Window
                 return;
             }
 
-            var currentHomework = _storageService.Load(Date) ?? new Homework(Date, []);
+            var currentHomework = await LoadCurrentHomeworkWithLoadingAsync() ?? new Homework(Date, []);
             currentHomework.HomeworkItems = snapshotHomework.HomeworkItems;
-            _storageService.Save(currentHomework);
+
+            // 当前作业现在与缓存中的快照共享列表，不能继续复用该缓存对象。
+            _snapshotHomeworkCache.Remove(snapshot.FilePath);
+
+            await _storageService.SaveAsync(currentHomework);
 
             // 替换不播放动画：直接把主内容区同步为替换后的作业。
             ShowHomeworkContentImmediately(currentHomework);
@@ -807,7 +900,7 @@ public partial class MainWindow : Window
             if (snapshot is null)
                 return;
 
-            var snapshotHomework = _storageService.LoadFromFile(snapshot.FilePath);
+            var snapshotHomework = await LoadSnapshotHomeworkWithLoadingAsync(snapshot.FilePath);
             if (snapshotHomework is null)
             {
                 _logger.Warning("加载快照失败: {Snapshot}", snapshot.FilePath);
@@ -822,10 +915,13 @@ public partial class MainWindow : Window
                 _previewedSnapshotIndex = FindSnapshotIndex(snapshot);
             }
 
-            var currentHomework = _storageService.Load(Date) ?? new Homework(Date, []);
+            var currentHomework = await LoadCurrentHomeworkWithLoadingAsync() ?? new Homework(Date, []);
             var mergedHomework = await MergeHomeworkWithSnapshotAsync(snapshotHomework, currentHomework);
             if (mergedHomework is null || _timeMachineState != TimeMachineState.Opened)
                 return;
+
+            // 合并结果可能引用快照中的作业项，不能再把该缓存对象用于预览。
+            _snapshotHomeworkCache.Remove(snapshot.FilePath);
 
             // 合并后内容区向左滑出，合并结果同时从右侧向左滑入。
             try
@@ -877,6 +973,15 @@ public partial class MainWindow : Window
             TimeMachineMaxHeight);
         TimeMachinePanel.Height = _timeMachineContainerHeight;
         _timeMachineLayoutInitialized = true;
+
+        // 窗口尺寸变化时不要播放滑动动画：关闭状态直接对齐到画布下方。
+        if (_timeMachineState == TimeMachineState.Closed)
+        {
+            StopTimeMachinePanelAnimation();
+            _timeMachinePanelTransform.Y = _timeMachineContainerHeight + 2;
+            return;
+        }
+
         UpdateTimeMachinePosition();
     }
 
@@ -885,20 +990,151 @@ public partial class MainWindow : Window
         if (!_timeMachineLayoutInitialized)
             return;
 
-        // Opened 贴底，Closed 整体移到画布下方
-        var bottom = _timeMachineState switch
+        // 面板固定贴住画布底部，通过 RenderTransform.Y 移入/移出可视区域。
+        var targetY = _timeMachineState switch
         {
             TimeMachineState.Opened => 0d,
-            _ => -_timeMachineContainerHeight - 2
+            _ => _timeMachineContainerHeight + 2
         };
 
-        Canvas.SetBottom(TimeMachinePanel, bottom);
+        _ = AnimateTimeMachinePanelAsync(targetY);
+    }
+
+    private async Task AnimateTimeMachinePanelAsync(double targetY)
+    {
+        // 取消旧动画会回退到基准值，先记录当前可见位置再取消，避免中途反向时跳变。
+        var startY = _timeMachinePanelTransform.Y;
+        _timeMachinePanelAnimationCts?.Cancel();
+        _timeMachinePanelTransform.Y = startY;
+
+        var cts = new CancellationTokenSource();
+        _timeMachinePanelAnimationCts = cts;
+        var token = cts.Token;
+
+        try
+        {
+            if (Math.Abs(startY - targetY) < 0.5)
+            {
+                _timeMachinePanelTransform.Y = targetY;
+                return;
+            }
+
+            var animation = new Animation
+            {
+                Duration = TimeMachinePanelSlideDuration,
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters = { new Setter(TranslateTransform.YProperty, startY) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters = { new Setter(TranslateTransform.YProperty, targetY) }
+                    }
+                }
+            };
+
+            await animation.RunAsync(TimeMachinePanel, token);
+            if (!token.IsCancellationRequested)
+                _timeMachinePanelTransform.Y = targetY;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "时光机面板滑动动画失败");
+            if (!token.IsCancellationRequested)
+                _timeMachinePanelTransform.Y = targetY;
+        }
+        finally
+        {
+            if (ReferenceEquals(_timeMachinePanelAnimationCts, cts))
+                _timeMachinePanelAnimationCts = null;
+            cts.Dispose();
+        }
+    }
+
+    private void StopTimeMachinePanelAnimation()
+    {
+        _timeMachinePanelAnimationCts?.Cancel();
     }
 
     /// <summary>
-    /// 立即在主内容区显示指定快照的作业，不播放动画。
+    /// 显示主内容区的等待浮层。多个加载重叠时由计数控制，最后一个加载结束后才隐藏。
     /// </summary>
-    private void PreviewTimeMachineSnapshot(SnapshotInfo? snapshot)
+    private void BeginHomeworkLoading()
+    {
+        _homeworkLoadingCount++;
+        UpdateHomeworkLoadingOverlay();
+    }
+
+    private void EndHomeworkLoading()
+    {
+        if (_homeworkLoadingCount > 0)
+            _homeworkLoadingCount--;
+
+        UpdateHomeworkLoadingOverlay();
+    }
+
+    /// <summary>
+    /// 轮盘松手后立即显示等待浮层。此时预览还有防抖等待，尚未真正开始加载，
+    /// 但用户需要马上得到“正在处理”的反馈。
+    /// </summary>
+    private void ShowPreviewSelectionLoading()
+    {
+        _previewSelectionLoading = true;
+        UpdateHomeworkLoadingOverlay();
+    }
+
+    private void HidePreviewSelectionLoading()
+    {
+        _previewSelectionLoading = false;
+        UpdateHomeworkLoadingOverlay();
+    }
+
+    private void UpdateHomeworkLoadingOverlay()
+    {
+        var isVisible = _homeworkLoadingCount > 0 || _previewSelectionLoading;
+        HomeworkLoadingRing.IsActive = isVisible;
+        HomeworkLoadingOverlay.IsVisible = isVisible;
+    }
+
+    private async Task<Homework?> LoadSnapshotHomeworkWithLoadingAsync(
+        string filePath,
+        CancellationToken cancellationToken = default)
+    {
+        BeginHomeworkLoading();
+        try
+        {
+            return await GetSnapshotHomeworkAsync(filePath).WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            EndHomeworkLoading();
+        }
+    }
+
+    private async Task<Homework?> LoadCurrentHomeworkWithLoadingAsync(
+        CancellationToken cancellationToken = default)
+    {
+        BeginHomeworkLoading();
+        try
+        {
+            return await _storageService.LoadAsync(Date).WaitAsync(cancellationToken);
+        }
+        finally
+        {
+            EndHomeworkLoading();
+        }
+    }
+
+    /// <summary>
+    /// 异步加载指定快照并在主内容区显示，不播放动画。加载期间用户可以继续操作时光机。
+    /// </summary>
+    private async Task PreviewTimeMachineSnapshotAsync(SnapshotInfo? snapshot)
     {
         if (snapshot is null)
         {
@@ -906,17 +1142,55 @@ public partial class MainWindow : Window
             return;
         }
 
-        var homework = _storageService.LoadFromFile(snapshot.FilePath);
+        var homework = await LoadSnapshotHomeworkWithLoadingAsync(snapshot.FilePath);
         if (homework is null)
         {
             _logger.Warning("预览快照失败，无法加载: {Snapshot}", snapshot.FilePath);
-            RestoreCurrentHomeworkContent();
+            if (_timeMachineState == TimeMachineState.Opened &&
+                Equals(TimeMachine.SelectedSnapshot, snapshot))
+                RestoreCurrentHomeworkContent();
             return;
         }
+
+        // 加载期间用户可能已关闭时光机、切换了选择，或已经开始预览动画。
+        if (_timeMachineState != TimeMachineState.Opened ||
+            _hasPendingPreviewSnapshot ||
+            _isPreviewTransitionRunning ||
+            !Equals(TimeMachine.SelectedSnapshot, snapshot))
+            return;
 
         ShowHomeworkContentImmediately(homework);
         _previewedSnapshot = snapshot;
         _previewedSnapshotIndex = FindSnapshotIndex(snapshot);
+        PreloadSnapshotNeighbors(_previewedSnapshotIndex);
+    }
+
+    /// <summary>
+    /// 获取快照的加载任务。同一路径只读取一次，异步任务本身也会被缓存。
+    /// </summary>
+    private Task<Homework?> GetSnapshotHomeworkAsync(string filePath)
+    {
+        if (_snapshotHomeworkCache.TryGetValue(filePath, out var cachedTask))
+            return cachedTask;
+
+        var loadTask = _storageService.LoadFromFileAsync(filePath);
+        _snapshotHomeworkCache[filePath] = loadTask;
+        return loadTask;
+    }
+
+    /// <summary>
+    /// 预加载相邻快照，让下一次滚动选择可以立即显示。
+    /// </summary>
+    private void PreloadSnapshotNeighbors(int index)
+    {
+        var snapshots = TimeMachine.Snapshots;
+        if (index < 0 || index >= snapshots.Count)
+            return;
+
+        var start = Math.Max(0, index - 1);
+        var end = Math.Min(snapshots.Count - 1, index + 1);
+        for (var i = start; i <= end; i++)
+            _ = GetSnapshotHomeworkAsync(snapshots[i].FilePath);
     }
 
     /// <summary>
@@ -942,6 +1216,9 @@ public partial class MainWindow : Window
                 _pendingPreviewSnapshot = null;
                 _hasPendingPreviewSnapshot = false;
 
+                // 松手提示到此结束，后续由具体的加载操作接管浮层。
+                HidePreviewSelectionLoading();
+
                 if (Equals(target, _previewedSnapshot))
                     continue;
 
@@ -949,18 +1226,24 @@ public partial class MainWindow : Window
                 if (target is null || targetIndex < 0)
                 {
                     // 没有可预览的快照时回到实际保存的作业内容。
-                    ShowHomeworkContentImmediately(_storageService.Load(Date) ?? new Homework(Date, []));
+                    var currentHomework = await LoadCurrentHomeworkWithLoadingAsync(token);
+                    token.ThrowIfCancellationRequested();
+                    ShowHomeworkContentImmediately(currentHomework ?? new Homework(Date, []));
                     _previewedSnapshot = null;
                     _previewedSnapshotIndex = -1;
                     continue;
                 }
 
-                var homework = _storageService.LoadFromFile(target.FilePath);
+                var homework = await LoadSnapshotHomeworkWithLoadingAsync(target.FilePath, token);
                 if (homework is null)
                 {
                     _logger.Warning("预览快照失败，无法加载: {Snapshot}", target.FilePath);
                     continue;
                 }
+
+                // 加载期间又选中了别的快照时，跳过这个中间目标，直接处理最新目标。
+                if (_hasPendingPreviewSnapshot && !Equals(_pendingPreviewSnapshot, target))
+                    continue;
 
                 // 选中更早的快照时整体向右滑，选中更新的快照时整体向左滑。
                 var slideRight = _previewedSnapshotIndex >= 0 &&
@@ -969,6 +1252,7 @@ public partial class MainWindow : Window
 
                 _previewedSnapshot = target;
                 _previewedSnapshotIndex = targetIndex;
+                PreloadSnapshotNeighbors(targetIndex);
             }
         }
         catch (OperationCanceledException)
@@ -982,6 +1266,9 @@ public partial class MainWindow : Window
         }
         finally
         {
+            // 循环结束、取消或异常时，不能把松手提示遗留在界面上。
+            HidePreviewSelectionLoading();
+
             _isPreviewTransitionRunning = false;
             if (ReferenceEquals(_previewTransitionCts, cts))
             {
@@ -1103,9 +1390,15 @@ public partial class MainWindow : Window
 
     private void CancelPreviewTransitions()
     {
+        _previewDebounceTimer?.Stop();
+        HidePreviewSelectionLoading();
+
         if (_isPreviewTransitionRunning)
         {
             _previewTransitionCts?.Cancel();
+
+            // 取消可能发生在滑动动画中间，立即复位两个面板，避免内容区停在半滑出状态。
+            ResetHomeworkContentTransforms();
         }
         else
         {

@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
-using System.Diagnostics;
 using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using Avalonia;
+using Avalonia.Animation;
+using Avalonia.Animation.Easings;
 using Avalonia.Controls;
 using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Styling;
 using Avalonia.Threading;
 using ImmersingHomework.Services;
 using Serilog;
@@ -60,10 +64,14 @@ public partial class HomeworkTimeMachine : UserControl
     private double _dragStartOffset;
     private int? _pressedItemIndex;
 
-    private DispatcherTimer? _centerAnimationTimer;
-    private double _animationStartOffset;
-    private double _animationTargetOffset;
-    private long _animationStartedAt;
+    /// <summary>
+    /// 指针移动只记录最新偏移，实际位移在下一帧统一应用，避免高频事件反复触发布局。
+    /// </summary>
+    private bool _dragUpdateScheduled;
+    private int _dragUpdateVersion;
+    private double _pendingDragOffset;
+
+    private CancellationTokenSource? _centerAnimationCts;
 
     /// <summary>
     /// 当前选中的快照。支持双向绑定；外部赋值时会同步时光机位置，
@@ -468,55 +476,69 @@ public partial class HomeworkTimeMachine : UserControl
 
     private void AnimateStripTo(double targetOffset)
     {
-        StopCenterAnimation();
-
+        // 先记录当前动画位置：取消旧动画会让属性回退到基准值，直接读取会跳回旧位置。
         var startOffset = _stripTransform.X;
+        StopCenterAnimation();
+        _stripTransform.X = startOffset;
+
         if (Math.Abs(startOffset - targetOffset) < 0.5)
         {
             _stripTransform.X = targetOffset;
             return;
         }
 
-        _animationStartOffset = startOffset;
-        _animationTargetOffset = targetOffset;
-        _animationStartedAt = Stopwatch.GetTimestamp();
-
-        _centerAnimationTimer = new DispatcherTimer
-        {
-            Interval = TimeSpan.FromMilliseconds(15)
-        };
-        _centerAnimationTimer.Tick += OnCenterAnimationTick;
-        _centerAnimationTimer.Start();
+        _ = RunCenterAnimationAsync(startOffset, targetOffset);
     }
 
-    private void OnCenterAnimationTick(object? sender, EventArgs e)
+    private async Task RunCenterAnimationAsync(double startOffset, double targetOffset)
     {
-        var elapsedMilliseconds =
-            (Stopwatch.GetTimestamp() - _animationStartedAt) * 1000d / Stopwatch.Frequency;
-        var progress = Math.Clamp(
-            elapsedMilliseconds / CenterAnimationDuration.TotalMilliseconds,
-            0,
-            1);
-        var eased = 1 - Math.Pow(1 - progress, 3);
+        var cts = new CancellationTokenSource();
+        _centerAnimationCts = cts;
+        var token = cts.Token;
 
-        _stripTransform.X =
-            _animationStartOffset + (_animationTargetOffset - _animationStartOffset) * eased;
+        try
+        {
+            var animation = new Animation
+            {
+                Duration = CenterAnimationDuration,
+                Easing = new CubicEaseOut(),
+                FillMode = FillMode.Forward,
+                Children =
+                {
+                    new KeyFrame
+                    {
+                        Cue = new Cue(0),
+                        Setters = { new Setter(TranslateTransform.XProperty, startOffset) }
+                    },
+                    new KeyFrame
+                    {
+                        Cue = new Cue(1),
+                        Setters = { new Setter(TranslateTransform.XProperty, targetOffset) }
+                    }
+                }
+            };
 
-        if (progress < 1)
-            return;
-
-        _stripTransform.X = _animationTargetOffset;
-        StopCenterAnimation();
+            await animation.RunAsync(SnapshotCanvas, token);
+            if (!token.IsCancellationRequested)
+                _stripTransform.X = targetOffset;
+        }
+        catch (Exception ex)
+        {
+            _logger.Warning(ex, "时光机居中动画失败");
+            if (!token.IsCancellationRequested)
+                _stripTransform.X = targetOffset;
+        }
+        finally
+        {
+            if (ReferenceEquals(_centerAnimationCts, cts))
+                _centerAnimationCts = null;
+            cts.Dispose();
+        }
     }
 
     private void StopCenterAnimation()
     {
-        if (_centerAnimationTimer is null)
-            return;
-
-        _centerAnimationTimer.Stop();
-        _centerAnimationTimer.Tick -= OnCenterAnimationTick;
-        _centerAnimationTimer = null;
+        _centerAnimationCts?.Cancel();
     }
 
     private void WheelRoot_OnPointerPressed(object? sender, PointerPressedEventArgs e)
@@ -525,10 +547,15 @@ public partial class HomeworkTimeMachine : UserControl
             !e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
             return;
 
+        // 拖动应从中途动画的当前位置开始，而不是取消动画后回退到旧基准值。
+        var currentOffset = _stripTransform.X;
         StopCenterAnimation();
+        _stripTransform.X = currentOffset;
 
         _isPointerDown = true;
         _isDragging = false;
+        _dragUpdateVersion++;
+        _dragUpdateScheduled = false;
         _pointerStart = e.GetPosition(this);
         _dragStartOffset = _stripTransform.X;
         _pressedItemIndex = GetItemIndex(e.Source as Control);
@@ -561,7 +588,7 @@ public partial class HomeworkTimeMachine : UserControl
             e.Pointer.Capture(WheelRoot);
         }
 
-        SetDragOffset(_dragStartOffset + delta.X);
+        ScheduleDragOffsetUpdate(_dragStartOffset + delta.X);
         e.Handled = true;
     }
 
@@ -572,6 +599,11 @@ public partial class HomeworkTimeMachine : UserControl
 
         var wasDragging = _isDragging;
         var pressedItemIndex = _pressedItemIndex;
+
+        // 松手前可能还有一帧位移没有应用，先同步到最终位置再计算最近快照。
+        if (wasDragging && _dragUpdateScheduled)
+            SetDragOffset(_pendingDragOffset);
+
         ResetPointerState();
 
         if (e.Pointer.Captured == WheelRoot)
@@ -610,6 +642,44 @@ public partial class HomeworkTimeMachine : UserControl
         _isPointerDown = false;
         _isDragging = false;
         _pressedItemIndex = null;
+
+        // 使尚未执行的下一次动画帧失效，避免松手/重新按下后应用旧拖动位置。
+        _dragUpdateVersion++;
+        _dragUpdateScheduled = false;
+    }
+
+    /// <summary>
+    /// 记录最新的拖动偏移，并请求在下一帧统一更新轮盘位置。
+    /// </summary>
+    private void ScheduleDragOffsetUpdate(double offset)
+    {
+        _pendingDragOffset = offset;
+
+        if (_dragUpdateScheduled)
+            return;
+
+        _dragUpdateScheduled = true;
+        var version = _dragUpdateVersion;
+        var topLevel = TopLevel.GetTopLevel(this);
+        if (topLevel is null)
+        {
+            ApplyPendingDragOffset(version);
+            return;
+        }
+
+        topLevel.RequestAnimationFrame(_ => ApplyPendingDragOffset(version));
+    }
+
+    private void ApplyPendingDragOffset(int version)
+    {
+        if (version != _dragUpdateVersion)
+            return;
+
+        _dragUpdateScheduled = false;
+        if (!_isPointerDown || !_isDragging)
+            return;
+
+        SetDragOffset(_pendingDragOffset);
     }
 
     private void SetDragOffset(double offset)

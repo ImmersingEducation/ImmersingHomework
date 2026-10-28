@@ -22,6 +22,33 @@
                              切换快照时两个面板一前一后横向滑动，宿主负责裁剪。 -->
                         <Grid x:Name="HomeworkContentHost" ClipToBounds="True">
                                 <controls:HomeworkPanel x:Name="HomeworkPanel"/>
+                                <!-- 快照/作业异步加载时的等待提示，覆盖在作业内容之上 -->
+                                <Panel x:Name="HomeworkLoadingOverlay"
+                                       ZIndex="20"
+                                       IsVisible="False"
+                                       IsHitTestVisible="False"
+                                       Background="#33000000">
+                                        <Border HorizontalAlignment="Center"
+                                                VerticalAlignment="Center"
+                                                Background="{DynamicResource ContentDialogBackground}"
+                                                BorderBrush="{DynamicResource ContentDialogBorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="12"
+                                                Padding="28,22"
+                                                BoxShadow="0 8 24 0 #33000000">
+                                                <StackPanel Spacing="14" HorizontalAlignment="Center">
+                                                        <fa:FAProgressRing x:Name="HomeworkLoadingRing"
+                                                                           Width="48" Height="48"
+                                                                           HorizontalAlignment="Center"
+                                                                           IsIndeterminate="True"
+                                                                           IsActive="False"/>
+                                                        <TextBlock Text="正在加载，请稍候…"
+                                                                   HorizontalAlignment="Center"
+                                                                   FontSize="14"
+                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                                </StackPanel>
+                                        </Border>
+                                </Panel>
                         </Grid>
                         <!-- 按钮栏悬浮于作业面板之上，不占用布局行；保留 16 的底部外边距，位置与原来保持一致 -->
                         <Grid x:Name="ButtonBar" VerticalAlignment="Bottom" Margin="0,0,0,16" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
@@ -176,13 +203,7 @@
                                 <Panel x:Name="TimeMachinePanel"
                                        Width="{Binding Bounds.Width, ElementName=TimeMachineCanvas}"
                                        Height="0"
-                                       Canvas.Bottom="-100000">
-                                        <Panel.Transitions>
-                                                <Transitions>
-                                                        <DoubleTransition Property="Canvas.Bottom" Duration="0:0:0.25" Easing="CubicEaseOut"/>
-                                                        <DoubleTransition Property="Height" Duration="0:0:0.25" Easing="CubicEaseOut"/>
-                                                </Transitions>
-                                        </Panel.Transitions>
+                                       Canvas.Bottom="0">
                                         <Border x:Name="TimeMachineBackground"
                                                 Width="960"
                                                 MaxWidth="{Binding Bounds.Width, ElementName=TimeMachineCanvas}"
