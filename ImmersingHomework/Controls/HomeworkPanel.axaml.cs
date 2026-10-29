@@ -7,6 +7,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -28,6 +29,29 @@ public partial class  HomeworkPanel : UserControl
     /// 说明期间已经直接展示了快照或开始了更新的刷新，旧结果必须丢弃。
     /// </summary>
     private int _contentVersion;
+
+    /// <summary>
+    /// 自动滚动的速度（像素/秒）。
+    /// </summary>
+    private const double AutoScrollSpeed = 50;
+
+    /// <summary>
+    /// 自动滚动的刷新间隔，按帧更新以保证滚动平滑。
+    /// </summary>
+    private static readonly TimeSpan AutoScrollFrameInterval = TimeSpan.FromMilliseconds(16);
+
+    private readonly DispatcherTimer _autoScrollTimer = new(DispatcherPriority.Render)
+    {
+        Interval = AutoScrollFrameInterval
+    };
+
+    private readonly Stopwatch _autoScrollStopwatch = new();
+    private bool _isAutoScrollEnabled;
+
+    /// <summary>
+    /// 当前自动滚动方向：1 表示向下，-1 表示向上。
+    /// </summary>
+    private int _autoScrollDirection = 1;
 
     private readonly ILogger _logger = Log.ForContext<HomeworkPanel>();
     public static readonly StyledProperty<DateOnly> DateProperty =
@@ -57,6 +81,25 @@ public partial class  HomeworkPanel : UserControl
         set => SetValue(DateProperty, value);
     }
 
+    /// <summary>
+    /// 是否启用自动滚动。启用后内容从上向下滚动，到达底部后反向向上，循环往复。
+    /// </summary>
+    public bool IsAutoScrollEnabled
+    {
+        get => _isAutoScrollEnabled;
+        set
+        {
+            if (_isAutoScrollEnabled == value)
+                return;
+
+            _isAutoScrollEnabled = value;
+            if (value)
+                StartAutoScroll();
+            else
+                StopAutoScroll();
+        }
+    }
+
     private IHomeworkStorageService? _storageService;
     private IClassIslandService? _classIslandService;
     private readonly bool _autoLoad;
@@ -70,6 +113,7 @@ public partial class  HomeworkPanel : UserControl
         _logger.Information("HomeworkPanel 初始化开始");
         _autoLoad = autoLoad;
         InitializeComponent();
+        _autoScrollTimer.Tick += AutoScrollTimer_OnTick;
         DateProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
         {
             _logger.Debug("日期改变: {Date}", panel.Date);
@@ -272,6 +316,50 @@ public partial class  HomeworkPanel : UserControl
                 }
             }
         }
+    }
+
+    private void StartAutoScroll()
+    {
+        // 启用时总是从顶部开始向下滚动
+        _autoScrollDirection = 1;
+        HomeworkScrollViewer.Offset = new Vector(HomeworkScrollViewer.Offset.X, 0);
+        _autoScrollStopwatch.Restart();
+        _autoScrollTimer.Start();
+        _logger.Debug("自动滚动已启用");
+    }
+
+    private void StopAutoScroll()
+    {
+        _autoScrollTimer.Stop();
+        _autoScrollStopwatch.Reset();
+        _logger.Debug("自动滚动已停用");
+    }
+
+    private void AutoScrollTimer_OnTick(object? sender, EventArgs e)
+    {
+        var elapsed = _autoScrollStopwatch.Elapsed;
+        _autoScrollStopwatch.Restart();
+
+        var scrollableHeight = HomeworkScrollViewer.Extent.Height - HomeworkScrollViewer.Viewport.Height;
+        if (scrollableHeight <= 0)
+            return;
+
+        var offset = HomeworkScrollViewer.Offset.Y +
+                     _autoScrollDirection * AutoScrollSpeed * elapsed.TotalSeconds;
+
+        // 到达底部或顶部后反向，形成上下往复的滚动
+        if (offset >= scrollableHeight)
+        {
+            offset = scrollableHeight;
+            _autoScrollDirection = -1;
+        }
+        else if (offset <= 0)
+        {
+            offset = 0;
+            _autoScrollDirection = 1;
+        }
+
+        HomeworkScrollViewer.Offset = new Vector(HomeworkScrollViewer.Offset.X, offset);
     }
 
     private void OnEditRequested(HomeworkItem item)

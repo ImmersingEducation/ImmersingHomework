@@ -69,6 +69,9 @@
                                                                    IsIndeterminate="False" IsActive="False"
                                                                    IsHitTestVisible="False"/>
                                         </Grid>
+                                        <Button x:Name="AutoScrollButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" ToolTip.Tip="自动滚动" Click="AutoScrollButton_OnClick">
+                                                <fa:FASymbolIcon x:Name="AutoScrollIcon" Symbol="ChevronDown" FontSize="24"></fa:FASymbolIcon>
+                                        </Button>
                                         <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
                                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                                         <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">

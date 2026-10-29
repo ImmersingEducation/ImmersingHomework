@@ -5,7 +5,10 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkPanel">
     <Grid>
-        <ScrollViewer HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Auto" AllowAutoHide="True">
+        <ScrollViewer x:Name="HomeworkScrollViewer"
+                      HorizontalScrollBarVisibility="Disabled"
+                      VerticalScrollBarVisibility="Auto"
+                      AllowAutoHide="True">
             <Grid x:Name="HomeworkGrid" RowSpacing="32" ColumnSpacing="32"/>
         </ScrollViewer>
         <TextBlock x:Name="NoHomeworkText" Text="今天没有作业，休息一下吧！" 

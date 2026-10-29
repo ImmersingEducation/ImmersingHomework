@@ -39,6 +39,7 @@ public partial class MainWindow : Window
     private readonly ILogger _logger = Log.ForContext<MainWindow>();
     private Timer _hitokotoTimer;
     private bool _isFrozen;
+    private bool _isAutoScrollEnabled;
     private string? _lastHitokotoText;
 
     /// <summary>
@@ -1622,6 +1623,19 @@ public partial class MainWindow : Window
         };
         dialog.CloseButtonClick += (_, _) => { dialog.Hide(); };
         await dialog.ShowAsync(this);
+    }
+
+    private void AutoScrollButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        _isAutoScrollEnabled = !_isAutoScrollEnabled;
+
+        // 主面板和时光机预览面板共用同一开关，切换快照后也能保持自动滚动
+        HomeworkPanel.IsAutoScrollEnabled = _isAutoScrollEnabled;
+        _homeworkPreviewPanel.IsAutoScrollEnabled = _isAutoScrollEnabled;
+
+        AutoScrollIcon.Symbol = _isAutoScrollEnabled ? FASymbol.Pause : FASymbol.ChevronDown;
+        ToolTip.SetTip(AutoScrollButton, _isAutoScrollEnabled ? "停止自动滚动" : "自动滚动");
+        _logger.Debug("自动滚动状态切换为: {Enabled}", _isAutoScrollEnabled);
     }
 
     private void FreezeButton_OnClick(object? sender, RoutedEventArgs e)
