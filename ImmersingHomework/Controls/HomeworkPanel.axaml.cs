@@ -9,6 +9,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
@@ -18,10 +19,12 @@ public partial class  HomeworkPanel : UserControl
 {
     /// <summary>
     /// HomeworkGrid 的列数。每一列是一个独立的 StackPanel，各列高度互不影响。
+    /// 取值来自应用设置，允许范围为 1~6。
     /// </summary>
-    private const int HomeworkColumnCount = 4;
+    private int HomeworkColumnCount => Math.Clamp(AppSettings.Instance.MainViewColumns.Value, 1, 6);
 
     private readonly List<StackPanel> _homeworkColumns = [];
+    private readonly List<SubjectHomeworkPanel> _subjectPanels = [];
     private int _subjectPanelCount;
 
     /// <summary>
@@ -114,6 +117,8 @@ public partial class  HomeworkPanel : UserControl
         _autoLoad = autoLoad;
         InitializeComponent();
         _autoScrollTimer.Tick += AutoScrollTimer_OnTick;
+        this.AttachedToVisualTree += OnAttachedToVisualTree;
+        this.DetachedFromVisualTree += OnDetachedFromVisualTree;
         DateProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
         {
             _logger.Debug("日期改变: {Date}", panel.Date);
@@ -272,12 +277,56 @@ public partial class  HomeworkPanel : UserControl
 #endif
     }
 
+    private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        // 先移除再添加，避免控件反复进出视觉树时重复订阅。
+        AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
+        AppSettings.Instance.MainViewColumns.ValueChanged += OnMainViewColumnsChanged;
+
+        // 控件重新挂回视觉树时，按最新设置排列已经加载的内容。
+        if (_homeworkColumns.Count > 0)
+            RebuildHomeworkColumns();
+    }
+
+    private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
+    {
+        AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
+    }
+
+    private void OnMainViewColumnsChanged(int _)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RebuildHomeworkColumns);
+            return;
+        }
+
+        RebuildHomeworkColumns();
+    }
+
+    /// <summary>
+    /// 按当前列数重新排列已有的科目面板，不重新读取作业内容。
+    /// 这样在设置窗口修改列数时，时光机预览中的内容也不会被覆盖。
+    /// </summary>
+    private void RebuildHomeworkColumns()
+    {
+        // 使用添加顺序而不是列顺序，否则重新排列后科目的先后顺序会被打乱。
+        var subjectPanels = _subjectPanels.ToList();
+
+        ClearHomeworkGrid();
+        foreach (var subjectPanel in subjectPanels)
+            AddSubjectPanel(subjectPanel);
+
+        _logger.Debug("主界面列数变更，重新排列 {Count} 个科目面板", subjectPanels.Count);
+    }
+
     private void ClearHomeworkGrid()
     {
         HomeworkGrid.Children.Clear();
         HomeworkGrid.ColumnDefinitions.Clear();
         HomeworkGrid.RowDefinitions.Clear();
         _homeworkColumns.Clear();
+        _subjectPanels.Clear();
         _subjectPanelCount = 0;
 
         for (var column = 0; column < HomeworkColumnCount; column++)
@@ -301,6 +350,7 @@ public partial class  HomeworkPanel : UserControl
         // 按顺序轮流放入各列，每列内部纵向堆叠，高度互不影响。
         var column = _subjectPanelCount % HomeworkColumnCount;
         _homeworkColumns[column].Children.Add(subjectPanel);
+        _subjectPanels.Add(subjectPanel);
         _subjectPanelCount++;
     }
 

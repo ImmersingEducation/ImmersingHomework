@@ -75,6 +75,8 @@ public class AppSettings
     public ObservableProperty<TeachingSecurityMode> TeachingSecurityMode { get; set; } =
         new(Models.TeachingSecurityMode.AutoRestart);
 
+    public ObservableProperty<int> MainViewColumns { get; set; } = new(4);
+
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
         new(Models.HitokotoDisplayMode.Content);
 
@@ -169,6 +171,7 @@ public class AppSettings
         UrlSchemaRegistered.Value = loaded.UrlSchemaRegistered.Value;
         ThemeMode.Value = loaded.ThemeMode.Value;
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
+        MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentAfterClass.Value = loaded.RemindHomeworkAssignmentAfterClass.Value;
@@ -206,6 +209,7 @@ public class AppSettings
         Watch(UrlSchemaRegistered, ScheduleAutoSave);
         Watch(ThemeMode, ScheduleAutoSave);
         Watch(TeachingSecurityMode, ScheduleAutoSave);
+        Watch(MainViewColumns, ScheduleAutoSave);
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
         Watch(RemindHomeworkAssignmentAfterClass, ScheduleAutoSave);

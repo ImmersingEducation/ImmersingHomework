@@ -57,6 +57,9 @@ public partial class SettingsWindow : FAAppWindow
             case "Basic":
                 ContentFrame.Navigate(typeof(BasicSettingsPage));
                 break;
+            case "MainView":
+                ContentFrame.Navigate(typeof(MainViewSettingsPage));
+                break;
             case "Subject":
                 ContentFrame.Navigate(typeof(SubjectSettingsPage));
                 break;

@@ -57,6 +57,7 @@ public static class ServiceCollectionExtensions
         services.AddTransient<AddHomeworkWindow>();
 
         services.AddTransient<BasicSettingsPage>();
+        services.AddTransient<MainViewSettingsPage>();
         services.AddTransient<SubjectSettingsPage>();
         services.AddTransient<TagSettingsPage>();
         services.AddTransient<HomeworkTemplateSettingsPage>();

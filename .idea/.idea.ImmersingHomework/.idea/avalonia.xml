@@ -36,6 +36,7 @@
         <entry key="ImmersingHomework/Views/SettingsPages/HitokotoSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/HomeworkTemplateSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/LinkageSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
+        <entry key="ImmersingHomework/Views/SettingsPages/MainViewSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/StorageSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/SubjectSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
         <entry key="ImmersingHomework/Views/SettingsPages/TagSettingsPage.axaml" value="ImmersingHomework/ImmersingHomework.csproj" />
