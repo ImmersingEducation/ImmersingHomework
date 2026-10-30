@@ -322,6 +322,11 @@ public partial class  HomeworkPanel : UserControl
 
     private void ClearHomeworkGrid()
     {
+        // 先清空每列中的科目面板，确保它们与旧列的父子关系被解除，
+        // 否则重新分列时会被判定为“已有视觉父级”。
+        foreach (var column in _homeworkColumns)
+            column.Children.Clear();
+
         HomeworkGrid.Children.Clear();
         HomeworkGrid.ColumnDefinitions.Clear();
         HomeworkGrid.RowDefinitions.Clear();
