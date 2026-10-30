@@ -49,7 +49,10 @@ public partial class App : Application
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
-        
+
+        // Avalonia 12 与 FluentAvalonia 的标题栏命中测试不兼容，Windows 下补一个 WndProc 修复。
+        WindowsTitleBarDrag.Register();
+
         // 设置全局默认字体
         var harmonyFont = new FontFamily("avares://ImmersingHomework/Assets/Fonts/HarmonyOS_SansSC_Regular.ttf#HarmonyOS Sans SC");
         Resources["ContentControlThemeFontFamily"] = harmonyFont;
