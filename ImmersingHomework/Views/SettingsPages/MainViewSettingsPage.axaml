@@ -19,6 +19,40 @@
                                    ValueChanged="MainViewColumnNumericUpDown_OnValueChanged"></NumericUpDown>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="主界面背景图片" Description="选择一张图片作为主界面背景。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Image"></fa:FASymbolIconSource>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <TextBlock x:Name="BackgroundImageStatusTextBlock"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <Button x:Name="SelectBackgroundImageButton" Click="SelectBackgroundImageButton_OnClick">选择图片</Button>
+                        <Button x:Name="ClearBackgroundImageButton" Click="ClearBackgroundImageButton_OnClick">移除</Button>
+                    </StackPanel>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="背景图片透明度" Description="调整主界面背景图片的显示透明度。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="ImageEdit"></fa:FASymbolIconSource>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Slider x:Name="BackgroundImageOpacitySlider"
+                                Width="220"
+                                Minimum="0" Maximum="100"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="BackgroundImageOpacitySlider_OnValueChanged"/>
+                        <TextBlock x:Name="BackgroundImageOpacityTextBlock"
+                                   Width="48"
+                                   TextAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>

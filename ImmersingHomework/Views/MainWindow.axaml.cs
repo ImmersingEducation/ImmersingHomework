@@ -195,6 +195,7 @@ public partial class MainWindow : Window
     private readonly IHitokotoService _hitokotoService;
     private readonly IClassIslandService _classIslandService;
     private Bitmap? _clipboardBitmap;
+    private Bitmap? _backgroundImageBitmap;
 
     /// <summary>
     /// InfoBar 消息区域内最多同时显示的消息条数，超出时自动移除最早的一条
@@ -241,6 +242,10 @@ public partial class MainWindow : Window
     {
         _logger.Information("MainWindow 初始化开始");
         InitializeComponent();
+
+        ApplyBackgroundImage();
+        AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged += OnBackgroundImageSettingChanged;
+        AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged += OnBackgroundImageOpacityChanged;
 
         // 时光机面板通过 RenderTransform 滑动，避免动画 Canvas.Bottom/Height 触发布局。
         TimeMachinePanel.RenderTransform = _timeMachinePanelTransform;
@@ -315,6 +320,14 @@ public partial class MainWindow : Window
             WindowDeactivated?.Invoke(this, EventArgs.Empty);
         };
 
+        Closed += (_, _) =>
+        {
+            AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged -= OnBackgroundImageSettingChanged;
+            AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged -= OnBackgroundImageOpacityChanged;
+            _backgroundImageBitmap?.Dispose();
+            _backgroundImageBitmap = null;
+        };
+
         HomeworkPanel.FrozenChanged += ApplyFrozenState;
         HomeworkPanel.EditRequested += item => OpenMainDrawer(item);
         HomeworkPanel.Refresh();
@@ -327,6 +340,63 @@ public partial class MainWindow : Window
     {
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
         DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
+    }
+
+    private void OnBackgroundImageSettingChanged(bool _)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyBackgroundImage();
+        else
+            Dispatcher.UIThread.Post(ApplyBackgroundImage);
+    }
+
+    private void OnBackgroundImageOpacityChanged(double opacity)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            SetBackgroundImageOpacity(opacity);
+        else
+            Dispatcher.UIThread.Post(() => SetBackgroundImageOpacity(opacity));
+    }
+
+    private void SetBackgroundImageOpacity(double opacity)
+    {
+        MainViewBackgroundImage.Opacity = Math.Clamp(opacity, 0, 1);
+    }
+
+    /// <summary>
+    /// 按当前设置加载或清除主界面背景图片。图片不显示时释放旧位图，避免继续占用文件。
+    /// </summary>
+    private void ApplyBackgroundImage()
+    {
+        MainViewBackgroundImage.IsVisible = false;
+        MainViewBackgroundImage.Source = null;
+        SetBackgroundImageOpacity(AppSettings.Instance.MainViewBackgroundImageOpacity.Value);
+
+        _backgroundImageBitmap?.Dispose();
+        _backgroundImageBitmap = null;
+
+        if (!AppSettings.Instance.HasMainViewBackgroundImage.Value)
+            return;
+
+        var path = AppSettings.BackgroundImagePath;
+        if (!File.Exists(path))
+        {
+            _logger.Warning("主界面背景图片不存在: {Path}", path);
+            return;
+        }
+
+        try
+        {
+            using var stream = File.OpenRead(path);
+            _backgroundImageBitmap = new Bitmap(stream);
+            MainViewBackgroundImage.Source = _backgroundImageBitmap;
+            MainViewBackgroundImage.IsVisible = true;
+            _logger.Information("主界面背景图片已加载: {Path}", path);
+        }
+        catch (Exception ex)
+        {
+            _logger.Error(ex, "加载主界面背景图片失败: {Path}", path);
+        }
     }
 
     /// <summary>

@@ -9,6 +9,12 @@
         Title="方圆作业板" Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
         Icon="avares://ImmersingHomework/Assets/icon.png">
         <Grid RowDefinitions="Auto,*">
+                <!-- 主界面背景图片：未设置时隐藏，设置后以填充模式铺满窗口 -->
+                <Image x:Name="MainViewBackgroundImage"
+                       Grid.RowSpan="2"
+                       Stretch="UniformToFill"
+                       IsVisible="False"
+                       IsHitTestVisible="False"/>
                 <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" HorizontalAlignment="Stretch" Height="96">
                         <StackPanel Orientation="Horizontal" Margin="16 8">
                                 <TextBlock x:Name="DateTextBlock" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="32" FontWeight="Bold"/>

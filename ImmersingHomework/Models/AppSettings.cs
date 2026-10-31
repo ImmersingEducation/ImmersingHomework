@@ -52,6 +52,9 @@ public class AppSettings
 
     private static string FilePath => Path.Combine(DataDirectory, "Settings.json");
 
+    /// <summary>主界面背景图片的固定存放位置，用户选择的图片会被转换并复制到这里。</summary>
+    public static string BackgroundImagePath => Path.Combine(DataDirectory, "Background.png");
+
     /// <summary>写盘可能由 UI 线程与自动保存的计时器并发触发，用它把序列化与写文件串行化。</summary>
     private readonly object _fileLock = new();
 
@@ -76,6 +79,11 @@ public class AppSettings
         new(Models.TeachingSecurityMode.AutoRestart);
 
     public ObservableProperty<int> MainViewColumns { get; set; } = new(4);
+
+    public ObservableProperty<bool> HasMainViewBackgroundImage { get; set; } = new(false);
+
+    /// <summary>主界面背景图片的透明度，取值范围 0~1。</summary>
+    public ObservableProperty<double> MainViewBackgroundImageOpacity { get; set; } = new(0.2);
 
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
         new(Models.HitokotoDisplayMode.Content);
@@ -172,6 +180,8 @@ public class AppSettings
         ThemeMode.Value = loaded.ThemeMode.Value;
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
+        HasMainViewBackgroundImage.Value = loaded.HasMainViewBackgroundImage.Value;
+        MainViewBackgroundImageOpacity.Value = Math.Clamp(loaded.MainViewBackgroundImageOpacity.Value, 0, 1);
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentAfterClass.Value = loaded.RemindHomeworkAssignmentAfterClass.Value;
@@ -210,6 +220,8 @@ public class AppSettings
         Watch(ThemeMode, ScheduleAutoSave);
         Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(MainViewColumns, ScheduleAutoSave);
+        Watch(HasMainViewBackgroundImage, ScheduleAutoSave);
+        Watch(MainViewBackgroundImageOpacity, ScheduleAutoSave);
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
         Watch(RemindHomeworkAssignmentAfterClass, ScheduleAutoSave);

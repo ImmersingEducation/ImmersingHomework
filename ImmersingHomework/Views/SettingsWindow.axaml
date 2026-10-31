@@ -40,7 +40,7 @@
                 </fa:FANavigationViewItem>
                 <fa:FANavigationViewItem Content="主界面设置" Tag="MainView">
                     <fa:FANavigationViewItem.IconSource>
-                        <fa:FASymbolIconSource Symbol="SetTile"/>
+                        <fa:FASymbolIconSource Symbol="PreviewLink"/>
                     </fa:FANavigationViewItem.IconSource>
                 </fa:FANavigationViewItem>
                 <fa:FANavigationViewItem Content="科目设置" Tag="Subject">

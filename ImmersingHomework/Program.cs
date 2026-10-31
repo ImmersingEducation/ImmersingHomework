@@ -217,6 +217,10 @@ class Program
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            // 部分 Linux 桌面（如 niri）的 xdg-desktop-portal 没有可用的文件选择器后端，
+            // 走 DBus 选择器时点击后没有任何反应。禁用后 Avalonia 会优先使用 GTK 原生对话框，
+            // GTK 不可用时再回退到内置对话框。
+            .With(new X11PlatformOptions { UseDBusFilePicker = false })
             .With(new FontManagerOptions
             {
                 DefaultFamilyName = DefaultFontFamilyKey,
