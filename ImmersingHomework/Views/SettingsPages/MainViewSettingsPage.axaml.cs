@@ -32,6 +32,7 @@ public partial class MainViewSettingsPage : UserControl
     public void Refresh()
     {
         MainViewColumnNumericUpDown.Value = AppSettings.Instance.MainViewColumns.Value;
+        AdvancedMaterialSwitch.IsChecked = AppSettings.Instance.EnableMainViewAdvancedMaterial.Value;
         RefreshBackgroundImageState();
     }
 
@@ -52,6 +53,15 @@ public partial class MainViewSettingsPage : UserControl
         BackgroundImageBlurSlider.IsEnabled = hasBackground;
         BackgroundImageBlurSlider.Value = blur;
         BackgroundImageBlurTextBlock.Text = $"{blur:0} px";
+    }
+
+    private void AdvancedMaterialSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)
+    {
+        if (AdvancedMaterialSwitch.IsChecked is not { } isEnabled)
+            return;
+
+        _logger.Information("主界面高级材质设置变更: {Value}", isEnabled);
+        AppSettings.Instance.EnableMainViewAdvancedMaterial.Value = isEnabled;
     }
 
     private void BackgroundImageOpacitySlider_OnValueChanged(object? sender, RangeBaseValueChangedEventArgs e)

@@ -19,6 +19,15 @@
                                    ValueChanged="MainViewColumnNumericUpDown_OnValueChanged"></NumericUpDown>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="高级材质" Description="为主界面启用系统合成的高级材质效果（实验性功能，仅 Windows 支持）。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Filter"></fa:FASymbolIconSource>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <ToggleSwitch x:Name="AdvancedMaterialSwitch" OnContent="" OffContent=""
+                                  IsCheckedChanged="AdvancedMaterialSwitch_OnIsCheckedChanged"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="主界面背景图片" Description="选择一张图片作为主界面背景。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Image"></fa:FASymbolIconSource>
