@@ -196,6 +196,7 @@ public partial class MainWindow : Window
     private readonly IClassIslandService _classIslandService;
     private Bitmap? _clipboardBitmap;
     private Bitmap? _backgroundImageBitmap;
+    private readonly BlurEffect _backgroundImageBlurEffect = new();
 
     /// <summary>
     /// InfoBar 消息区域内最多同时显示的消息条数，超出时自动移除最早的一条
@@ -246,6 +247,7 @@ public partial class MainWindow : Window
         ApplyBackgroundImage();
         AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged += OnBackgroundImageSettingChanged;
         AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged += OnBackgroundImageOpacityChanged;
+        AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged += OnBackgroundImageBlurChanged;
 
         // 时光机面板通过 RenderTransform 滑动，避免动画 Canvas.Bottom/Height 触发布局。
         TimeMachinePanel.RenderTransform = _timeMachinePanelTransform;
@@ -324,6 +326,7 @@ public partial class MainWindow : Window
         {
             AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged -= OnBackgroundImageSettingChanged;
             AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged -= OnBackgroundImageOpacityChanged;
+            AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged -= OnBackgroundImageBlurChanged;
             _backgroundImageBitmap?.Dispose();
             _backgroundImageBitmap = null;
         };
@@ -363,6 +366,28 @@ public partial class MainWindow : Window
         MainViewBackgroundImage.Opacity = Math.Clamp(opacity, 0, 1);
     }
 
+    private void OnBackgroundImageBlurChanged(double blur)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            SetBackgroundImageBlur(blur);
+        else
+            Dispatcher.UIThread.Post(() => SetBackgroundImageBlur(blur));
+    }
+
+    private void SetBackgroundImageBlur(double blur)
+    {
+        var radius = Math.Clamp(blur, 0, 30);
+        if (radius <= 0)
+        {
+            MainViewBackgroundImage.Effect = null;
+            return;
+        }
+
+        _backgroundImageBlurEffect.Radius = radius;
+        if (!ReferenceEquals(MainViewBackgroundImage.Effect, _backgroundImageBlurEffect))
+            MainViewBackgroundImage.Effect = _backgroundImageBlurEffect;
+    }
+
     /// <summary>
     /// 按当前设置加载或清除主界面背景图片。图片不显示时释放旧位图，避免继续占用文件。
     /// </summary>
@@ -371,6 +396,7 @@ public partial class MainWindow : Window
         MainViewBackgroundImage.IsVisible = false;
         MainViewBackgroundImage.Source = null;
         SetBackgroundImageOpacity(AppSettings.Instance.MainViewBackgroundImageOpacity.Value);
+        SetBackgroundImageBlur(AppSettings.Instance.MainViewBackgroundImageBlur.Value);
 
         _backgroundImageBitmap?.Dispose();
         _backgroundImageBitmap = null;

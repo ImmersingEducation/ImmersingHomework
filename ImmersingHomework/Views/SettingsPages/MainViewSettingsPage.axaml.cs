@@ -47,6 +47,11 @@ public partial class MainViewSettingsPage : UserControl
         BackgroundImageOpacitySlider.IsEnabled = hasBackground;
         BackgroundImageOpacitySlider.Value = opacity * 100;
         BackgroundImageOpacityTextBlock.Text = $"{opacity * 100:0}%";
+
+        var blur = Math.Clamp(AppSettings.Instance.MainViewBackgroundImageBlur.Value, 0, 30);
+        BackgroundImageBlurSlider.IsEnabled = hasBackground;
+        BackgroundImageBlurSlider.Value = blur;
+        BackgroundImageBlurTextBlock.Text = $"{blur:0} px";
     }
 
     private void BackgroundImageOpacitySlider_OnValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
@@ -59,6 +64,17 @@ public partial class MainViewSettingsPage : UserControl
 
         _logger.Information("主界面背景图片透明度变更: {Opacity}", opacity);
         AppSettings.Instance.MainViewBackgroundImageOpacity.Value = opacity;
+    }
+
+    private void BackgroundImageBlurSlider_OnValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        var blur = Math.Clamp(e.NewValue, 0, 30);
+        BackgroundImageBlurTextBlock.Text = $"{blur:0} px";
+        if (Math.Abs(AppSettings.Instance.MainViewBackgroundImageBlur.Value - blur) < double.Epsilon)
+            return;
+
+        _logger.Information("主界面背景图片模糊度变更: {Blur}", blur);
+        AppSettings.Instance.MainViewBackgroundImageBlur.Value = blur;
     }
 
     private void MainViewColumnNumericUpDown_OnValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)

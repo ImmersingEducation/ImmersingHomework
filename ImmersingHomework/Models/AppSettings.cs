@@ -85,6 +85,9 @@ public class AppSettings
     /// <summary>主界面背景图片的透明度，取值范围 0~1。</summary>
     public ObservableProperty<double> MainViewBackgroundImageOpacity { get; set; } = new(0.2);
 
+    /// <summary>主界面背景图片的模糊半径，单位为像素。</summary>
+    public ObservableProperty<double> MainViewBackgroundImageBlur { get; set; } = new(0);
+
     public ObservableProperty<HitokotoDisplayMode> HitokotoDisplayMode { get; set; } =
         new(Models.HitokotoDisplayMode.Content);
 
@@ -182,6 +185,7 @@ public class AppSettings
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         HasMainViewBackgroundImage.Value = loaded.HasMainViewBackgroundImage.Value;
         MainViewBackgroundImageOpacity.Value = Math.Clamp(loaded.MainViewBackgroundImageOpacity.Value, 0, 1);
+        MainViewBackgroundImageBlur.Value = Math.Clamp(loaded.MainViewBackgroundImageBlur.Value, 0, 30);
         EnableClassIslandIPCService.Value = loaded.EnableClassIslandIPCService.Value;
         ClassIslandTakeoverSubjects.Value = loaded.ClassIslandTakeoverSubjects.Value;
         RemindHomeworkAssignmentAfterClass.Value = loaded.RemindHomeworkAssignmentAfterClass.Value;
@@ -222,6 +226,7 @@ public class AppSettings
         Watch(MainViewColumns, ScheduleAutoSave);
         Watch(HasMainViewBackgroundImage, ScheduleAutoSave);
         Watch(MainViewBackgroundImageOpacity, ScheduleAutoSave);
+        Watch(MainViewBackgroundImageBlur, ScheduleAutoSave);
         Watch(EnableClassIslandIPCService, ScheduleAutoSave);
         Watch(ClassIslandTakeoverSubjects, ScheduleAutoSave);
         Watch(RemindHomeworkAssignmentAfterClass, ScheduleAutoSave);

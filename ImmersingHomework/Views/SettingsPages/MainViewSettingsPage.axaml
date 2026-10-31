@@ -53,6 +53,26 @@
                     </StackPanel>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="背景图片模糊度" Description="调整主界面背景图片的模糊程度。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Filter"></fa:FASymbolIconSource>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Slider x:Name="BackgroundImageBlurSlider"
+                                Width="220"
+                                Minimum="0" Maximum="30"
+                                TickFrequency="1"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="BackgroundImageBlurSlider_OnValueChanged"/>
+                        <TextBlock x:Name="BackgroundImageBlurTextBlock"
+                                   Width="48"
+                                   TextAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
         </StackPanel>
     </ScrollViewer>
 </UserControl>
