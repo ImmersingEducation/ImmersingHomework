@@ -407,8 +407,8 @@ public partial class MainWindow : Window
         RequestAdvancedMaterialClipUpdate();
 
     /// <summary>
-    /// 保留主界面原有底色和背景图片；高级材质开启时只在其控件所在区域镂空背景，
-    /// 其余区域仍然不透明。原生后端不可用时不会产生任何镂空。
+    /// 保留主界面原有底色和背景图片。有背景图片时整层保持不透明，材质区域用模糊副本模拟；
+    /// 没有背景图片时才在材质控件所在区域镂空。原生后端不可用时不会产生任何镂空。
     /// </summary>
     private void ApplyAdvancedMaterialState()
     {
@@ -449,7 +449,7 @@ public partial class MainWindow : Window
     {
         MainViewBackgroundHost.Clip = null;
         MainViewMaterialBackgroundHost.Clip = null;
-        MainViewMaterialBackgroundHost.IsVisible = false;
+        MainViewMaterialBackgroundHost.Opacity = 0;
     }
 
     private void UpdateAdvancedMaterialClip()
@@ -458,7 +458,8 @@ public partial class MainWindow : Window
         if (backgroundBounds.Width <= 0 || backgroundBounds.Height <= 0)
             return;
 
-        // 背景层需要“完整矩形减去洞”，材质图片层需要“所有洞的并集”。
+        // 没有背景图片时，背景层需要“完整矩形减去洞”；
+        // 有背景图片时，材质图片层需要“所有洞的并集”。
         // 两个层填满同一个父面板，因此可以共用同一套坐标。
         var holes = new GeometryGroup { FillRule = FillRule.NonZero };
         var contentViewport = GetBackgroundBounds(HomeworkContentHost);
@@ -509,24 +510,39 @@ public partial class MainWindow : Window
             return;
         }
 
+        // 有应用内背景图片时，材质区域完全由叠加的模糊背景图模拟。
+        // 不透明背景层保持完整，避免任何情况下透出窗口背后的桌面。
+        if (HasMaterialBackgroundImage)
+        {
+            MainViewBackgroundHost.Clip = null;
+            MainViewMaterialBackgroundHost.Clip = holes;
+            UpdateMaterialBackgroundOverlayVisibility();
+            return;
+        }
+
+        // 没有背景图片时保留原生材质：在背景层上为材质区域打洞。
         MainViewBackgroundHost.Clip = new CombinedGeometry(
             GeometryCombineMode.Exclude,
             new RectangleGeometry(backgroundBounds),
             holes);
-        MainViewMaterialBackgroundHost.Clip = holes;
-        UpdateMaterialBackgroundOverlayVisibility();
+        MainViewMaterialBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.Opacity = 0;
     }
 
+    private bool HasMaterialBackgroundImage =>
+        MainViewMaterialBackgroundImage.Source is not null;
+
     /// <summary>
-    /// 有背景图片时，在材质镂空区域显示它的模糊副本；没有图片时保持原生材质。
+    /// 有背景图片时，在材质区域显示它的模糊副本；没有图片时保持原生材质。
     /// </summary>
     private void UpdateMaterialBackgroundOverlayVisibility()
     {
         var show = IsAdvancedMaterialActive
-                   && MainViewMaterialBackgroundImage.Source is not null
-                   && AppSettings.Instance.MainViewBackgroundImageOpacity.Value > 0.001
+                   && HasMaterialBackgroundImage
                    && MainViewMaterialBackgroundHost.Clip is not null;
-        MainViewMaterialBackgroundHost.IsVisible = show;
+        // 保持控件始终参与布局，只切换透明度，避免隐藏控件首次显示时
+        // 尚未完成布局而导致整层不渲染。
+        MainViewMaterialBackgroundHost.Opacity = show ? 1 : 0;
     }
 
     private Rect? GetBackgroundBounds(Visual visual)
@@ -598,9 +614,11 @@ public partial class MainWindow : Window
     /// </summary>
     private void ApplyBackgroundImage()
     {
+        // 切换图片期间立即恢复不透明背景，避免旧的材质孔洞短暂透出桌面。
+        MainViewBackgroundHost.Clip = null;
         MainViewBackgroundImage.IsVisible = false;
         MainViewBackgroundImage.Source = null;
-        MainViewMaterialBackgroundHost.IsVisible = false;
+        MainViewMaterialBackgroundHost.Opacity = 0;
         MainViewMaterialBackgroundImage.Source = null;
         SetBackgroundImageOpacity(AppSettings.Instance.MainViewBackgroundImageOpacity.Value);
         SetBackgroundImageBlur(AppSettings.Instance.MainViewBackgroundImageBlur.Value);

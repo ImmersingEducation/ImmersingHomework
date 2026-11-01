@@ -10,9 +10,11 @@
     <controls:AdvancedMaterialSurface FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}"
                                       CornerRadius="24"
                                       PointerPressed="MoreButton_OnClick">
-        <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
-            <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
-            <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
-        </StackPanel>
+        <Panel Background="Transparent">
+            <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
+                <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
+                <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
+            </StackPanel>
+        </Panel>
     </controls:AdvancedMaterialSurface>
 </UserControl>

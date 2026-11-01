@@ -26,8 +26,8 @@ public class AdvancedMaterialSurface : CompositionMaterialControl
     public static event EventHandler? MaterialStateChanged;
 
     /// <summary>
-    /// 当前已加载的材质表面。主窗口据此在背景层上为材质区域打出透明孔洞，
-    /// 从而在保留不透明主界面的同时透出原生材质。
+    /// 当前已加载的材质表面。没有背景图片时，主窗口据此在背景层上为材质区域打出透明孔洞，
+    /// 从而在保留不透明主界面的同时透出原生材质；有背景图片时则用于裁剪模糊副本。
     /// </summary>
     public static IReadOnlyCollection<AdvancedMaterialSurface> GetLoadedSurfaces() => LoadedSurfaces;
 

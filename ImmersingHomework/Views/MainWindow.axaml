@@ -10,8 +10,8 @@
         TransparencyLevelHint="Transparent"
         Icon="avares://ImmersingHomework/Assets/icon.png">
         <Grid RowDefinitions="Auto,*">
-                <!-- 主界面背景层。高级材质开启时只在材质控件的位置镂空，
-                     其余部分保持不透明，避免整个主界面变成透明窗口。 -->
+                <!-- 主界面背景层。没有背景图片时，高级材质只在材质控件的位置镂空；
+                     有背景图片时保持整层不透明，并在材质区域叠加模糊副本，避免透出桌面。 -->
                 <Panel x:Name="MainViewBackgroundLayer"
                        Grid.RowSpan="2"
                        IsHitTestVisible="False">
@@ -25,10 +25,11 @@
                                        IsHitTestVisible="False"/>
                         </Panel>
                         <!-- 原生材质只能采样窗口外的桌面，无法直接采样应用内的背景图片。
-                             因此在材质镂空区域再铺一层同一张背景图片的模糊副本，模拟材质透出背景图片的效果。 -->
+                             有背景图片时在材质区域叠加同一图片的模糊副本并保持背景不透明；
+                             没有背景图片时保留原生材质空洞。 -->
                         <Panel x:Name="MainViewMaterialBackgroundHost"
                                IsHitTestVisible="False"
-                               IsVisible="False">
+                               Opacity="0">
                                 <Border Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"/>
                                 <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
                                 <Image x:Name="MainViewMaterialBackgroundImage"
