@@ -19,6 +19,14 @@
                                    ValueChanged="MainViewColumnNumericUpDown_OnValueChanged"></NumericUpDown>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="主界面标题文字" Description="显示在主界面右上角的文字。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="AlignRight"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <TextBox x:Name="MainViewTitleTextBox" TextChanged="MainViewTitleTextBox_OnTextChanged"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="主界面背景图片" Description="选择一张图片作为主界面背景。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Image"></fa:FASymbolIconSource>

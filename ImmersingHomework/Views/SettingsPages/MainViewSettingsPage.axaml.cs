@@ -32,6 +32,7 @@ public partial class MainViewSettingsPage : UserControl
     public void Refresh()
     {
         MainViewColumnNumericUpDown.Value = AppSettings.Instance.MainViewColumns.Value;
+        MainViewTitleTextBox.Text = AppSettings.Instance.MainViewTitleText.Value;
         RefreshBackgroundImageState();
     }
 
@@ -203,5 +204,10 @@ public partial class MainViewSettingsPage : UserControl
         };
         dialog.CloseButtonClick += (_, _) => dialog.Hide();
         await dialog.ShowAsync(window);
+    }
+
+    private void MainViewTitleTextBox_OnTextChanged(object? sender, TextChangedEventArgs e)
+    {
+        AppSettings.Instance.MainViewTitleText.Value = MainViewTitleTextBox.Text;
     }
 }

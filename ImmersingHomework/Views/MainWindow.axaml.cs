@@ -244,6 +244,9 @@ public partial class MainWindow : Window
         _logger.Information("MainWindow 初始化开始");
         InitializeComponent();
 
+        UpdateTitleText(AppSettings.Instance.MainViewTitleText.Value);
+        AppSettings.Instance.MainViewTitleText.ValueChanged += UpdateTitleText;
+        
         ApplyBackgroundImage();
         AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged += OnBackgroundImageSettingChanged;
         AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged += OnBackgroundImageOpacityChanged;
@@ -324,6 +327,7 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            AppSettings.Instance.MainViewTitleText.ValueChanged -= UpdateTitleText;
             AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged -= OnBackgroundImageSettingChanged;
             AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged -= OnBackgroundImageOpacityChanged;
             AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged -= OnBackgroundImageBlurChanged;
@@ -337,7 +341,11 @@ public partial class MainWindow : Window
         _logger.Information("MainWindow 初始化完成");
     }
 
-    
+
+    public void UpdateTitleText(string? text)
+    {
+        PanelTitleTextBlock.Text = text ?? "";
+    }
     
     public void UpdateDateText(DateOnly date)
     {
