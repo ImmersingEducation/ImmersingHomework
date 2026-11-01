@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
@@ -20,6 +21,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Controls;
@@ -197,6 +199,14 @@ public partial class MainWindow : Window
     private Bitmap? _clipboardBitmap;
     private Bitmap? _backgroundImageBitmap;
     private readonly BlurEffect _backgroundImageBlurEffect = new();
+    private readonly BlurEffect _materialBackgroundImageBlurEffect = new();
+
+    /// <summary>
+    /// 材质区域使用背景图片时至少应用的模糊半径，让背景图片更接近磨砂材质。
+    /// </summary>
+    private const double MaterialBackgroundImageMinBlur = 16;
+
+    private bool _advancedMaterialClipUpdateQueued;
 
     /// <summary>
     /// InfoBar 消息区域内最多同时显示的消息条数，超出时自动移除最早的一条
@@ -244,7 +254,11 @@ public partial class MainWindow : Window
         _logger.Information("MainWindow 初始化开始");
         InitializeComponent();
 
+        AdvancedMaterialSurface.MaterialStateChanged += OnAdvancedMaterialSurfaceStateChanged;
+        AppSettings.Instance.EnableMainViewAdvancedMaterial.ValueChanged += OnAdvancedMaterialSettingChanged;
+        this.LayoutUpdated += OnLayoutUpdated;
         ApplyBackgroundImage();
+        ApplyAdvancedMaterialState();
         AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged += OnBackgroundImageSettingChanged;
         AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged += OnBackgroundImageOpacityChanged;
         AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged += OnBackgroundImageBlurChanged;
@@ -264,6 +278,7 @@ public partial class MainWindow : Window
         // 无法使用构造函数注入，由这里显式注入
         HomeworkPanel.Initialize(storageService, classIslandService);
         HomeworkPanel.RenderTransform = _homeworkContentTransform;
+        HomeworkPanel.ScrollOffsetChanged += OnHomeworkScrollOffsetChanged;
 
         // 时光机预览面板不自动加载当天作业，只在切换到快照时由 DisplayHomework 填充。
         // 它和主面板叠放在 HomeworkContentHost 中，切换快照时一前一后横向滑动。
@@ -274,7 +289,11 @@ public partial class MainWindow : Window
             RenderTransform = _homeworkPreviewTransform
         };
         _homeworkPreviewPanel.Initialize(storageService, classIslandService);
+        _homeworkPreviewPanel.ScrollOffsetChanged += OnHomeworkScrollOffsetChanged;
         HomeworkContentHost.Children.Add(_homeworkPreviewPanel);
+
+        _homeworkContentTransform.PropertyChanged += OnHomeworkTransformPropertyChanged;
+        _homeworkPreviewTransform.PropertyChanged += OnHomeworkTransformPropertyChanged;
 
         MainDrawerEditView.Initialize(classIslandService, storageService);
 
@@ -324,9 +343,19 @@ public partial class MainWindow : Window
 
         Closed += (_, _) =>
         {
+            AppSettings.Instance.EnableMainViewAdvancedMaterial.ValueChanged -= OnAdvancedMaterialSettingChanged;
             AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged -= OnBackgroundImageSettingChanged;
             AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged -= OnBackgroundImageOpacityChanged;
             AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged -= OnBackgroundImageBlurChanged;
+            AdvancedMaterialSurface.MaterialStateChanged -= OnAdvancedMaterialSurfaceStateChanged;
+            this.LayoutUpdated -= OnLayoutUpdated;
+            HomeworkPanel.ScrollOffsetChanged -= OnHomeworkScrollOffsetChanged;
+            _homeworkPreviewPanel.ScrollOffsetChanged -= OnHomeworkScrollOffsetChanged;
+            _homeworkContentTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
+            _homeworkPreviewTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
+            ClearAdvancedMaterialClip();
+            MainViewBackgroundImage.Source = null;
+            MainViewMaterialBackgroundImage.Source = null;
             _backgroundImageBitmap?.Dispose();
             _backgroundImageBitmap = null;
         };
@@ -344,6 +373,172 @@ public partial class MainWindow : Window
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
         DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
     }
+
+    /// <summary>
+    /// 高级材质真正生效的条件：设置已开启，且原生材质后端已经附加成功。
+    /// 后端不可用时保留正常窗口底色，避免主界面变成透明窗口。
+    /// </summary>
+    private bool IsAdvancedMaterialActive =>
+        AppSettings.Instance.EnableMainViewAdvancedMaterial.Value && TopBarMaterial.IsNativeMaterialActive;
+
+    private void OnAdvancedMaterialSettingChanged(bool _)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyAdvancedMaterialState();
+        else
+            Dispatcher.UIThread.Post(ApplyAdvancedMaterialState);
+    }
+
+    private void OnAdvancedMaterialSurfaceStateChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            RequestAdvancedMaterialClipUpdate();
+        else
+            Dispatcher.UIThread.Post(RequestAdvancedMaterialClipUpdate);
+    }
+
+    private void OnLayoutUpdated(object? sender, EventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    private void OnHomeworkScrollOffsetChanged(object? sender, EventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    private void OnHomeworkTransformPropertyChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    /// <summary>
+    /// 保留主界面原有底色和背景图片；高级材质开启时只在其控件所在区域镂空背景，
+    /// 其余区域仍然不透明。原生后端不可用时不会产生任何镂空。
+    /// </summary>
+    private void ApplyAdvancedMaterialState()
+    {
+        UpdateMaterialBackgroundOverlayVisibility();
+        RequestAdvancedMaterialClipUpdate();
+    }
+
+    /// <summary>
+    /// 合并同一帧内的多次刷新请求，避免滚动或动画时重复重建背景裁剪几何。
+    /// </summary>
+    private void RequestAdvancedMaterialClipUpdate()
+    {
+        if (!IsAdvancedMaterialActive)
+        {
+            _advancedMaterialClipUpdateQueued = false;
+            ClearAdvancedMaterialClip();
+            return;
+        }
+
+        if (_advancedMaterialClipUpdateQueued)
+            return;
+
+        _advancedMaterialClipUpdateQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _advancedMaterialClipUpdateQueued = false;
+            if (!IsAdvancedMaterialActive)
+            {
+                ClearAdvancedMaterialClip();
+                return;
+            }
+
+            UpdateAdvancedMaterialClip();
+        });
+    }
+
+    private void ClearAdvancedMaterialClip()
+    {
+        MainViewBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.IsVisible = false;
+    }
+
+    private void UpdateAdvancedMaterialClip()
+    {
+        var backgroundBounds = new Rect(MainViewBackgroundLayer.Bounds.Size);
+        if (backgroundBounds.Width <= 0 || backgroundBounds.Height <= 0)
+            return;
+
+        // 背景层需要“完整矩形减去洞”，材质图片层需要“所有洞的并集”。
+        // 两个层填满同一个父面板，因此可以共用同一套坐标。
+        var holes = new GeometryGroup { FillRule = FillRule.NonZero };
+        var contentViewport = GetBackgroundBounds(HomeworkContentHost);
+
+        foreach (var surface in AdvancedMaterialSurface.GetLoadedSurfaces())
+        {
+            // 只有原生材质真正显示时才需要镂空；回退画笔会覆盖在正常背景之上。
+            if (!surface.IsEffectivelyVisible || !surface.IsNativeMaterialActive)
+                continue;
+            if (surface.Bounds.Width <= 0 || surface.Bounds.Height <= 0)
+                continue;
+
+            var topLeft = surface.TranslatePoint(new Point(0, 0), MainViewBackgroundLayer);
+            if (topLeft is null)
+                continue;
+
+            var surfaceBounds = new Rect(topLeft.Value, surface.Bounds.Size);
+            if (!surfaceBounds.Intersects(backgroundBounds))
+                continue;
+
+            var radius = GetMaxCornerRadius(surface.CornerRadius);
+            Geometry hole = new RectangleGeometry
+            {
+                Rect = surfaceBounds,
+                RadiusX = radius,
+                RadiusY = radius
+            };
+
+            // 作业卡片位于可滚动的内容宿主内，洞也要裁剪到宿主可见范围，
+            // 避免滚出视口的卡片在上方或下方的主界面背景上留下透明区域。
+            if (contentViewport is { } viewport && HomeworkContentHost.IsVisualAncestorOf(surface))
+            {
+                if (!surfaceBounds.Intersects(viewport))
+                    continue;
+
+                hole = new CombinedGeometry(
+                    GeometryCombineMode.Intersect,
+                    hole,
+                    new RectangleGeometry(viewport));
+            }
+
+            holes.Children.Add(hole);
+        }
+
+        if (holes.Children.Count == 0)
+        {
+            ClearAdvancedMaterialClip();
+            return;
+        }
+
+        MainViewBackgroundHost.Clip = new CombinedGeometry(
+            GeometryCombineMode.Exclude,
+            new RectangleGeometry(backgroundBounds),
+            holes);
+        MainViewMaterialBackgroundHost.Clip = holes;
+        UpdateMaterialBackgroundOverlayVisibility();
+    }
+
+    /// <summary>
+    /// 有背景图片时，在材质镂空区域显示它的模糊副本；没有图片时保持原生材质。
+    /// </summary>
+    private void UpdateMaterialBackgroundOverlayVisibility()
+    {
+        var show = IsAdvancedMaterialActive
+                   && MainViewMaterialBackgroundImage.Source is not null
+                   && AppSettings.Instance.MainViewBackgroundImageOpacity.Value > 0.001
+                   && MainViewMaterialBackgroundHost.Clip is not null;
+        MainViewMaterialBackgroundHost.IsVisible = show;
+    }
+
+    private Rect? GetBackgroundBounds(Visual visual)
+    {
+        var topLeft = visual.TranslatePoint(new Point(0, 0), MainViewBackgroundLayer);
+        return topLeft is null ? null : new Rect(topLeft.Value, visual.Bounds.Size);
+    }
+
+    private static double GetMaxCornerRadius(CornerRadius cornerRadius) =>
+        Math.Max(
+            Math.Max(cornerRadius.TopLeft, cornerRadius.TopRight),
+            Math.Max(cornerRadius.BottomRight, cornerRadius.BottomLeft));
 
     private void OnBackgroundImageSettingChanged(bool _)
     {
@@ -363,7 +558,10 @@ public partial class MainWindow : Window
 
     private void SetBackgroundImageOpacity(double opacity)
     {
-        MainViewBackgroundImage.Opacity = Math.Clamp(opacity, 0, 1);
+        var clamped = Math.Clamp(opacity, 0, 1);
+        MainViewBackgroundImage.Opacity = clamped;
+        MainViewMaterialBackgroundImage.Opacity = clamped;
+        UpdateMaterialBackgroundOverlayVisibility();
     }
 
     private void OnBackgroundImageBlurChanged(double blur)
@@ -380,12 +578,19 @@ public partial class MainWindow : Window
         if (radius <= 0)
         {
             MainViewBackgroundImage.Effect = null;
-            return;
+        }
+        else
+        {
+            _backgroundImageBlurEffect.Radius = radius;
+            if (!ReferenceEquals(MainViewBackgroundImage.Effect, _backgroundImageBlurEffect))
+                MainViewBackgroundImage.Effect = _backgroundImageBlurEffect;
         }
 
-        _backgroundImageBlurEffect.Radius = radius;
-        if (!ReferenceEquals(MainViewBackgroundImage.Effect, _backgroundImageBlurEffect))
-            MainViewBackgroundImage.Effect = _backgroundImageBlurEffect;
+        // 材质区域即使背景图片本身没有模糊，也保留磨砂质感。
+        _materialBackgroundImageBlurEffect.Radius =
+            Math.Clamp(Math.Max(radius, MaterialBackgroundImageMinBlur), 0, 30);
+        if (!ReferenceEquals(MainViewMaterialBackgroundImage.Effect, _materialBackgroundImageBlurEffect))
+            MainViewMaterialBackgroundImage.Effect = _materialBackgroundImageBlurEffect;
     }
 
     /// <summary>
@@ -395,6 +600,8 @@ public partial class MainWindow : Window
     {
         MainViewBackgroundImage.IsVisible = false;
         MainViewBackgroundImage.Source = null;
+        MainViewMaterialBackgroundHost.IsVisible = false;
+        MainViewMaterialBackgroundImage.Source = null;
         SetBackgroundImageOpacity(AppSettings.Instance.MainViewBackgroundImageOpacity.Value);
         SetBackgroundImageBlur(AppSettings.Instance.MainViewBackgroundImageBlur.Value);
 
@@ -402,12 +609,16 @@ public partial class MainWindow : Window
         _backgroundImageBitmap = null;
 
         if (!AppSettings.Instance.HasMainViewBackgroundImage.Value)
+        {
+            RequestAdvancedMaterialClipUpdate();
             return;
+        }
 
         var path = AppSettings.BackgroundImagePath;
         if (!File.Exists(path))
         {
             _logger.Warning("主界面背景图片不存在: {Path}", path);
+            RequestAdvancedMaterialClipUpdate();
             return;
         }
 
@@ -417,12 +628,15 @@ public partial class MainWindow : Window
             _backgroundImageBitmap = new Bitmap(stream);
             MainViewBackgroundImage.Source = _backgroundImageBitmap;
             MainViewBackgroundImage.IsVisible = true;
+            MainViewMaterialBackgroundImage.Source = _backgroundImageBitmap;
             _logger.Information("主界面背景图片已加载: {Path}", path);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "加载主界面背景图片失败: {Path}", path);
         }
+
+        RequestAdvancedMaterialClipUpdate();
     }
 
     /// <summary>
@@ -1402,6 +1616,7 @@ public partial class MainWindow : Window
         _homeworkPreviewPanel.DisplayHomework(incomingHomework);
         _homeworkPreviewPanel.IsVisible = true;
         _homeworkPreviewPanel.IsHitTestVisible = true;
+        RequestAdvancedMaterialClipUpdate();
 
         _homeworkContentTransform.X = 0;
         _homeworkPreviewTransform.X = -distance;
@@ -1476,13 +1691,19 @@ public partial class MainWindow : Window
     /// </summary>
     private void ResetHomeworkContentTransforms()
     {
+        _homeworkContentTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
+        _homeworkPreviewTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
+
         _homeworkContentTransform = new TranslateTransform();
+        _homeworkContentTransform.PropertyChanged += OnHomeworkTransformPropertyChanged;
         HomeworkPanel.RenderTransform = _homeworkContentTransform;
 
         _homeworkPreviewTransform = new TranslateTransform();
+        _homeworkPreviewTransform.PropertyChanged += OnHomeworkTransformPropertyChanged;
         _homeworkPreviewPanel.RenderTransform = _homeworkPreviewTransform;
         _homeworkPreviewPanel.IsVisible = false;
         _homeworkPreviewPanel.IsHitTestVisible = false;
+        RequestAdvancedMaterialClipUpdate();
     }
 
     private void CancelPreviewTransitions()

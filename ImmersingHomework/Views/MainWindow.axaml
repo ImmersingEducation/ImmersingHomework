@@ -6,21 +6,46 @@
         xmlns:controls="clr-namespace:ImmersingHomework.Controls"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="ImmersingHomework.Views.MainWindow"
-        Title="方圆作业板" Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"
+        Title="方圆作业板" Background="Transparent"
+        TransparencyLevelHint="Transparent"
         Icon="avares://ImmersingHomework/Assets/icon.png">
         <Grid RowDefinitions="Auto,*">
-                <!-- 主界面背景图片：未设置时隐藏，设置后以填充模式铺满窗口 -->
-                <Image x:Name="MainViewBackgroundImage"
+                <!-- 主界面背景层。高级材质开启时只在材质控件的位置镂空，
+                     其余部分保持不透明，避免整个主界面变成透明窗口。 -->
+                <Panel x:Name="MainViewBackgroundLayer"
                        Grid.RowSpan="2"
-                       Stretch="UniformToFill"
-                       IsVisible="False"
-                       IsHitTestVisible="False"/>
-                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" HorizontalAlignment="Stretch" Height="96">
+                       IsHitTestVisible="False">
+                        <Panel x:Name="MainViewBackgroundHost" IsHitTestVisible="False">
+                                <Border x:Name="MainViewOpaqueBackground"
+                                        Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"/>
+                                <!-- 主界面背景图片：未设置时隐藏，设置后以填充模式铺满窗口 -->
+                                <Image x:Name="MainViewBackgroundImage"
+                                       Stretch="UniformToFill"
+                                       IsVisible="False"
+                                       IsHitTestVisible="False"/>
+                        </Panel>
+                        <!-- 原生材质只能采样窗口外的桌面，无法直接采样应用内的背景图片。
+                             因此在材质镂空区域再铺一层同一张背景图片的模糊副本，模拟材质透出背景图片的效果。 -->
+                        <Panel x:Name="MainViewMaterialBackgroundHost"
+                               IsHitTestVisible="False"
+                               IsVisible="False">
+                                <Border Background="{DynamicResource ApplicationPageBackgroundThemeBrush}"/>
+                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"/>
+                                <Image x:Name="MainViewMaterialBackgroundImage"
+                                       Stretch="UniformToFill"
+                                       IsHitTestVisible="False"/>
+                        </Panel>
+                </Panel>
+                <controls:AdvancedMaterialSurface x:Name="TopBarMaterial"
+                                                 HorizontalAlignment="Stretch"
+                                                 Height="96"
+                                                 CornerRadius="0"
+                                                 FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
                         <StackPanel Orientation="Horizontal" Margin="16 8">
                                 <TextBlock x:Name="DateTextBlock" HorizontalAlignment="Left" VerticalAlignment="Center" FontSize="32" FontWeight="Bold"/>
                                 <TextBlock x:Name="PanelTitleTextBlock" HorizontalAlignment="Right" VerticalAlignment="Center"/>
                         </StackPanel>
-                </Border>
+                </controls:AdvancedMaterialSurface>
                 <!-- 底部不留外边距，作业面板一直延伸到窗口下边缘 -->
                 <Grid Grid.Row="1" Margin="16,16,16,0">
                 <Grid>
@@ -58,14 +83,24 @@
                         </Grid>
                         <!-- 按钮栏悬浮于作业面板之上，不占用布局行；保留 16 的底部外边距，位置与原来保持一致 -->
                         <Grid x:Name="ButtonBar" VerticalAlignment="Bottom" Margin="0,0,0,16" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
-                                <Button Grid.Column="0" x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" HorizontalAlignment="Left" Click="MinimizeButton_OnClick">
-                                        <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
-                                </Button>
+                                <controls:AdvancedMaterialSurface Grid.Column="0"
+                                                                  Width="60" Height="60"
+                                                                  CornerRadius="30"
+                                                                  HorizontalAlignment="Left"
+                                                                  FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                        <Button x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="MinimizeButton_OnClick">
+                                                <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
+                                        </Button>
+                                </controls:AdvancedMaterialSurface>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
                                         <Grid Width="60" Height="60">
-                                                <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" Click="FreezeButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
-                                                </Button>
+                                                <controls:AdvancedMaterialSurface Width="60" Height="60"
+                                                                                  CornerRadius="30"
+                                                                                  FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                        <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="FreezeButton_OnClick">
+                                                                <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
+                                                        </Button>
+                                                </controls:AdvancedMaterialSurface>
                                                 <!-- 冻结时长按解冻的进度环：控件比按钮大，通过负 Margin 抵消布局占用，
                                                      实际绘制的圆环位于按钮外圈 -->
                                                 <fa:FAProgressRing x:Name="FreezeProgressRing"
@@ -75,10 +110,15 @@
                                                                    IsIndeterminate="False" IsActive="False"
                                                                    IsHitTestVisible="False"/>
                                         </Grid>
-                                        <Button x:Name="AutoScrollButton" Width="60" Height="60" CornerRadius="30" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" BorderBrush="Transparent" ToolTip.Tip="自动滚动" Click="AutoScrollButton_OnClick">
-                                                <fa:FASymbolIcon x:Name="AutoScrollIcon" Symbol="ChevronDown" FontSize="24"></fa:FASymbolIcon>
-                                        </Button>
-                                        <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="30">
+                                        <controls:AdvancedMaterialSurface Width="60" Height="60"
+                                                                          CornerRadius="30"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                <Button x:Name="AutoScrollButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="自动滚动" Click="AutoScrollButton_OnClick">
+                                                        <fa:FASymbolIcon x:Name="AutoScrollIcon" Symbol="ChevronDown" FontSize="24"></fa:FASymbolIcon>
+                                                </Button>
+                                        </controls:AdvancedMaterialSurface>
+                                        <controls:AdvancedMaterialSurface CornerRadius="30"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
                                                 <StackPanel Orientation="Horizontal" Spacing="16">
                                                         <Button x:Name="AddHomeworkButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="AddHomeworkButton_OnClick">
                                                                 <fa:FASymbolIcon Symbol="Add" FontSize="24"/>
@@ -90,11 +130,17 @@
                                                                 <fa:FASymbolIcon Symbol="Share" FontSize="24"/>
                                                         </Button>
                                                 </StackPanel>
-                                        </Border>
+                                        </controls:AdvancedMaterialSurface>
                                 </StackPanel>
-                                <Button Grid.Column="2" x:Name="DateButton" Width="90" Height="60" CornerRadius="30" HorizontalAlignment="Right" Click="DateButton_OnClick">
-                                        <TextBlock x:Name="DateText"></TextBlock>
-                                </Button>
+                                <controls:AdvancedMaterialSurface Grid.Column="2"
+                                                                  Width="90" Height="60"
+                                                                  CornerRadius="30"
+                                                                  HorizontalAlignment="Right"
+                                                                  FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                        <Button x:Name="DateButton" Width="90" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="DateButton_OnClick">
+                                                <TextBlock x:Name="DateText"></TextBlock>
+                                        </Button>
+                                </controls:AdvancedMaterialSurface>
                                 <Popup x:Name="CalendarPopup"
                                         Placement="Bottom"
                                         IsLightDismissEnabled="True"

@@ -3,13 +3,16 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             xmlns:controls="clr-namespace:ImmersingHomework.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkItemPanel"
              HorizontalAlignment="Stretch" MinHeight="160">
-    <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="24" PointerPressed="MoreButton_OnClick">
+    <controls:AdvancedMaterialSurface FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                      CornerRadius="24"
+                                      PointerPressed="MoreButton_OnClick">
         <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
             <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
             <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
         </StackPanel>
-    </Border>
+    </controls:AdvancedMaterialSurface>
 </UserControl>
