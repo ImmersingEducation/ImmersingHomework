@@ -157,10 +157,13 @@ public partial class HomeworkEditView : UserControl
         try
         {
             var homework = StorageService.Load(_date) ?? new Homework(_date, []);
-            if (!isNew)
-                homework.RemoveHomeworkItem(_editingItem!);
+            // 修改现有作业时原位替换，保持它在 HomeworkItems 中的位置不变；
+            // 原作业项已不存在（例如文件被外部修改）时退化为追加。
+            if (isNew || !homework.ReplaceHomeworkItem(item))
+                homework.AddHomeworkItem(item);
 
-            homework.AddHomeworkItem(item);
+            // 保存前把同一科目的作业项聚到一起，并让科目按设置中的顺序排列。
+            homework.OrganizeHomeworkItems(AppSettings.Instance.Subjects);
             StorageService.Save(homework);
 
             _editingItem = item;
@@ -231,6 +234,8 @@ public partial class HomeworkEditView : UserControl
             if (homework is not null)
             {
                 homework.RemoveHomeworkItem(item);
+                // 删除后同样整理，避免遗留未按科目聚合的旧数据。
+                homework.OrganizeHomeworkItems(AppSettings.Instance.Subjects);
                 StorageService.Save(homework);
             }
 

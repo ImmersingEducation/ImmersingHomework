@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.Specialized;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -168,9 +169,8 @@ public partial class  HomeworkPanel : UserControl
         var hasHomework = false;
         if (homework.HomeworkItems is { Count: > 0 })
         {
-            foreach (var subject in homework.HomeworkItems.Select(item => item.Subject).Distinct())
+            foreach (var subject in OrderSubjects(homework.HomeworkItems.Select(item => item.Subject)))
             {
-                if (string.IsNullOrEmpty(subject)) continue;
                 var subjectItems = homework.GetHomeworkItemsBySubject(subject);
                 if (subjectItems is { Count: > 0 })
                 {
@@ -237,9 +237,7 @@ public partial class  HomeworkPanel : UserControl
             }
             else if (homework.HomeworkItems != null && homework.HomeworkItems.Count > 0)
             {
-                var subjects = homework.HomeworkItems
-                    .Select(item => item.Subject)
-                    .Distinct()
+                var subjects = OrderSubjects(homework.HomeworkItems.Select(item => item.Subject))
                     .ToList();
 
                 _logger.Debug("找到 {Count} 个科目，日期: {Date}", subjects.Count, date);
@@ -282,6 +280,8 @@ public partial class  HomeworkPanel : UserControl
         // 先移除再添加，避免控件反复进出视觉树时重复订阅。
         AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
         AppSettings.Instance.MainViewColumns.ValueChanged += OnMainViewColumnsChanged;
+        AppSettings.Instance.Subjects.CollectionChanged -= OnSubjectsChanged;
+        AppSettings.Instance.Subjects.CollectionChanged += OnSubjectsChanged;
 
         // 控件重新挂回视觉树时，按最新设置排列已经加载的内容。
         if (_homeworkColumns.Count > 0)
@@ -291,6 +291,7 @@ public partial class  HomeworkPanel : UserControl
     private void OnDetachedFromVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
     {
         AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
+        AppSettings.Instance.Subjects.CollectionChanged -= OnSubjectsChanged;
     }
 
     private void OnMainViewColumnsChanged(int _)
@@ -304,20 +305,64 @@ public partial class  HomeworkPanel : UserControl
         RebuildHomeworkColumns();
     }
 
+    private void OnSubjectsChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(RebuildHomeworkColumns);
+            return;
+        }
+
+        RebuildHomeworkColumns();
+    }
+
     /// <summary>
-    /// 按当前列数重新排列已有的科目面板，不重新读取作业内容。
-    /// 这样在设置窗口修改列数时，时光机预览中的内容也不会被覆盖。
+    /// 按当前科目顺序和列数重新排列已有的科目面板，不重新读取作业内容。
+    /// 这样在设置窗口修改科目顺序或列数时，时光机预览中的内容也不会被覆盖。
     /// </summary>
     private void RebuildHomeworkColumns()
     {
-        // 使用添加顺序而不是列顺序，否则重新排列后科目的先后顺序会被打乱。
-        var subjectPanels = _subjectPanels.ToList();
+        // 按设置中的科目顺序排列；不在设置中的科目保持在末尾，并维持原有先后顺序。
+        var subjectPanels = _subjectPanels
+            .Select((panel, index) => (Panel: panel, Index: index))
+            .OrderBy(x => GetSubjectOrder(x.Panel.Subject))
+            .ThenBy(x => x.Index)
+            .Select(x => x.Panel)
+            .ToList();
 
         ClearHomeworkGrid();
         foreach (var subjectPanel in subjectPanels)
             AddSubjectPanel(subjectPanel);
 
-        _logger.Debug("主界面列数变更，重新排列 {Count} 个科目面板", subjectPanels.Count);
+        _logger.Debug("主界面排列变更，重新排列 {Count} 个科目面板", subjectPanels.Count);
+    }
+
+    /// <summary>
+    /// 按 <see cref="AppSettings.Subjects"/> 中的顺序排列科目。
+    /// 不在设置中的科目排在最后，并保持出现时的先后顺序。
+    /// </summary>
+    private static IEnumerable<string> OrderSubjects(IEnumerable<string> subjects) =>
+        subjects
+            .Where(subject => !string.IsNullOrEmpty(subject))
+            .Distinct()
+            .Select((subject, index) => (Subject: subject, Index: index))
+            .OrderBy(x => GetSubjectOrder(x.Subject))
+            .ThenBy(x => x.Index)
+            .Select(x => x.Subject);
+
+    private static int GetSubjectOrder(string? subject)
+    {
+        if (string.IsNullOrEmpty(subject))
+            return int.MaxValue;
+
+        var configuredSubjects = AppSettings.Instance.Subjects;
+        for (var index = 0; index < configuredSubjects.Count; index++)
+        {
+            if (string.Equals(configuredSubjects[index], subject, StringComparison.Ordinal))
+                return index;
+        }
+
+        return int.MaxValue;
     }
 
     private void ClearHomeworkGrid()
