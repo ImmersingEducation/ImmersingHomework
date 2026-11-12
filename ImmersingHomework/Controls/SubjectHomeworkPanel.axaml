@@ -5,7 +5,13 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.SubjectHomeworkPanel">
     <StackPanel Orientation="Vertical" Spacing="16" HorizontalAlignment="Stretch">
-        <TextBlock x:Name="SubjectText" FontSize="32" FontWeight="Bold" TextWrapping="Wrap"/>
+        <!-- 科目标题是拖拽模式下移动整个科目的命中区域。 -->
+        <Border x:Name="SubjectHeader"
+                Background="Transparent"
+                Padding="4"
+                Margin="-4">
+            <TextBlock x:Name="SubjectText" FontSize="32" FontWeight="Bold" TextWrapping="Wrap"/>
+        </Border>
         <StackPanel x:Name="HomeworkItemPanels" Orientation="Vertical" Spacing="12" />
     </StackPanel>
 </UserControl>

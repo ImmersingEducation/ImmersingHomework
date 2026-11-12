@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Interactivity;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using Avalonia.Media;
 using ImmersingHomework.Models;
@@ -22,11 +22,29 @@ public partial class HomeworkItemPanel : UserControl
         AvaloniaProperty.Register<HomeworkItemPanel, HomeworkItem>(nameof(HomeworkItem));
 
     private bool _flag = true;
+    private bool _isDragModeEnabled;
 
     public HomeworkItem HomeworkItem
     {
         get => GetValue(HomeworkItemProperty);
         set => SetValue(HomeworkItemProperty, value);
+    }
+
+    /// <summary>
+    /// 是否允许拖拽排序。作业卡片是否响应拖拽由
+    /// <see cref="HomeworkPanel"/> 统一判断，本属性只负责光标提示。
+    /// </summary>
+    public bool IsDragModeEnabled
+    {
+        get => _isDragModeEnabled;
+        set
+        {
+            if (_isDragModeEnabled == value)
+                return;
+
+            _isDragModeEnabled = value;
+            UpdateCursor();
+        }
     }
 
     public static readonly StyledProperty<bool> IsFrozenProperty =
@@ -49,13 +67,30 @@ public partial class HomeworkItemPanel : UserControl
             _logger.Debug("作业项属性变化");
             panel.UpdatePanel();
         });
+        IsFrozenProperty.Changed.AddClassHandler<HomeworkItemPanel>((panel, e) =>
+        {
+            panel.UpdateCursor();
+        });
     }
 
-    private void MoreButton_OnClick(object? sender, RoutedEventArgs e)
+    /// <summary>
+    /// 请求编辑当前作业。由 <see cref="HomeworkPanel"/> 在确认本次操作是点击
+    /// 而不是拖拽后调用。
+    /// </summary>
+    public void RequestEdit()
     {
-        if (IsFrozen) return;
-        _logger.Debug("用户点击了作业，请求编辑作业，ID: {Id}", HomeworkItem?.Id);
+        if (IsFrozen || HomeworkItem is null)
+            return;
+
+        _logger.Debug("用户点击了作业，请求编辑作业，ID: {Id}", HomeworkItem.Id);
         EditRequested?.Invoke(HomeworkItem);
+    }
+
+    private void UpdateCursor()
+    {
+        CardBorder.Cursor = _isDragModeEnabled && !IsFrozen
+            ? new Cursor(StandardCursorType.SizeAll)
+            : null;
     }
 
     private void UpdatePanel()

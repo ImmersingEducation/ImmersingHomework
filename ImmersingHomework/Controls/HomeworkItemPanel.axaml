@@ -6,7 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkItemPanel"
              HorizontalAlignment="Stretch" MinHeight="160">
-    <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="24" PointerPressed="MoreButton_OnClick">
+    <Border x:Name="CardBorder" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="24">
         <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
             <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
             <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>

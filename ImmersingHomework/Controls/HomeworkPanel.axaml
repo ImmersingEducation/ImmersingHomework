@@ -17,5 +17,10 @@
                    VerticalAlignment="Center"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                    IsVisible="False"/>
+        <!-- 拖拽时的浮层：承载跟随指针的卡片和插入位置分隔线。 -->
+        <Canvas x:Name="DragOverlay"
+                ZIndex="30"
+                ClipToBounds="True"
+                IsHitTestVisible="False"/>
     </Grid>
 </UserControl>

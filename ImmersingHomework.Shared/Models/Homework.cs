@@ -54,6 +54,134 @@ public class Homework
     }
 
     /// <summary>
+    /// 返回科目首次出现的顺序。科目在界面中的先后与分列位置直接由
+    /// <see cref="HomeworkItems"/> 中的作业项顺序表示，不额外保存字段。
+    /// </summary>
+    public List<string> GetSubjectsInOrder()
+    {
+        return HomeworkItems
+            .Select(item => item.Subject)
+            .Where(subject => !string.IsNullOrEmpty(subject))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>
+    /// 按给定科目顺序重新排列作业项。同一科目的作业项保持原有相对顺序，
+    /// 未出现在 <paramref name="subjectOrder"/> 中的科目按首次出现顺序排在最后。
+    /// </summary>
+    public void ReorderSubjects(IEnumerable<string> subjectOrder)
+    {
+        var subjectOrderList = subjectOrder
+            .Where(subject => !string.IsNullOrEmpty(subject))
+            .Distinct(StringComparer.Ordinal)
+            .ToList();
+
+        var groups = new Dictionary<string, List<HomeworkItem>>(StringComparer.Ordinal);
+        foreach (var item in HomeworkItems)
+        {
+            if (!groups.TryGetValue(item.Subject, out var group))
+            {
+                group = [];
+                groups[item.Subject] = group;
+            }
+
+            group.Add(item);
+        }
+
+        var reordered = new List<HomeworkItem>(HomeworkItems.Count);
+        foreach (var subject in subjectOrderList)
+        {
+            if (groups.Remove(subject, out var group))
+                reordered.AddRange(group);
+        }
+
+        // 不在指定顺序中的科目保持它们第一次出现时的先后关系。
+        foreach (var item in HomeworkItems)
+        {
+            if (groups.Remove(item.Subject, out var group))
+                reordered.AddRange(group);
+        }
+
+        HomeworkItems.Clear();
+        HomeworkItems.AddRange(reordered);
+        _logger.Debug("作业项已按科目顺序重组，共 {Count} 项", HomeworkItems.Count);
+    }
+
+    /// <summary>
+    /// 把指定科目移动到科目顺序中的 <paramref name="targetSubjectIndex"/> 位置。
+    /// 返回 <see langword="false"/> 表示科目不存在或位置没有变化。
+    /// </summary>
+    public bool MoveSubject(string subject, int targetSubjectIndex)
+    {
+        var subjects = GetSubjectsInOrder();
+        var currentIndex = subjects.IndexOf(subject);
+        if (currentIndex < 0)
+            return false;
+
+        subjects.RemoveAt(currentIndex);
+        var targetIndex = Math.Clamp(targetSubjectIndex, 0, subjects.Count);
+        if (targetIndex == currentIndex)
+            return false;
+
+        subjects.Insert(targetIndex, subject);
+        ReorderSubjects(subjects);
+        return true;
+    }
+
+    /// <summary>
+    /// 把指定作业项移动到它所属科目的第 <paramref name="targetIndexWithinSubject"/> 个位置。
+    /// 其他科目的作业项和科目顺序保持原样；返回 <see langword="false"/> 表示作业项不存在或位置没有变化。
+    /// </summary>
+    public bool MoveHomeworkItem(Guid id, int targetIndexWithinSubject)
+    {
+        var item = HomeworkItems.Find(x => x.Id == id);
+        if (item is null)
+            return false;
+
+        var subject = item.Subject;
+        var subjects = GetSubjectsInOrder();
+        var groups = HomeworkItems
+            .GroupBy(x => x.Subject, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+
+        if (!groups.TryGetValue(subject, out var subjectItems))
+            return false;
+
+        var currentIndex = subjectItems.IndexOf(item);
+        subjectItems.Remove(item);
+        var targetIndex = Math.Clamp(targetIndexWithinSubject, 0, subjectItems.Count);
+        if (targetIndex == currentIndex)
+            return false;
+
+        subjectItems.Insert(targetIndex, item);
+
+        var reordered = new List<HomeworkItem>(HomeworkItems.Count);
+        foreach (var groupSubject in subjects)
+        {
+            if (string.Equals(groupSubject, subject, StringComparison.Ordinal))
+                reordered.AddRange(subjectItems);
+            else if (groups.TryGetValue(groupSubject, out var group))
+                reordered.AddRange(group);
+        }
+
+        // 没有有效科目的作业项保持原有位置，避免在整理时丢失。
+        reordered.AddRange(HomeworkItems.Where(x =>
+            string.IsNullOrEmpty(x.Subject) && !reordered.Contains(x)));
+
+        HomeworkItems.Clear();
+        HomeworkItems.AddRange(reordered);
+        _logger.Debug("作业项已移动，科目: {Subject}，目标位置: {Index}", subject, targetIndex);
+        return true;
+    }
+
+    /// <summary>
+    /// 整理作业项：同一科目的作业项保持原有相对顺序聚在一起，
+    /// 并保持科目当前的先后顺序不变。用于编辑作业后不破坏用户拖拽出的排列。
+    /// </summary>
+    public void OrganizeHomeworkItems() => OrganizeHomeworkItems(GetSubjectsInOrder());
+
+    /// <summary>
     /// 整理作业项：同一科目的作业项保持原有相对顺序聚在一起，
     /// 科目按 <paramref name="subjectOrder"/> 的顺序排列，不在其中的科目排在最后。
     /// </summary>

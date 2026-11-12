@@ -267,6 +267,8 @@ public partial class MainWindow : Window
         // 无法使用构造函数注入，由这里显式注入
         HomeworkPanel.Initialize(storageService, classIslandService);
         HomeworkPanel.RenderTransform = _homeworkContentTransform;
+        // 主面板始终允许拖拽排序；冻结状态由 IsFrozen 单独阻止所有作业操作。
+        HomeworkPanel.IsDragModeEnabled = true;
 
         // 时光机预览面板不自动加载当天作业，只在切换到快照时由 DisplayHomework 填充。
         // 它和主面板叠放在 HomeworkContentHost 中，切换快照时一前一后横向滑动。
@@ -274,6 +276,7 @@ public partial class MainWindow : Window
         {
             IsVisible = false,
             IsHitTestVisible = false,
+            IsDragModeEnabled = false,
             RenderTransform = _homeworkPreviewTransform
         };
         _homeworkPreviewPanel.Initialize(storageService, classIslandService);
@@ -610,6 +613,14 @@ public partial class MainWindow : Window
     /// </summary>
     public void OpenMainDrawer(HomeworkItem? homeworkItem = null)
     {
+        // 冻结开关打开时不允许新建或修改作业。按钮本身也会被禁用，
+        // 这里再拦截一次，避免通过其它入口绕过。
+        if (_isFrozen)
+        {
+            _logger.Debug("作业已冻结，忽略打开编辑抽屉");
+            return;
+        }
+
         CloseTimeMachine();
 
         MainDrawerHomeworkItem = homeworkItem;
@@ -744,6 +755,13 @@ public partial class MainWindow : Window
     /// </summary>
     public void OpenTimeMachine()
     {
+        // 冻结开关打开时不允许还原作业。
+        if (_isFrozen)
+        {
+            _logger.Debug("作业已冻结，忽略打开时光机");
+            return;
+        }
+
         if (_timeMachineState == TimeMachineState.Opened)
             return;
 
@@ -1059,6 +1077,11 @@ public partial class MainWindow : Window
 
         // 关闭时整层不参与命中测试，避免影响主界面
         TimeMachineRoot.IsHitTestVisible = state != TimeMachineState.Closed;
+
+        // 时光机中展示的可能是历史快照，主面板和预览面板都不参与拖拽；
+        // 关闭时光机后主面板恢复拖拽排序。
+        HomeworkPanel.IsDragModeEnabled = state == TimeMachineState.Closed;
+        _homeworkPreviewPanel.IsDragModeEnabled = false;
 
         // 打开时拦截外部点击并关闭时光机
         TimeMachineDismissLayer.IsHitTestVisible = state == TimeMachineState.Opened;

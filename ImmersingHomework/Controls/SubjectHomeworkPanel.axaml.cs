@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Markup.Xaml;
-using Avalonia.Metadata;
 using ImmersingHomework.Shared.Models;
 using Serilog;
 
@@ -14,6 +14,7 @@ public partial class SubjectHomeworkPanel : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<SubjectHomeworkPanel>();
     private bool _suppressRefresh;
+    private bool _isDragModeEnabled;
 
     public static readonly StyledProperty<string> SubjectProperty =
         AvaloniaProperty.Register<SubjectHomeworkPanel, string>(nameof(Subject));
@@ -41,6 +42,33 @@ public partial class SubjectHomeworkPanel : UserControl
         get => GetValue(IsFrozenProperty);
         set => SetValue(IsFrozenProperty, value);
     }
+
+    /// <summary>
+    /// 拖拽模式。开启后科目标题成为可拖拽区域，
+    /// 内部的作业卡片也同步进入可拖拽状态。
+    /// </summary>
+    public bool IsDragModeEnabled
+    {
+        get => _isDragModeEnabled;
+        set
+        {
+            if (_isDragModeEnabled == value)
+                return;
+
+            _isDragModeEnabled = value;
+            ApplyDragModeState();
+        }
+    }
+
+    /// <summary>
+    /// 科目标题的拖拽命中区域，由 <see cref="HomeworkPanel"/> 在其上开始科目拖拽。
+    /// </summary>
+    public Control SubjectDragHandle => SubjectHeader;
+
+    /// <summary>
+    /// 科目下的作业卡片容器，用于计算作业卡片的插入位置。
+    /// </summary>
+    public StackPanel ItemPanelHost => HomeworkItemPanels;
 
     public event Action<HomeworkItem>? EditRequested;
 
@@ -84,6 +112,26 @@ public partial class SubjectHomeworkPanel : UserControl
                 itemPanel.IsFrozen = IsFrozen;
             }
         }
+
+        UpdateHeaderCursor();
+    }
+
+    private void ApplyDragModeState()
+    {
+        UpdateHeaderCursor();
+
+        foreach (var child in HomeworkItemPanels.Children)
+        {
+            if (child is HomeworkItemPanel itemPanel)
+                itemPanel.IsDragModeEnabled = _isDragModeEnabled;
+        }
+    }
+
+    private void UpdateHeaderCursor()
+    {
+        SubjectHeader.Cursor = _isDragModeEnabled && !IsFrozen
+            ? new Cursor(StandardCursorType.SizeAll)
+            : null;
     }
 
     public void Refresh()
@@ -105,7 +153,8 @@ public partial class SubjectHomeworkPanel : UserControl
                 var itemPanel = new HomeworkItemPanel
                 {
                     HomeworkItem = item,
-                    IsFrozen = IsFrozen
+                    IsFrozen = IsFrozen,
+                    IsDragModeEnabled = IsDragModeEnabled
                 };
                 itemPanel.EditRequested += (homeworkItem) => EditRequested?.Invoke(homeworkItem);
                 HomeworkItemPanels.Children.Add(itemPanel);

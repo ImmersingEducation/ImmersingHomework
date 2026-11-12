@@ -162,8 +162,9 @@ public partial class HomeworkEditView : UserControl
             if (isNew || !homework.ReplaceHomeworkItem(item))
                 homework.AddHomeworkItem(item);
 
-            // 保存前把同一科目的作业项聚到一起，并让科目按设置中的顺序排列。
-            homework.OrganizeHomeworkItems(AppSettings.Instance.Subjects);
+            // 保存前把同一科目的作业项聚到一起，但保持科目当前的先后顺序，
+            // 这样用户在拖拽模式中调整的科目位置不会被编辑操作打乱。
+            homework.OrganizeHomeworkItems();
             StorageService.Save(homework);
 
             _editingItem = item;
@@ -234,8 +235,8 @@ public partial class HomeworkEditView : UserControl
             if (homework is not null)
             {
                 homework.RemoveHomeworkItem(item);
-                // 删除后同样整理，避免遗留未按科目聚合的旧数据。
-                homework.OrganizeHomeworkItems(AppSettings.Instance.Subjects);
+                // 删除后同样整理，保持用户拖拽出的科目与作业顺序不变。
+                homework.OrganizeHomeworkItems();
                 StorageService.Save(homework);
             }
 
