@@ -60,6 +60,71 @@ public partial class  HomeworkPanel : UserControl
     /// </summary>
     private int _autoScrollDirection = 1;
 
+    #region 作业内容入场动画
+
+    /// <summary>
+    /// 入场动画中横向位移与面板宽度的比例，以及允许的取值范围。
+    /// </summary>
+    private const double EntranceHorizontalOffsetRatio = 0.32;
+    private const double EntranceMinHorizontalOffset = 220;
+    private const double EntranceMaxHorizontalOffset = 460;
+
+    /// <summary>
+    /// 入场动画中纵向位移与面板高度的比例，以及允许的取值范围。
+    /// 纵向位移会在动画前半段完成，之后内容只向左移动。
+    /// </summary>
+    private const double EntranceVerticalOffsetRatio = 0.22;
+    private const double EntranceMinVerticalOffset = 90;
+    private const double EntranceMaxVerticalOffset = 180;
+
+    /// <summary>
+    /// 内容从起点移动到最终位置所需的时间。同列的所有内容共用同一时长。
+    /// </summary>
+    private static readonly TimeSpan EntranceDuration = TimeSpan.FromMilliseconds(720);
+
+    /// <summary>
+    /// 相邻列之间的入场延迟。同一列的所有科目与卡片共用一个延迟，
+    /// 保证同列动画同时开始、同时结束。
+    /// </summary>
+    private static readonly TimeSpan ColumnEntranceStagger = TimeSpan.FromMilliseconds(60);
+    private static readonly TimeSpan ColumnEntranceMaxStagger = TimeSpan.FromMilliseconds(280);
+
+    /// <summary>
+    /// 整列内容淡入所需的时间。
+    /// </summary>
+    private static readonly TimeSpan EntranceFadeDuration = TimeSpan.FromMilliseconds(180);
+
+    /// <summary>
+    /// 入场动画的刷新间隔，按帧更新以保证滑动平滑。
+    /// </summary>
+    private static readonly TimeSpan EntranceFrameInterval = TimeSpan.FromMilliseconds(16);
+
+    private sealed class EntranceState
+    {
+        public required SubjectHomeworkPanel Panel { get; init; }
+        public required TranslateTransform Transform { get; init; }
+        public required double StartX { get; init; }
+        public required double StartY { get; init; }
+        public required TimeSpan Delay { get; init; }
+    }
+
+    private readonly List<EntranceState> _entranceStates = [];
+
+    private readonly DispatcherTimer _entranceTimer = new(DispatcherPriority.Render)
+    {
+        Interval = EntranceFrameInterval
+    };
+
+    private readonly Stopwatch _entranceStopwatch = new();
+
+    /// <summary>
+    /// 下一次内容替换完成后是否播放入场动画。打开主界面和切换日期时置为 true，
+    /// 编辑、拖拽等普通刷新不会触发，避免打断用户操作。
+    /// </summary>
+    private bool _animateNextContent;
+
+    #endregion
+
     #region 拖拽模式
 
     private enum DragSourceKind
@@ -194,6 +259,7 @@ public partial class  HomeworkPanel : UserControl
         InitializeComponent();
         _autoScrollTimer.Tick += AutoScrollTimer_OnTick;
         _dragAutoScrollTimer.Tick += DragAutoScrollTimer_OnTick;
+        _entranceTimer.Tick += EntranceTimer_OnTick;
         this.AttachedToVisualTree += OnAttachedToVisualTree;
         this.DetachedFromVisualTree += OnDetachedFromVisualTree;
 
@@ -213,6 +279,8 @@ public partial class  HomeworkPanel : UserControl
         if (change.Property == DateProperty)
         {
             _logger.Debug("日期改变: {Date}", Date);
+            // 切换日期后，等新内容替换完成时播放一次入场动画。
+            _animateNextContent = true;
             DateChanged?.Invoke(Date);
             // 依赖服务尚未注入时（如 XAML 预览）跳过加载，待 Initialize 注入后再补
             if (_storageService is not null)
@@ -261,6 +329,21 @@ public partial class  HomeworkPanel : UserControl
 
     public void Refresh()
     {
+        _ = RefreshAsync(Date);
+    }
+
+    /// <summary>
+    /// 重新加载当前日期的作业。
+    /// </summary>
+    /// <param name="animateCards">
+    /// 新内容替换完成后是否播放入场动画。打开主界面时传入 <see langword="true"/>，
+    /// 编辑、拖拽等普通刷新保持 <see langword="false"/>。
+    /// </param>
+    public void Refresh(bool animateCards)
+    {
+        if (animateCards)
+            _animateNextContent = true;
+
         _ = RefreshAsync(Date);
     }
 
@@ -356,6 +439,9 @@ public partial class  HomeworkPanel : UserControl
 
         HomeworkGrid.IsVisible = true;
         NoHomeworkText.IsVisible = !hasHomework;
+
+        // 新内容已经挂到视觉树，先设置起始位移再开始动画，避免卡片在最终位置闪一帧。
+        TryStartEntranceAnimation();
     }
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
@@ -373,6 +459,7 @@ public partial class  HomeworkPanel : UserControl
     {
         AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
         CancelDrag();
+        CancelEntranceAnimation();
     }
 
     private void OnMainViewColumnsChanged(int _)
@@ -405,6 +492,9 @@ public partial class  HomeworkPanel : UserControl
     {
         // 作业内容即将重建，正在进行的拖拽不再有意义，先复位浮层和源卡片透明度。
         CancelDrag();
+
+        // 旧内容的入场动画也一并停止并复位，避免计时器继续操作即将移除的卡片。
+        CancelEntranceAnimation();
 
         // 先清空每列中的科目面板，确保它们与旧列的父子关系被解除，
         // 否则重新分列时会被判定为“已有视觉父级”。
@@ -637,6 +727,9 @@ public partial class  HomeworkPanel : UserControl
             : _dragCandidateItem;
         _isDragging = true;
         _dragLastPoint = point;
+
+        // 用户开始拖拽时立即结束入场动画，避免两个动画同时修改同一列内容的位置和透明度。
+        CancelEntranceAnimation();
 
         // 拖拽期间暂停普通自动滚动，避免两个计时器同时修改滚动位置。
         _autoScrollTimer.Stop();
@@ -1110,6 +1203,147 @@ public partial class  HomeworkPanel : UserControl
         }
 
         return false;
+    }
+
+    #endregion
+
+    #region 作业内容入场动画
+
+    /// <summary>
+    /// 为当前内容播放入场动画。以每一列的最终位置为基准：
+    /// 同列的所有科目文本和作业卡片共用一个延迟与时长，前半段同时向左、向上移动，
+    /// 纵向到位后只继续向左，整体使用先快后慢的缓动，最后一帧精确落到最终位置。
+    /// </summary>
+    private void TryStartEntranceAnimation()
+    {
+        if (!_animateNextContent)
+            return;
+
+        _animateNextContent = false;
+
+        // 主窗口尚未显示时不播放，等打开主界面时的刷新重新触发。
+        if (!IsEffectivelyVisible)
+            return;
+
+        var subjectPanels = new List<(SubjectHomeworkPanel Panel, int Column)>();
+        for (var column = 0; column < _homeworkColumns.Count; column++)
+        {
+            foreach (var panel in _homeworkColumns[column].Children.OfType<SubjectHomeworkPanel>())
+                subjectPanels.Add((panel, column));
+        }
+
+        if (subjectPanels.Count == 0)
+            return;
+
+        var viewportWidth = HomeworkScrollViewer.Bounds.Width;
+        var horizontalOffset = double.IsFinite(viewportWidth) && viewportWidth > 0
+            ? Math.Clamp(viewportWidth * EntranceHorizontalOffsetRatio,
+                EntranceMinHorizontalOffset, EntranceMaxHorizontalOffset)
+            : EntranceMinHorizontalOffset;
+
+        var viewportHeight = HomeworkScrollViewer.Bounds.Height;
+        var verticalOffset = double.IsFinite(viewportHeight) && viewportHeight > 0
+            ? Math.Clamp(viewportHeight * EntranceVerticalOffsetRatio,
+                EntranceMinVerticalOffset, EntranceMaxVerticalOffset)
+            : EntranceMinVerticalOffset;
+
+        // 列数较多时压缩列间间隔，让最后一列也不会等太久。
+        var maxColumn = subjectPanels.Max(x => x.Column);
+        var staggerMilliseconds = maxColumn <= 0
+            ? 0
+            : Math.Min(ColumnEntranceStagger.TotalMilliseconds,
+                ColumnEntranceMaxStagger.TotalMilliseconds / maxColumn);
+
+        _entranceStates.Clear();
+        foreach (var (panel, column) in subjectPanels)
+        {
+            var transform = panel.RenderTransform as TranslateTransform ?? new TranslateTransform();
+            transform.X = horizontalOffset;
+            transform.Y = verticalOffset;
+            panel.RenderTransform = transform;
+            panel.Opacity = 0;
+
+            _entranceStates.Add(new EntranceState
+            {
+                Panel = panel,
+                Transform = transform,
+                StartX = horizontalOffset,
+                StartY = verticalOffset,
+                // 延迟只由列决定，同列科目与卡片因此严格同步。
+                Delay = TimeSpan.FromMilliseconds(staggerMilliseconds * column)
+            });
+        }
+
+        _entranceStopwatch.Restart();
+        _entranceTimer.Start();
+        _logger.Debug("开始作业内容入场动画，科目数: {Count}，列数: {Columns}",
+            subjectPanels.Count, maxColumn + 1);
+    }
+
+    private void EntranceTimer_OnTick(object? sender, EventArgs e)
+    {
+        var elapsed = _entranceStopwatch.Elapsed;
+        var allFinished = true;
+
+        foreach (var state in _entranceStates)
+        {
+            var localElapsed = elapsed - state.Delay;
+            if (localElapsed < TimeSpan.Zero)
+            {
+                allFinished = false;
+                continue;
+            }
+
+            var progress = Math.Clamp(
+                localElapsed.TotalMilliseconds / EntranceDuration.TotalMilliseconds, 0, 1);
+
+            // 横向先快后慢；纵向在前半段完成，之后整列内容只剩横向移动。
+            var horizontalProgress = 1 - Math.Pow(1 - progress, 2);
+            var verticalProgress = 1 - Math.Pow(1 - Math.Min(progress / 0.5, 1), 3);
+
+            state.Transform.X = state.StartX * (1 - horizontalProgress);
+            state.Transform.Y = state.StartY * (1 - verticalProgress);
+
+            var fadeProgress = Math.Clamp(
+                localElapsed.TotalMilliseconds / EntranceFadeDuration.TotalMilliseconds, 0, 1);
+            state.Panel.Opacity = fadeProgress;
+
+            if (progress < 1)
+            {
+                allFinished = false;
+                continue;
+            }
+
+            // 消除浮点误差，保证内容最终严格落在布局位置上。
+            state.Transform.X = 0;
+            state.Transform.Y = 0;
+            state.Panel.Opacity = 1;
+        }
+
+        if (!allFinished)
+            return;
+
+        _entranceTimer.Stop();
+        _entranceStopwatch.Reset();
+        _entranceStates.Clear();
+    }
+
+    /// <summary>
+    /// 停止尚未完成的入场动画，并把所有内容恢复到最终位置。
+    /// </summary>
+    private void CancelEntranceAnimation()
+    {
+        _entranceTimer.Stop();
+        _entranceStopwatch.Reset();
+
+        foreach (var state in _entranceStates)
+        {
+            state.Transform.X = 0;
+            state.Transform.Y = 0;
+            state.Panel.Opacity = 1;
+        }
+
+        _entranceStates.Clear();
     }
 
     #endregion

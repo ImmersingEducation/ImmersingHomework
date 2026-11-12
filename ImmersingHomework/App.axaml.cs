@@ -590,7 +590,8 @@ public partial class App : Application
         _mainWindow.WindowState = WindowState.FullScreen;
         _mainWindow.Activate();
         _mainWindow.Show();
-        _mainWindow.HomeworkPanel.Refresh();
+        // 每次打开主界面都重新加载并播放卡片入场动画。
+        _mainWindow.HomeworkPanel.Refresh(animateCards: true);
     }
 
     private void ShowFloatingButton()
