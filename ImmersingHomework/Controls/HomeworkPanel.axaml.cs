@@ -203,20 +203,26 @@ public partial class  HomeworkPanel : UserControl
         AddHandler(PointerMovedEvent, HomeworkPanel_OnPointerMoved, RoutingStrategies.Tunnel, true);
         AddHandler(PointerReleasedEvent, HomeworkPanel_OnPointerReleased, RoutingStrategies.Tunnel, true);
         AddHandler(PointerCaptureLostEvent, HomeworkPanel_OnPointerCaptureLost, RoutingStrategies.Direct);
-        DateProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
-        {
-            _logger.Debug("日期改变: {Date}", panel.Date);
-            panel.DateChanged?.Invoke(panel.Date);
-            // 依赖服务尚未注入时（如 XAML 预览）跳过加载，待 Initialize 注入后再补
-            if (panel._storageService is not null)
-                _ = panel.RefreshAsync(panel.Date);
-        });
-        IsFrozenProperty.Changed.AddClassHandler<HomeworkPanel>((panel, e) =>
-        {
-            panel.ApplyFrozenStateToSubjects();
-            panel.FrozenChanged?.Invoke(panel.IsFrozen);
-        });
         _logger.Information("HomeworkPanel 初始化完成");
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == DateProperty)
+        {
+            _logger.Debug("日期改变: {Date}", Date);
+            DateChanged?.Invoke(Date);
+            // 依赖服务尚未注入时（如 XAML 预览）跳过加载，待 Initialize 注入后再补
+            if (_storageService is not null)
+                _ = RefreshAsync(Date);
+        }
+        else if (change.Property == IsFrozenProperty)
+        {
+            ApplyFrozenStateToSubjects();
+            FrozenChanged?.Invoke(IsFrozen);
+        }
     }
 
     private IHomeworkStorageService StorageService =>
@@ -245,31 +251,11 @@ public partial class  HomeworkPanel : UserControl
         _logger.Debug("直接展示作业内容，日期: {Date}", homework.Date);
         // 直接展示会覆盖异步刷新的结果，使所有尚未完成的刷新失效。
         _contentVersion++;
-        HomeworkGrid.IsVisible = false;
-        ClearHomeworkGrid();
+
         IsFrozen = homework.Frozen;
 
-        var hasHomework = false;
-        if (homework.HomeworkItems is { Count: > 0 })
-        {
-            foreach (var subject in homework.GetSubjectsInOrder())
-            {
-                var subjectItems = homework.GetHomeworkItemsBySubject(subject);
-                if (subjectItems is { Count: > 0 })
-                {
-                    var subjectPanel = new SubjectHomeworkPanel();
-                    subjectPanel.SetData(subject, subjectItems);
-                    subjectPanel.EditRequested += OnEditRequested;
-                    subjectPanel.IsFrozen = IsFrozen;
-                    subjectPanel.IsDragModeEnabled = IsDragModeEnabled;
-                    AddSubjectPanel(subjectPanel);
-                    hasHomework = true;
-                }
-            }
-        }
-
-        HomeworkGrid.IsVisible = true;
-        NoHomeworkText.IsVisible = !hasHomework;
+        var (subjectPanels, hasHomework) = BuildHomeworkPanels(homework);
+        ReplaceHomeworkContent(subjectPanels, hasHomework);
         _logger.Debug("作业内容展示完成");
     }
 
@@ -285,8 +271,8 @@ public partial class  HomeworkPanel : UserControl
 #endif
         _logger.Debug("刷新作业面板，日期: {Date}", date);
         var contentVersion = ++_contentVersion;
-        HomeworkGrid.IsVisible = false;
-        ClearHomeworkGrid();
+
+        // 先读取数据，旧内容保持可见，避免清空后等待磁盘 I/O 造成空白闪烁。
         var homework = await StorageService.LoadAsync(date);
 
         // 加载期间如果直接展示了快照或开始了更新的刷新，当前结果已经过期。
@@ -296,67 +282,80 @@ public partial class  HomeworkPanel : UserControl
             return;
         }
 
+        // 只在文件不存在且是空作业时才创建文件，避免重复保存
+        if (homework != null &&
+            (homework.HomeworkItems == null || homework.HomeworkItems.Count == 0) &&
+            !StorageService.Exists(date))
+        {
+            _logger.Debug("自动创建空作业文件，日期: {Date}", date);
+            // 自动保存这个空白作业，创建对应的日期文件（异步执行，不阻塞UI）
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await StorageService.SaveAsync(homework);
+                }
+                catch (Exception ex)
+                {
+                    _logger.Warning(ex, "保存空作业时出错");
+                }
+            });
+        }
+
         IsFrozen = homework?.Frozen ?? false;
 
-        var hasHomework = false;
-        if (homework != null)
-        {
-            // 只在文件不存在且是空作业时才创建文件，避免重复保存
-            if ((homework.HomeworkItems == null || homework.HomeworkItems.Count == 0) 
-                && !StorageService.Exists(date))
-            {
-                _logger.Debug("自动创建空作业文件，日期: {Date}", date);
-                // 自动保存这个空白作业，创建对应的日期文件（异步执行，不阻塞UI）
-                Task.Run(async () =>
-                {
-                    try
-                    {
-                        await StorageService.SaveAsync(homework);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.Warning(ex, "保存空作业时出错");
-                    }
-                });
-            }
-            else if (homework.HomeworkItems != null && homework.HomeworkItems.Count > 0)
-            {
-                var subjects = homework.GetSubjectsInOrder();
+        var (subjectPanels, hasHomework) = BuildHomeworkPanels(homework);
+        ReplaceHomeworkContent(subjectPanels, hasHomework);
 
-                _logger.Debug("找到 {Count} 个科目，日期: {Date}", subjects.Count, date);
-
-                foreach (var subject in subjects)
-                {
-                    if (!string.IsNullOrEmpty(subject))
-                    {
-                        var subjectItems = homework.GetHomeworkItemsBySubject(subject);
-                        if (subjectItems != null && subjectItems.Count > 0)
-                        {
-                            var subjectPanel = new SubjectHomeworkPanel();
-                            subjectPanel.SetData(subject, subjectItems);
-                            subjectPanel.EditRequested += OnEditRequested;
-                            subjectPanel.IsFrozen = IsFrozen;
-                            subjectPanel.IsDragModeEnabled = IsDragModeEnabled;
-                            AddSubjectPanel(subjectPanel);
-                            hasHomework = true;
-                        }
-                    }
-                }
-            }
-        }
-
-        HomeworkGrid.IsVisible = true;
-
-        if (NoHomeworkText != null)
-        {
-            NoHomeworkText.IsVisible = !hasHomework;
-        }
-        
         _logger.Debug("作业面板刷新完成，有作业: {HasHomework}", hasHomework);
 #if DEBUG
         sw.Stop();
         _logger.Debug("Refresh 方法执行耗时: {Elapsed}ms", sw.Elapsed.TotalMilliseconds);
 #endif
+    }
+
+    /// <summary>
+    /// 根据作业数据创建一组尚未挂到视觉树的科目面板。
+    /// 先把新内容构建完成，再一次性替换旧内容，避免刷新过程中出现空白。
+    /// </summary>
+    private (List<SubjectHomeworkPanel> Panels, bool HasHomework) BuildHomeworkPanels(Homework? homework)
+    {
+        var subjectPanels = new List<SubjectHomeworkPanel>();
+        if (homework?.HomeworkItems is not { Count: > 0 })
+            return (subjectPanels, false);
+
+        foreach (var subject in homework.GetSubjectsInOrder())
+        {
+            if (string.IsNullOrEmpty(subject))
+                continue;
+
+            var subjectItems = homework.GetHomeworkItemsBySubject(subject);
+            if (subjectItems is not { Count: > 0 })
+                continue;
+
+            var subjectPanel = new SubjectHomeworkPanel();
+            subjectPanel.SetData(subject, subjectItems);
+            subjectPanel.EditRequested += OnEditRequested;
+            subjectPanel.IsFrozen = IsFrozen;
+            subjectPanel.IsDragModeEnabled = IsDragModeEnabled;
+            subjectPanels.Add(subjectPanel);
+        }
+
+        return (subjectPanels, subjectPanels.Count > 0);
+    }
+
+    /// <summary>
+    /// 用已经构建好的科目面板替换当前内容。旧内容在新内容就绪后才被移除，
+    /// 因此不会出现“全部作业先消失、等待加载后再出现”的空白帧。
+    /// </summary>
+    private void ReplaceHomeworkContent(IReadOnlyList<SubjectHomeworkPanel> subjectPanels, bool hasHomework)
+    {
+        ClearHomeworkGrid();
+        _subjectPanels.AddRange(subjectPanels);
+        ReflowSubjectPanels();
+
+        HomeworkGrid.IsVisible = true;
+        NoHomeworkText.IsVisible = !hasHomework;
     }
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)

@@ -62,15 +62,21 @@ public partial class HomeworkItemPanel : UserControl
     {
         _logger.Debug("HomeworkItemPanel 初始化");
         InitializeComponent();
-        HomeworkItemProperty.Changed.AddClassHandler<HomeworkItemPanel>((panel, e) => 
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == HomeworkItemProperty)
         {
             _logger.Debug("作业项属性变化");
-            panel.UpdatePanel();
-        });
-        IsFrozenProperty.Changed.AddClassHandler<HomeworkItemPanel>((panel, e) =>
+            UpdatePanel();
+        }
+        else if (change.Property == IsFrozenProperty)
         {
-            panel.UpdateCursor();
-        });
+            UpdateCursor();
+        }
     }
 
     /// <summary>

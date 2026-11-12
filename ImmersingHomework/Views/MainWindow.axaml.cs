@@ -647,11 +647,15 @@ public partial class MainWindow : Window
         SetMainDrawerState(MainDrawerState.Closed);
     }
 
-    private void OnMainDrawerHomeworkSaved(HomeworkItem item, bool isNew)
+    private void OnMainDrawerHomeworkSaved(Homework homework, HomeworkItem item, bool isNew)
     {
         MainDrawerHomeworkItem = item;
         MainDrawerContent.DataContext = item;
-        HomeworkPanel.Refresh();
+        // 编辑视图已经保存了完整作业，直接复用这份内存数据，避免再读一次磁盘。
+        if (homework.Date == Date)
+            HomeworkPanel.DisplayHomework(homework);
+        else
+            HomeworkPanel.Refresh();
         ShowSuccess(
             isNew ? "作业已添加" : "作业已修改",
             $"{item.Subject}：{Summarize(item.Content)}");

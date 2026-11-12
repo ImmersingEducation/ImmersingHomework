@@ -76,22 +76,28 @@ public partial class SubjectHomeworkPanel : UserControl
     {
         _logger.Debug("SubjectHomeworkPanel 初始化");
         InitializeComponent();
-        SubjectProperty.Changed.AddClassHandler<SubjectHomeworkPanel>((panel, e) => 
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property == SubjectProperty)
         {
-            if (panel._suppressRefresh) return;
-            _logger.Debug("科目属性变化: {Subject}", panel.Subject);
-            panel.Refresh();
-        });
-        HomeworkItemsProperty.Changed.AddClassHandler<SubjectHomeworkPanel>((panel, e) => 
+            if (_suppressRefresh) return;
+            _logger.Debug("科目属性变化: {Subject}", Subject);
+            Refresh();
+        }
+        else if (change.Property == HomeworkItemsProperty)
         {
-            if (panel._suppressRefresh) return;
+            if (_suppressRefresh) return;
             _logger.Debug("作业项列表变化");
-            panel.Refresh();
-        });
-        IsFrozenProperty.Changed.AddClassHandler<SubjectHomeworkPanel>((panel, e) =>
+            Refresh();
+        }
+        else if (change.Property == IsFrozenProperty)
         {
-            panel.ApplyFrozenState();
-        });
+            ApplyFrozenState();
+        }
     }
 
     public void SetData(string subject, List<HomeworkItem> homeworkItems)

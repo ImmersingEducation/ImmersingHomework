@@ -21,9 +21,10 @@ public partial class HomeworkEditView : UserControl
     private DateOnly _date;
 
     /// <summary>
-    /// 保存成功后触发，参数为保存后的作业项以及是否为新增。
+    /// 保存成功后触发，参数为保存后的完整作业、当前作业项以及是否为新增。
+    /// 传递完整作业可让主界面直接复用内存中的结果，避免保存后再次读盘。
     /// </summary>
-    public event Action<HomeworkItem, bool>? Saved;
+    public event Action<Homework, HomeworkItem, bool>? Saved;
 
     /// <summary>
     /// 删除成功后触发。
@@ -169,7 +170,7 @@ public partial class HomeworkEditView : UserControl
 
             _editingItem = item;
             _logger.Information("作业已自动保存，ID: {Id}, 新增: {IsNew}", item.Id, isNew);
-            Saved?.Invoke(item, isNew);
+            Saved?.Invoke(homework, item, isNew);
             return true;
         }
         catch (Exception ex)
