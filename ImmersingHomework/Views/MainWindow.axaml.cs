@@ -2127,10 +2127,10 @@ public partial class MainWindow : Window
         AddHomeworkButton.IsEnabled = !frozen;
         RestoreButton.IsEnabled = !frozen;
 
-        // 冻结时用柔和的状态提示色突出显示，解冻后恢复默认卡片背景色；
-        // 前景色同步切换，保证图标在提示色背景上仍然清晰
-        FreezeButton.Bind(BackgroundProperty, new DynamicResourceExtension(
-            frozen ? "SystemFillColorAttentionBackgroundBrush" : "CardBackgroundFillColorDefaultBrush"));
+        // 冻结提示色画在按钮下方的独立图层上。按钮自身的 Background 必须保持透明：
+        // 给它设置背景画刷会覆盖 CompositionMaterial 的原生材质，导致 CMA 失效。
+        FreezeButtonHighlight.IsVisible = frozen;
+        // 前景色只影响图标，不会遮挡材质，可以继续随冻结状态切换。
         FreezeButton.Bind(ForegroundProperty, new DynamicResourceExtension(
             frozen ? "SystemFillColorAttentionBrush" : "TextFillColorPrimaryBrush"));
     }

@@ -98,9 +98,18 @@
                                                 <controls:AdvancedMaterialSurface Width="60" Height="60"
                                                                                   CornerRadius="30"
                                                                                   FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
-                                                        <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="FreezeButton_OnClick">
-                                                                <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
-                                                        </Button>
+                                                        <Panel>
+                                                                <!-- 冻结提示层：按钮本身必须保持透明背景，
+                                                                     否则背景画刷会盖住高级材质，使 CMA 失效。 -->
+                                                                <Border x:Name="FreezeButtonHighlight"
+                                                                        Background="{DynamicResource SystemFillColorAttentionBackgroundBrush}"
+                                                                        CornerRadius="30"
+                                                                        IsVisible="False"
+                                                                        IsHitTestVisible="False"/>
+                                                                <Button x:Name="FreezeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="FreezeButton_OnClick">
+                                                                        <fa:FASymbolIcon Symbol="WeatherSnowflake" FontSize="24"/>
+                                                                </Button>
+                                                        </Panel>
                                                 </controls:AdvancedMaterialSurface>
                                                 <!-- 冻结时长按解冻的进度环：控件比按钮大，通过负 Margin 抵消布局占用，
                                                      实际绘制的圆环位于按钮外圈 -->
