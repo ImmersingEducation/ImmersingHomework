@@ -33,6 +33,11 @@ public partial class MainViewSettingsPage : UserControl
     {
         MainViewColumnNumericUpDown.Value = AppSettings.Instance.MainViewColumns.Value;
         MainViewTitleTextBox.Text = AppSettings.Instance.MainViewTitleText.Value;
+
+        var autoScrollSpeed = Math.Clamp(AppSettings.Instance.MainViewAutoScrollSpeed.Value, 10, 300);
+        AutoScrollSpeedSlider.Value = autoScrollSpeed;
+        AutoScrollSpeedTextBlock.Text = $"{autoScrollSpeed} px/s";
+
         AdvancedMaterialSwitch.IsChecked = AppSettings.Instance.EnableMainViewAdvancedMaterial.Value;
         RefreshBackgroundImageState();
     }
@@ -86,6 +91,17 @@ public partial class MainViewSettingsPage : UserControl
 
         _logger.Information("主界面背景图片模糊度变更: {Blur}", blur);
         AppSettings.Instance.MainViewBackgroundImageBlur.Value = blur;
+    }
+
+    private void AutoScrollSpeedSlider_OnValueChanged(object? sender, RangeBaseValueChangedEventArgs e)
+    {
+        var speed = Math.Clamp((int)Math.Round(e.NewValue, MidpointRounding.AwayFromZero), 10, 300);
+        AutoScrollSpeedTextBlock.Text = $"{speed} px/s";
+        if (AppSettings.Instance.MainViewAutoScrollSpeed.Value == speed)
+            return;
+
+        _logger.Information("主界面自动滚动速度变更: {Speed}", speed);
+        AppSettings.Instance.MainViewAutoScrollSpeed.Value = speed;
     }
 
     private void MainViewColumnNumericUpDown_OnValueChanged(object? sender, NumericUpDownValueChangedEventArgs e)

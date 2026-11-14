@@ -27,6 +27,26 @@
                     <TextBox x:Name="MainViewTitleTextBox" TextChanged="MainViewTitleTextBox_OnTextChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="自动滚动速度" Description="主界面自动滚动时每秒移动的距离。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="ChevronDown"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                        <Slider x:Name="AutoScrollSpeedSlider"
+                                Width="220"
+                                Minimum="10" Maximum="300"
+                                TickFrequency="5"
+                                IsSnapToTickEnabled="True"
+                                ValueChanged="AutoScrollSpeedSlider_OnValueChanged"/>
+                        <TextBlock x:Name="AutoScrollSpeedTextBlock"
+                                   Width="72"
+                                   TextAlignment="Right"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                    </StackPanel>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="高级材质" Description="为主界面启用系统合成的高级材质效果（实验性功能，仅 Windows 支持）。开启后立即生效，仅顶部栏、作业卡片和底部按钮栏会透出材质，其余界面保持原样；设置了主界面背景图片时，材质区域会改为显示该图片的模糊效果，避免透出桌面。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Filter"></fa:FASymbolIconSource>

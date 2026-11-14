@@ -39,9 +39,10 @@ public partial class  HomeworkPanel : UserControl
     private int _contentVersion;
 
     /// <summary>
-    /// 自动滚动的速度（像素/秒）。
+    /// 自动滚动的速度（像素/秒），由主界面设置中的“自动滚动速度”决定。
     /// </summary>
-    private const double AutoScrollSpeed = 50;
+    private static double AutoScrollSpeed =>
+        Math.Clamp(AppSettings.Instance.MainViewAutoScrollSpeed.Value, 10, 300);
 
     /// <summary>
     /// 自动滚动的刷新间隔，按帧更新以保证滚动平滑。
