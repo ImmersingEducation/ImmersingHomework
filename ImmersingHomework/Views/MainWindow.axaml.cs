@@ -119,24 +119,6 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, Task<Homework?>> _snapshotHomeworkCache = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// 时光机预览切换时，作业内容区横向滑动的时长。
-    /// </summary>
-    private static readonly TimeSpan HomeworkContentSlideDuration = TimeSpan.FromMilliseconds(260);
-
-    /// <summary>
-    /// 作业内容区尚未完成布局时使用的滑动距离。
-    /// </summary>
-    private const double HomeworkContentSlideFallbackOffset = 960;
-
-    /// <summary>
-    /// 用于同时展示新旧两份作业内容的预览面板。平时隐藏，切换快照时从侧面滑入。
-    /// </summary>
-    private HomeworkPanel _homeworkPreviewPanel = null!;
-
-    private TranslateTransform _homeworkContentTransform = new();
-    private TranslateTransform _homeworkPreviewTransform = new();
-
-    /// <summary>
     /// 当前主内容区正在预览的快照，以及它在时光机列表中的位置。
     /// </summary>
     private SnapshotInfo? _previewedSnapshot;
@@ -151,8 +133,8 @@ public partial class MainWindow : Window
     private CancellationTokenSource? _previewTransitionCts;
 
     /// <summary>
-    /// 作业内容版本号。直接展示新内容会让正在播放的滑动动画失效，
-    /// 防止旧动画结束后覆盖新内容。
+    /// 作业内容版本号。直接展示新内容会让正在进行的异步恢复失效，
+    /// 防止旧结果结束后覆盖新内容。
     /// </summary>
     private int _homeworkContentVersion;
 
@@ -266,21 +248,8 @@ public partial class MainWindow : Window
         // HomeworkPanel / HomeworkEditView 由 MainWindow.axaml 以 XAML 方式创建，
         // 无法使用构造函数注入，由这里显式注入
         HomeworkPanel.Initialize(storageService, classIslandService);
-        HomeworkPanel.RenderTransform = _homeworkContentTransform;
         // 主面板始终允许拖拽排序；冻结状态由 IsFrozen 单独阻止所有作业操作。
         HomeworkPanel.IsDragModeEnabled = true;
-
-        // 时光机预览面板不自动加载当天作业，只在切换到快照时由 DisplayHomework 填充。
-        // 它和主面板叠放在 HomeworkContentHost 中，切换快照时一前一后横向滑动。
-        _homeworkPreviewPanel = new HomeworkPanel(false)
-        {
-            IsVisible = false,
-            IsHitTestVisible = false,
-            IsDragModeEnabled = false,
-            RenderTransform = _homeworkPreviewTransform
-        };
-        _homeworkPreviewPanel.Initialize(storageService, classIslandService);
-        HomeworkContentHost.Children.Add(_homeworkPreviewPanel);
 
         MainDrawerEditView.Initialize(classIslandService, storageService);
 
@@ -794,7 +763,8 @@ public partial class MainWindow : Window
         SetTimeMachineState(TimeMachineState.Opened);
         TimeMachine.Focus();
 
-        // 打开时光机时直接显示当前选中快照的作业内容，不播放切换动画。
+        // 打开时光机后回到当前选中的快照。当前实际作业一定晚于快照，
+        // 因此差异动画使用反向播放，表现时间倒流。
         // 快照通过异步方式加载，优先使用缓存，避免阻塞面板上浮动画。
         _previewedSnapshot = null;
         _previewedSnapshotIndex = -1;
@@ -814,8 +784,8 @@ public partial class MainWindow : Window
     /// 此时传入 <see langword="false"/>，避免再闪回旧内容。
     /// </param>
     /// <param name="animateRestore">
-    /// 恢复实际保存的作业时是否播放滑动动画。直接退出时光机时，选中的快照向左滑出，
-    /// 最新的作业从右侧向左滑入；日期切换等场景传入 <see langword="false"/>。
+    /// 恢复实际保存的作业时是否播放差异动画。直接退出时光机时，从选中的快照
+    /// 正向过渡到最新作业；日期切换等场景传入 <see langword="false"/>。
     /// </param>
     private void CloseTimeMachine(bool restoreContent, bool animateRestore = true)
     {
@@ -839,7 +809,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 直接退出时光机时，把选中的快照向左滑出，并让当前实际保存的作业从右侧滑入。
+    /// 直接退出时光机时，从选中的快照模拟时间前进到当前实际保存的作业。
     /// </summary>
     private void StartRestoreHomeworkContentAnimation()
     {
@@ -874,25 +844,10 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 取消预览后主面板可能停在过渡中间，先对齐到选中快照再播放退出动画。
+        // 取消预览后主面板可能停在过渡中间，先对齐到选中快照，
+        // 再让快照与当前作业的差异按时间前进方向播放。
         ShowHomeworkContentImmediately(snapshotHomework);
-        _ = AnimateRestoreHomeworkContentAsync(currentHomework);
-    }
-
-    private async Task AnimateRestoreHomeworkContentAsync(Homework currentHomework)
-    {
-        try
-        {
-            // 选中内容向左滑出，最新内容同时从右侧向左滑入。
-            await AnimateHomeworkContentAsync(currentHomework, slideRight: false, CancellationToken.None);
-        }
-        catch (Exception ex)
-        {
-            _logger.Error(ex, "退出时光机时播放作业内容动画失败");
-            // 时光机已重新打开时，新内容优先，不再回退到旧结果。
-            if (_timeMachineState == TimeMachineState.Closed)
-                ShowHomeworkContentImmediately(currentHomework);
-        }
+        ShowHomeworkContentWithDiff(currentHomework, reverse: false);
     }
 
     private void TimeMachineCloseButton_OnClick(object? sender, RoutedEventArgs e) =>
@@ -941,7 +896,7 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 正在播放上一段预览动画时，由动画循环继续处理等待目标，
+        // 上一段预览仍在加载时，由加载循环继续处理等待目标，
         // 期间保持松手时出现的等待浮层。
         if (_isPreviewTransitionRunning)
             return;
@@ -976,7 +931,7 @@ public partial class MainWindow : Window
         _isTimeMachineActionInProgress = true;
         try
         {
-            // 替换不播放动画：取消尚未完成的预览滑动，直接以最终选中的快照为准。
+            // 替换不播放动画：取消尚未完成的预览切换，直接以最终选中的快照为准。
             CancelPreviewTransitions();
             if (_timeMachineState != TimeMachineState.Opened)
                 return;
@@ -1028,8 +983,8 @@ public partial class MainWindow : Window
         _isTimeMachineActionInProgress = true;
         try
         {
-            // 合并动画必须从选中的快照开始：取消尚未完成的预览滑动，
-            // 先把主内容区立即定位到该快照，再播放向左的合并动画。
+            // 合并动画必须从选中的快照开始：取消尚未完成的预览切换，
+            // 先把主内容区立即定位到该快照，再正向播放到合并结果。
             CancelPreviewTransitions();
             if (_timeMachineState != TimeMachineState.Opened)
                 return;
@@ -1061,16 +1016,8 @@ public partial class MainWindow : Window
             // 合并结果可能引用快照中的作业项，不能再把该缓存对象用于预览。
             _snapshotHomeworkCache.Remove(snapshot.FilePath);
 
-            // 合并后内容区向左滑出，合并结果同时从右侧向左滑入。
-            try
-            {
-                await AnimateHomeworkContentAsync(mergedHomework, slideRight: false, CancellationToken.None);
-            }
-            catch (Exception ex)
-            {
-                _logger.Error(ex, "合并后播放作业内容动画失败");
-                ShowHomeworkContentImmediately(mergedHomework);
-            }
+            // 从选中的快照时间前进到合并结果，新增、删除和编辑的作业项分别播放动画。
+            ShowHomeworkContentWithDiff(mergedHomework, reverse: false);
         }
         finally
         {
@@ -1093,10 +1040,9 @@ public partial class MainWindow : Window
         // 关闭时整层不参与命中测试，避免影响主界面
         TimeMachineRoot.IsHitTestVisible = state != TimeMachineState.Closed;
 
-        // 时光机中展示的可能是历史快照，主面板和预览面板都不参与拖拽；
+        // 时光机中展示的可能是历史快照，主面板不参与拖拽；
         // 关闭时光机后主面板恢复拖拽排序。
         HomeworkPanel.IsDragModeEnabled = state == TimeMachineState.Closed;
-        _homeworkPreviewPanel.IsDragModeEnabled = false;
 
         // 打开时拦截外部点击并关闭时光机
         TimeMachineDismissLayer.IsHitTestVisible = state == TimeMachineState.Opened;
@@ -1275,7 +1221,8 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 异步加载指定快照并在主内容区显示，不播放动画。加载期间用户可以继续操作时光机。
+    /// 异步加载指定快照并在主内容区显示。打开时光机时从当前作业回到选中的快照，
+    /// 因此按反向差异播放动画。加载期间用户可以继续操作时光机。
     /// </summary>
     private async Task PreviewTimeMachineSnapshotAsync(SnapshotInfo? snapshot)
     {
@@ -1295,14 +1242,14 @@ public partial class MainWindow : Window
             return;
         }
 
-        // 加载期间用户可能已关闭时光机、切换了选择，或已经开始预览动画。
+        // 加载期间用户可能已关闭时光机、切换了选择，或已经开始新的预览切换。
         if (_timeMachineState != TimeMachineState.Opened ||
             _hasPendingPreviewSnapshot ||
             _isPreviewTransitionRunning ||
             !Equals(TimeMachine.SelectedSnapshot, snapshot))
             return;
 
-        ShowHomeworkContentImmediately(homework);
+        ShowHomeworkContentWithDiff(homework, reverse: true);
         _previewedSnapshot = snapshot;
         _previewedSnapshotIndex = FindSnapshotIndex(snapshot);
         PreloadSnapshotNeighbors(_previewedSnapshotIndex);
@@ -1368,10 +1315,12 @@ public partial class MainWindow : Window
                 var targetIndex = target is null ? -1 : FindSnapshotIndex(target);
                 if (target is null || targetIndex < 0)
                 {
-                    // 没有可预览的快照时回到实际保存的作业内容。
+                    // 没有可预览的快照时回到实际保存的作业内容。当前内容若是快照，
+                    // 目标内容更新，因此按正向差异播放动画。
                     var currentHomework = await LoadCurrentHomeworkWithLoadingAsync(token);
                     token.ThrowIfCancellationRequested();
-                    ShowHomeworkContentImmediately(currentHomework ?? new Homework(Date, []));
+                    ShowHomeworkContentWithDiff(
+                        currentHomework ?? new Homework(Date, []), reverse: false);
                     _previewedSnapshot = null;
                     _previewedSnapshotIndex = -1;
                     continue;
@@ -1388,10 +1337,13 @@ public partial class MainWindow : Window
                 if (_hasPendingPreviewSnapshot && !Equals(_pendingPreviewSnapshot, target))
                     continue;
 
-                // 选中更早的快照时整体向右滑，选中更新的快照时整体向左滑。
-                var slideRight = _previewedSnapshotIndex >= 0 &&
-                                 targetIndex < _previewedSnapshotIndex;
-                await AnimateHomeworkContentAsync(homework, slideRight, token);
+                // 回到更早的快照时反向播放差异动画；前往更新的快照时正向播放。
+                // 反向时，目标中缺失的作业表现为“撤销新增”向右滑出，
+                // 目标中重新出现的作业表现为“撤销删除”从左侧滑入。
+                // 当前内容若仍是实际作业（索引为 -1），所有快照都早于它。
+                var reverse = _previewedSnapshotIndex < 0 ||
+                              targetIndex < _previewedSnapshotIndex;
+                ShowHomeworkContentWithDiff(homework, reverse);
 
                 _previewedSnapshot = target;
                 _previewedSnapshotIndex = targetIndex;
@@ -1400,12 +1352,11 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
-            // 关闭时光机或执行替换/合并时会取消正在进行的预览动画。
+            // 关闭时光机或执行替换/合并时会取消正在进行的预览加载。
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "切换时光机预览失败");
-            ResetHomeworkContentTransforms();
         }
         finally
         {
@@ -1426,89 +1377,27 @@ public partial class MainWindow : Window
     }
 
     /// <summary>
-    /// 同时滑动新旧两份作业内容。旧内容从主面板滑出，新内容由预览面板滑入，
-    /// 两个面板朝同一方向移动。
-    /// </summary>
-    private async Task AnimateHomeworkContentAsync(
-        Homework incomingHomework,
-        bool slideRight,
-        CancellationToken cancellationToken)
-    {
-        var contentVersion = ++_homeworkContentVersion;
-        var offset = HomeworkContentHost.Bounds.Width;
-        if (!double.IsFinite(offset) || offset <= 0)
-        {
-            offset = Bounds.Width;
-            if (!double.IsFinite(offset) || offset <= 0)
-                offset = HomeworkContentSlideFallbackOffset;
-        }
-
-        var distance = slideRight ? offset : -offset;
-
-        _homeworkPreviewPanel.DisplayHomework(incomingHomework);
-        _homeworkPreviewPanel.IsVisible = true;
-        _homeworkPreviewPanel.IsHitTestVisible = true;
-
-        _homeworkContentTransform.X = 0;
-        _homeworkPreviewTransform.X = -distance;
-
-        var outgoingAnimation = CreateHomeworkContentSlideAnimation(0, distance);
-        var incomingAnimation = CreateHomeworkContentSlideAnimation(-distance, 0);
-
-        // 动画目标必须是控件本身：TransformAnimator 需要把目标转换为 Visual，
-        // 再从控件的 RenderTransform 上找到对应的 TranslateTransform。
-        await Task.WhenAll(
-            outgoingAnimation.RunAsync(HomeworkPanel, cancellationToken),
-            incomingAnimation.RunAsync(_homeworkPreviewPanel, cancellationToken));
-
-        cancellationToken.ThrowIfCancellationRequested();
-
-        // 动画期间已经直接展示了更新的内容，当前结果已经过期。
-        if (contentVersion != _homeworkContentVersion)
-            return;
-
-        // 主面板在屏幕外同步为新内容，然后换回原点并隐藏预览面板，
-        // 最终画面与预览面板完全一致，不会出现空白帧。
-        HomeworkPanel.DisplayHomework(incomingHomework);
-        ResetHomeworkContentTransforms();
-    }
-
-    private static Animation CreateHomeworkContentSlideAnimation(double from, double to) =>
-        new()
-        {
-            Duration = HomeworkContentSlideDuration,
-            Easing = new CubicEaseOut(),
-            FillMode = FillMode.Forward,
-            Children =
-            {
-                new KeyFrame
-                {
-                    Cue = new Cue(0),
-                    Setters =
-                    {
-                        new Setter(TranslateTransform.XProperty, from)
-                    }
-                },
-                new KeyFrame
-                {
-                    Cue = new Cue(1),
-                    Setters =
-                    {
-                        new Setter(TranslateTransform.XProperty, to)
-                    }
-                }
-            }
-        };
-
-    /// <summary>
-    /// 立即显示作业内容并复位所有滑动状态。
+    /// 立即显示作业内容。
     /// </summary>
     private void ShowHomeworkContentImmediately(Homework homework)
     {
-        // 直接展示会让正在播放的滑动动画失效。
+        // 直接展示会让正在进行的异步恢复或旧内容动画结果失效。
         _homeworkContentVersion++;
         HomeworkPanel.DisplayHomework(homework);
-        ResetHomeworkContentTransforms();
+    }
+
+    /// <summary>
+    /// 显示作业内容，并按与当前内容的差异播放作业项动画。
+    /// </summary>
+    /// <param name="homework">要显示的新内容。</param>
+    /// <param name="reverse">
+    /// 新内容是否早于当前内容。为 true 时表示回到过去的快照，动画方向反转。
+    /// </param>
+    private void ShowHomeworkContentWithDiff(Homework homework, bool reverse)
+    {
+        // 直接展示会让正在进行的异步恢复或旧动画结果失效。
+        _homeworkContentVersion++;
+        HomeworkPanel.DisplayHomeworkWithDiff(homework, reverse);
     }
 
     /// <summary>
@@ -1516,20 +1405,6 @@ public partial class MainWindow : Window
     /// </summary>
     private void RestoreCurrentHomeworkContent() =>
         ShowHomeworkContentImmediately(_storageService.Load(Date) ?? new Homework(Date, []));
-
-    /// <summary>
-    /// 丢弃正在使用的位移动画，换回静止的变换，避免动画的 FillMode 残留值影响下一次显示。
-    /// </summary>
-    private void ResetHomeworkContentTransforms()
-    {
-        _homeworkContentTransform = new TranslateTransform();
-        HomeworkPanel.RenderTransform = _homeworkContentTransform;
-
-        _homeworkPreviewTransform = new TranslateTransform();
-        _homeworkPreviewPanel.RenderTransform = _homeworkPreviewTransform;
-        _homeworkPreviewPanel.IsVisible = false;
-        _homeworkPreviewPanel.IsHitTestVisible = false;
-    }
 
     private void CancelPreviewTransitions()
     {
@@ -1539,9 +1414,6 @@ public partial class MainWindow : Window
         if (_isPreviewTransitionRunning)
         {
             _previewTransitionCts?.Cancel();
-
-            // 取消可能发生在滑动动画中间，立即复位两个面板，避免内容区停在半滑出状态。
-            ResetHomeworkContentTransforms();
         }
         else
         {
@@ -1771,9 +1643,7 @@ public partial class MainWindow : Window
     {
         _isAutoScrollEnabled = !_isAutoScrollEnabled;
 
-        // 主面板和时光机预览面板共用同一开关，切换快照后也能保持自动滚动
         HomeworkPanel.IsAutoScrollEnabled = _isAutoScrollEnabled;
-        _homeworkPreviewPanel.IsAutoScrollEnabled = _isAutoScrollEnabled;
 
         AutoScrollIcon.Symbol = _isAutoScrollEnabled ? FASymbol.Pause : FASymbol.ChevronDown;
         ToolTip.SetTip(AutoScrollButton, _isAutoScrollEnabled ? "停止自动滚动" : "自动滚动");

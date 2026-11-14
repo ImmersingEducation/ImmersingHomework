@@ -26,9 +26,8 @@
                 <!-- 底部不留外边距，作业面板一直延伸到窗口下边缘 -->
                 <Grid Grid.Row="1" Margin="16,16,16,0">
                 <Grid>
-                        <!-- 作业内容宿主：主面板与时光机预览面板叠放在一起，
-                             切换快照时两个面板一前一后横向滑动，宿主负责裁剪。 -->
-                        <Grid x:Name="HomeworkContentHost" ClipToBounds="True">
+                        <!-- 作业内容宿主：承载主作业面板和异步加载浮层，并负责裁剪出入场动画。 -->
+                        <Grid ClipToBounds="True">
                                 <controls:HomeworkPanel x:Name="HomeworkPanel"/>
                                 <!-- 快照/作业异步加载时的等待提示，覆盖在作业内容之上 -->
                                 <Panel x:Name="HomeworkLoadingOverlay"
