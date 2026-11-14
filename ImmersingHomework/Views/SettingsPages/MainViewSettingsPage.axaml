@@ -27,6 +27,15 @@
                     <TextBox x:Name="MainViewTitleTextBox" TextChanged="MainViewTitleTextBox_OnTextChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="高级材质" Description="为主界面启用系统合成的高级材质效果（实验性功能，仅 Windows 支持）。开启后立即生效，仅顶部栏、作业卡片和底部按钮栏会透出材质，其余界面保持原样；设置了主界面背景图片时，材质区域会改为显示该图片的模糊效果，避免透出桌面。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Filter"></fa:FASymbolIconSource>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <ToggleSwitch x:Name="AdvancedMaterialSwitch" OnContent="" OffContent=""
+                                  IsCheckedChanged="AdvancedMaterialSwitch_OnIsCheckedChanged"/>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="主界面背景图片" Description="选择一张图片作为主界面背景。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Image"></fa:FASymbolIconSource>

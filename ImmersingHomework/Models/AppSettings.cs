@@ -82,6 +82,9 @@ public class AppSettings
 
     public ObservableProperty<string> MainViewTitleText { get; set; } = new("作业");
 
+    /// <summary>是否为主界面启用高级材质效果。</summary>
+    public ObservableProperty<bool> EnableMainViewAdvancedMaterial { get; set; } = new(false);
+
     public ObservableProperty<bool> HasMainViewBackgroundImage { get; set; } = new(false);
 
     /// <summary>主界面背景图片的透明度，取值范围 0~1。</summary>
@@ -186,6 +189,7 @@ public class AppSettings
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         MainViewTitleText = loaded.MainViewTitleText;
+        EnableMainViewAdvancedMaterial.Value = loaded.EnableMainViewAdvancedMaterial.Value;
         HasMainViewBackgroundImage.Value = loaded.HasMainViewBackgroundImage.Value;
         MainViewBackgroundImageOpacity.Value = Math.Clamp(loaded.MainViewBackgroundImageOpacity.Value, 0, 1);
         MainViewBackgroundImageBlur.Value = Math.Clamp(loaded.MainViewBackgroundImageBlur.Value, 0, 30);
@@ -228,6 +232,7 @@ public class AppSettings
         Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(MainViewColumns, ScheduleAutoSave);
         Watch(MainViewTitleText, ScheduleAutoSave);
+        Watch(EnableMainViewAdvancedMaterial, ScheduleAutoSave);
         Watch(HasMainViewBackgroundImage, ScheduleAutoSave);
         Watch(MainViewBackgroundImageOpacity, ScheduleAutoSave);
         Watch(MainViewBackgroundImageBlur, ScheduleAutoSave);

@@ -3,13 +3,19 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             xmlns:controls="clr-namespace:ImmersingHomework.Controls"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="ImmersingHomework.Controls.HomeworkItemPanel"
              HorizontalAlignment="Stretch" MinHeight="160">
-    <Border x:Name="CardBorder" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}" CornerRadius="24">
-        <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
-            <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
-            <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
-        </StackPanel>
-    </Border>
+    <!-- 卡片内容必须可命中测试：材质表面本身不拦截点击，由内部 Panel 接收点击并打开编辑抽屉。
+         卡片自身不挂 PointerPressed，点击由 HomeworkPanel 统一识别为编辑还是拖拽。 -->
+    <controls:AdvancedMaterialSurface FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                      CornerRadius="24">
+        <Panel x:Name="CardBorder" Background="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+            <StackPanel Orientation="Vertical" Margin="16" Spacing="8">
+                <TextBlock x:Name="ContentText" FontSize="24" TextWrapping="Wrap"/>
+                <WrapPanel x:Name="TagPanel" ItemSpacing="8" LineSpacing="4"/>
+            </StackPanel>
+        </Panel>
+    </controls:AdvancedMaterialSurface>
 </UserControl>

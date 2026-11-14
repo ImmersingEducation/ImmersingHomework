@@ -300,6 +300,11 @@ public partial class  HomeworkPanel : UserControl
     /// </summary>
     public event Action<HomeworkItem>? EditRequested;
 
+    /// <summary>
+    /// 作业内容滚动位置发生变化。主窗口用它同步高级材质背景的镂空区域。
+    /// </summary>
+    public event EventHandler? ScrollOffsetChanged;
+
     public bool IsFrozen
     {
         get => GetValue(IsFrozenProperty);
@@ -368,6 +373,7 @@ public partial class  HomeworkPanel : UserControl
         _dragAutoScrollTimer.Tick += DragAutoScrollTimer_OnTick;
         _entranceTimer.Tick += EntranceTimer_OnTick;
         _changeAnimationTimer.Tick += ChangeAnimationTimer_OnTick;
+        HomeworkScrollViewer.ScrollChanged += (_, _) => ScrollOffsetChanged?.Invoke(this, EventArgs.Empty);
         this.AttachedToVisualTree += OnAttachedToVisualTree;
         this.DetachedFromVisualTree += OnDetachedFromVisualTree;
 

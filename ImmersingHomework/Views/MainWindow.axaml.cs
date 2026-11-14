@@ -7,6 +7,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Timers;
+using Avalonia;
 using Avalonia.Animation;
 using Avalonia.Animation.Easings;
 using Avalonia.Controls;
@@ -20,6 +21,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Styling;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using FluentAvalonia.UI.Controls;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Controls;
@@ -119,6 +121,12 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, Task<Homework?>> _snapshotHomeworkCache = new(StringComparer.Ordinal);
 
     /// <summary>
+    /// 主作业面板的层间位移。高级材质开启时卡片移动会让镂空区域错位，
+    /// 因此需要监听这个变换并实时刷新素材裁剪。
+    /// </summary>
+    private TranslateTransform _homeworkContentTransform = new();
+
+    /// <summary>
     /// 当前主内容区正在预览的快照，以及它在时光机列表中的位置。
     /// </summary>
     private SnapshotInfo? _previewedSnapshot;
@@ -179,6 +187,14 @@ public partial class MainWindow : Window
     private Bitmap? _clipboardBitmap;
     private Bitmap? _backgroundImageBitmap;
     private readonly BlurEffect _backgroundImageBlurEffect = new();
+    private readonly BlurEffect _materialBackgroundImageBlurEffect = new();
+
+    /// <summary>
+    /// 材质区域使用背景图片时至少应用的模糊半径，让背景图片更接近磨砂材质。
+    /// </summary>
+    private const double MaterialBackgroundImageMinBlur = 16;
+
+    private bool _advancedMaterialClipUpdateQueued;
 
     /// <summary>
     /// InfoBar 消息区域内最多同时显示的消息条数，超出时自动移除最早的一条
@@ -228,8 +244,13 @@ public partial class MainWindow : Window
 
         UpdateTitleText(AppSettings.Instance.MainViewTitleText.Value);
         AppSettings.Instance.MainViewTitleText.ValueChanged += UpdateTitleText;
-        
+
+        AdvancedMaterialSurface.MaterialStateChanged += OnAdvancedMaterialSurfaceStateChanged;
+        AppSettings.Instance.EnableMainViewAdvancedMaterial.ValueChanged += OnAdvancedMaterialSettingChanged;
+        this.LayoutUpdated += OnLayoutUpdated;
+
         ApplyBackgroundImage();
+        ApplyAdvancedMaterialState();
         AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged += OnBackgroundImageSettingChanged;
         AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged += OnBackgroundImageOpacityChanged;
         AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged += OnBackgroundImageBlurChanged;
@@ -249,7 +270,13 @@ public partial class MainWindow : Window
         // 无法使用构造函数注入，由这里显式注入
         HomeworkPanel.Initialize(storageService, classIslandService);
         // 主面板始终允许拖拽排序；冻结状态由 IsFrozen 单独阻止所有作业操作。
+        // 时光机打开时由 SetTimeMachineState 临时关闭。
         HomeworkPanel.IsDragModeEnabled = true;
+
+        // 滚动和层间位移都会改变卡片位置，高级材质据此刷新镂空区域。
+        HomeworkPanel.ScrollOffsetChanged += OnHomeworkScrollOffsetChanged;
+        HomeworkPanel.RenderTransform = _homeworkContentTransform;
+        _homeworkContentTransform.PropertyChanged += OnHomeworkTransformPropertyChanged;
 
         MainDrawerEditView.Initialize(classIslandService, storageService);
 
@@ -300,9 +327,17 @@ public partial class MainWindow : Window
         Closed += (_, _) =>
         {
             AppSettings.Instance.MainViewTitleText.ValueChanged -= UpdateTitleText;
+            AppSettings.Instance.EnableMainViewAdvancedMaterial.ValueChanged -= OnAdvancedMaterialSettingChanged;
             AppSettings.Instance.HasMainViewBackgroundImage.ValueChanged -= OnBackgroundImageSettingChanged;
             AppSettings.Instance.MainViewBackgroundImageOpacity.ValueChanged -= OnBackgroundImageOpacityChanged;
             AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged -= OnBackgroundImageBlurChanged;
+            AdvancedMaterialSurface.MaterialStateChanged -= OnAdvancedMaterialSurfaceStateChanged;
+            this.LayoutUpdated -= OnLayoutUpdated;
+            HomeworkPanel.ScrollOffsetChanged -= OnHomeworkScrollOffsetChanged;
+            _homeworkContentTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
+            ClearAdvancedMaterialClip();
+            MainViewBackgroundImage.Source = null;
+            MainViewMaterialBackgroundImage.Source = null;
             _backgroundImageBitmap?.Dispose();
             _backgroundImageBitmap = null;
         };
@@ -325,6 +360,188 @@ public partial class MainWindow : Window
         DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
     }
 
+    /// <summary>
+    /// 高级材质真正生效的条件：设置已开启，且原生材质后端已经附加成功。
+    /// 后端不可用时保留正常窗口底色，避免主界面变成透明窗口。
+    /// </summary>
+    private bool IsAdvancedMaterialActive =>
+        AppSettings.Instance.EnableMainViewAdvancedMaterial.Value && TopBarMaterial.IsNativeMaterialActive;
+
+    private void OnAdvancedMaterialSettingChanged(bool _)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            ApplyAdvancedMaterialState();
+        else
+            Dispatcher.UIThread.Post(ApplyAdvancedMaterialState);
+    }
+
+    private void OnAdvancedMaterialSurfaceStateChanged(object? sender, EventArgs e)
+    {
+        if (Dispatcher.UIThread.CheckAccess())
+            RequestAdvancedMaterialClipUpdate();
+        else
+            Dispatcher.UIThread.Post(RequestAdvancedMaterialClipUpdate);
+    }
+
+    private void OnLayoutUpdated(object? sender, EventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    private void OnHomeworkScrollOffsetChanged(object? sender, EventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    private void OnHomeworkTransformPropertyChanged(object? sender, Avalonia.AvaloniaPropertyChangedEventArgs e) =>
+        RequestAdvancedMaterialClipUpdate();
+
+    /// <summary>
+    /// 保留主界面原有底色和背景图片。有背景图片时整层保持不透明，材质区域用模糊副本模拟；
+    /// 没有背景图片时才在材质控件所在区域镂空。原生后端不可用时不会产生任何镂空。
+    /// </summary>
+    private void ApplyAdvancedMaterialState()
+    {
+        UpdateMaterialBackgroundOverlayVisibility();
+        RequestAdvancedMaterialClipUpdate();
+    }
+
+    /// <summary>
+    /// 合并同一帧内的多次刷新请求，避免滚动或动画时重复重建背景裁剪几何。
+    /// </summary>
+    private void RequestAdvancedMaterialClipUpdate()
+    {
+        if (!IsAdvancedMaterialActive)
+        {
+            _advancedMaterialClipUpdateQueued = false;
+            ClearAdvancedMaterialClip();
+            return;
+        }
+
+        if (_advancedMaterialClipUpdateQueued)
+            return;
+
+        _advancedMaterialClipUpdateQueued = true;
+        Dispatcher.UIThread.Post(() =>
+        {
+            _advancedMaterialClipUpdateQueued = false;
+            if (!IsAdvancedMaterialActive)
+            {
+                ClearAdvancedMaterialClip();
+                return;
+            }
+
+            UpdateAdvancedMaterialClip();
+        });
+    }
+
+    private void ClearAdvancedMaterialClip()
+    {
+        MainViewBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.Opacity = 0;
+    }
+
+    private void UpdateAdvancedMaterialClip()
+    {
+        var backgroundBounds = new Rect(MainViewBackgroundLayer.Bounds.Size);
+        if (backgroundBounds.Width <= 0 || backgroundBounds.Height <= 0)
+            return;
+
+        // 没有背景图片时，背景层需要“完整矩形减去洞”；
+        // 有背景图片时，材质图片层需要“所有洞的并集”。
+        // 两个层填满同一个父面板，因此可以共用同一套坐标。
+        var holes = new GeometryGroup { FillRule = FillRule.NonZero };
+        var contentViewport = GetBackgroundBounds(HomeworkContentHost);
+
+        foreach (var surface in AdvancedMaterialSurface.GetLoadedSurfaces())
+        {
+            // 只有原生材质真正显示时才需要镂空；回退画笔会覆盖在正常背景之上。
+            if (!surface.IsEffectivelyVisible || !surface.IsNativeMaterialActive)
+                continue;
+            if (surface.Bounds.Width <= 0 || surface.Bounds.Height <= 0)
+                continue;
+
+            var topLeft = surface.TranslatePoint(new Point(0, 0), MainViewBackgroundLayer);
+            if (topLeft is null)
+                continue;
+
+            var surfaceBounds = new Rect(topLeft.Value, surface.Bounds.Size);
+            if (!surfaceBounds.Intersects(backgroundBounds))
+                continue;
+
+            var radius = GetMaxCornerRadius(surface.CornerRadius);
+            Geometry hole = new RectangleGeometry
+            {
+                Rect = surfaceBounds,
+                RadiusX = radius,
+                RadiusY = radius
+            };
+
+            // 作业卡片位于可滚动的内容宿主内，洞也要裁剪到宿主可见范围，
+            // 避免滚出视口的卡片在上方或下方的主界面背景上留下透明区域。
+            if (contentViewport is { } viewport && HomeworkContentHost.IsVisualAncestorOf(surface))
+            {
+                if (!surfaceBounds.Intersects(viewport))
+                    continue;
+
+                hole = new CombinedGeometry(
+                    GeometryCombineMode.Intersect,
+                    hole,
+                    new RectangleGeometry(viewport));
+            }
+
+            holes.Children.Add(hole);
+        }
+
+        if (holes.Children.Count == 0)
+        {
+            ClearAdvancedMaterialClip();
+            return;
+        }
+
+        // 有应用内背景图片时，材质区域完全由叠加的模糊背景图模拟。
+        // 不透明背景层保持完整，避免任何情况下透出窗口背后的桌面。
+        if (HasMaterialBackgroundImage)
+        {
+            MainViewBackgroundHost.Clip = null;
+            MainViewMaterialBackgroundHost.Clip = holes;
+            UpdateMaterialBackgroundOverlayVisibility();
+            return;
+        }
+
+        // 没有背景图片时保留原生材质：在背景层上为材质区域打洞。
+        MainViewBackgroundHost.Clip = new CombinedGeometry(
+            GeometryCombineMode.Exclude,
+            new RectangleGeometry(backgroundBounds),
+            holes);
+        MainViewMaterialBackgroundHost.Clip = null;
+        MainViewMaterialBackgroundHost.Opacity = 0;
+    }
+
+    private bool HasMaterialBackgroundImage =>
+        MainViewMaterialBackgroundImage.Source is not null;
+
+    /// <summary>
+    /// 有背景图片时，在材质区域显示它的模糊副本；没有图片时保持原生材质。
+    /// </summary>
+    private void UpdateMaterialBackgroundOverlayVisibility()
+    {
+        var show = IsAdvancedMaterialActive
+                   && HasMaterialBackgroundImage
+                   && MainViewMaterialBackgroundHost.Clip is not null;
+        // 保持控件始终参与布局，只切换透明度，避免隐藏控件首次显示时
+        // 尚未完成布局而导致整层不渲染。
+        MainViewMaterialBackgroundHost.Opacity = show ? 1 : 0;
+    }
+
+    private Rect? GetBackgroundBounds(Visual visual)
+    {
+        var topLeft = visual.TranslatePoint(new Point(0, 0), MainViewBackgroundLayer);
+        return topLeft is null ? null : new Rect(topLeft.Value, visual.Bounds.Size);
+    }
+
+    private static double GetMaxCornerRadius(CornerRadius cornerRadius) =>
+        Math.Max(
+            Math.Max(cornerRadius.TopLeft, cornerRadius.TopRight),
+            Math.Max(cornerRadius.BottomRight, cornerRadius.BottomLeft));
+
     private void OnBackgroundImageSettingChanged(bool _)
     {
         if (Dispatcher.UIThread.CheckAccess())
@@ -343,7 +560,10 @@ public partial class MainWindow : Window
 
     private void SetBackgroundImageOpacity(double opacity)
     {
-        MainViewBackgroundImage.Opacity = Math.Clamp(opacity, 0, 1);
+        var clamped = Math.Clamp(opacity, 0, 1);
+        MainViewBackgroundImage.Opacity = clamped;
+        MainViewMaterialBackgroundImage.Opacity = clamped;
+        UpdateMaterialBackgroundOverlayVisibility();
     }
 
     private void OnBackgroundImageBlurChanged(double blur)
@@ -360,12 +580,19 @@ public partial class MainWindow : Window
         if (radius <= 0)
         {
             MainViewBackgroundImage.Effect = null;
-            return;
+        }
+        else
+        {
+            _backgroundImageBlurEffect.Radius = radius;
+            if (!ReferenceEquals(MainViewBackgroundImage.Effect, _backgroundImageBlurEffect))
+                MainViewBackgroundImage.Effect = _backgroundImageBlurEffect;
         }
 
-        _backgroundImageBlurEffect.Radius = radius;
-        if (!ReferenceEquals(MainViewBackgroundImage.Effect, _backgroundImageBlurEffect))
-            MainViewBackgroundImage.Effect = _backgroundImageBlurEffect;
+        // 材质区域即使背景图片本身没有模糊，也保留磨砂质感。
+        _materialBackgroundImageBlurEffect.Radius =
+            Math.Clamp(Math.Max(radius, MaterialBackgroundImageMinBlur), 0, 30);
+        if (!ReferenceEquals(MainViewMaterialBackgroundImage.Effect, _materialBackgroundImageBlurEffect))
+            MainViewMaterialBackgroundImage.Effect = _materialBackgroundImageBlurEffect;
     }
 
     /// <summary>
@@ -373,8 +600,12 @@ public partial class MainWindow : Window
     /// </summary>
     private void ApplyBackgroundImage()
     {
+        // 切换图片期间立即恢复不透明背景，避免旧的材质孔洞短暂透出桌面。
+        MainViewBackgroundHost.Clip = null;
         MainViewBackgroundImage.IsVisible = false;
         MainViewBackgroundImage.Source = null;
+        MainViewMaterialBackgroundHost.Opacity = 0;
+        MainViewMaterialBackgroundImage.Source = null;
         SetBackgroundImageOpacity(AppSettings.Instance.MainViewBackgroundImageOpacity.Value);
         SetBackgroundImageBlur(AppSettings.Instance.MainViewBackgroundImageBlur.Value);
 
@@ -382,12 +613,16 @@ public partial class MainWindow : Window
         _backgroundImageBitmap = null;
 
         if (!AppSettings.Instance.HasMainViewBackgroundImage.Value)
+        {
+            RequestAdvancedMaterialClipUpdate();
             return;
+        }
 
         var path = AppSettings.BackgroundImagePath;
         if (!File.Exists(path))
         {
             _logger.Warning("主界面背景图片不存在: {Path}", path);
+            RequestAdvancedMaterialClipUpdate();
             return;
         }
 
@@ -397,12 +632,15 @@ public partial class MainWindow : Window
             _backgroundImageBitmap = new Bitmap(stream);
             MainViewBackgroundImage.Source = _backgroundImageBitmap;
             MainViewBackgroundImage.IsVisible = true;
+            MainViewMaterialBackgroundImage.Source = _backgroundImageBitmap;
             _logger.Information("主界面背景图片已加载: {Path}", path);
         }
         catch (Exception ex)
         {
             _logger.Error(ex, "加载主界面背景图片失败: {Path}", path);
         }
+
+        RequestAdvancedMaterialClipUpdate();
     }
 
     /// <summary>
@@ -1804,10 +2042,10 @@ public partial class MainWindow : Window
         AddHomeworkButton.IsEnabled = !frozen;
         RestoreButton.IsEnabled = !frozen;
 
-        // 冻结时用柔和的状态提示色突出显示，解冻后恢复默认卡片背景色；
-        // 前景色同步切换，保证图标在提示色背景上仍然清晰
-        FreezeButton.Bind(BackgroundProperty, new DynamicResourceExtension(
-            frozen ? "SystemFillColorAttentionBackgroundBrush" : "CardBackgroundFillColorDefaultBrush"));
+        // 冻结提示色画在按钮下方的独立图层上。按钮自身的 Background 必须保持透明：
+        // 给它设置背景画刷会覆盖 CompositionMaterial 的原生材质，导致 CMA 失效。
+        FreezeButtonHighlight.IsVisible = frozen;
+        // 前景色只影响图标，不会遮挡材质，可以继续随冻结状态切换。
         FreezeButton.Bind(ForegroundProperty, new DynamicResourceExtension(
             frozen ? "SystemFillColorAttentionBrush" : "TextFillColorPrimaryBrush"));
     }
