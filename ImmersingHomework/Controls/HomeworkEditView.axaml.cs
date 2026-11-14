@@ -27,9 +27,10 @@ public partial class HomeworkEditView : UserControl
     public event Action<Homework, HomeworkItem, bool>? Saved;
 
     /// <summary>
-    /// 删除成功后触发。
+    /// 删除成功后触发，参数为删除后的完整作业与被删除的作业项。
+    /// 传递完整作业可让主界面直接播放删除动画，避免删除后重新读取磁盘。
     /// </summary>
-    public event Action<HomeworkItem>? Deleted;
+    public event Action<Homework, HomeworkItem>? Deleted;
 
     public HomeworkEditView()
     {
@@ -240,10 +241,15 @@ public partial class HomeworkEditView : UserControl
                 homework.OrganizeHomeworkItems();
                 StorageService.Save(homework);
             }
+            else
+            {
+                // 文件已被外部删除时仍通知主界面刷新，但不额外创建空作业文件。
+                homework = new Homework(_date, []);
+            }
 
             _editingItem = null;
             _logger.Information("作业已删除，ID: {Id}", item.Id);
-            Deleted?.Invoke(item);
+            Deleted?.Invoke(homework, item);
         }
         catch (Exception ex)
         {

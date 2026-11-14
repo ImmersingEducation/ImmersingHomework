@@ -653,18 +653,29 @@ public partial class MainWindow : Window
         MainDrawerContent.DataContext = item;
         // 编辑视图已经保存了完整作业，直接复用这份内存数据，避免再读一次磁盘。
         if (homework.Date == Date)
-            HomeworkPanel.DisplayHomework(homework);
+        {
+            var changeKind = isNew ? HomeworkChangeKind.Added : HomeworkChangeKind.Edited;
+            HomeworkPanel.DisplayHomework(homework, changeKind, item.Id);
+        }
         else
+        {
             HomeworkPanel.Refresh();
+        }
+
         ShowSuccess(
             isNew ? "作业已添加" : "作业已修改",
             $"{item.Subject}：{Summarize(item.Content)}");
     }
 
-    private void OnMainDrawerHomeworkDeleted(HomeworkItem item)
+    private void OnMainDrawerHomeworkDeleted(Homework homework, HomeworkItem item)
     {
         MainDrawerHomeworkItem = null;
-        HomeworkPanel.Refresh();
+        // 编辑视图已经保存了删除后的完整作业，直接复用这份内存数据播放删除动画。
+        if (homework.Date == Date)
+            HomeworkPanel.DisplayHomework(homework, HomeworkChangeKind.Deleted, item.Id);
+        else
+            HomeworkPanel.Refresh();
+
         ShowInfoBar(FAInfoBarSeverity.Informational, "作业已删除",
             $"已删除 {item.Subject} 的作业");
         // 删除后直接关闭抽屉，避免退出时又把表单内容保存回来

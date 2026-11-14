@@ -14,6 +14,7 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using ImmersingHomework.Abstractions;
+using ImmersingHomework.Enums;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -122,6 +123,93 @@ public partial class  HomeworkPanel : UserControl
     /// 编辑、拖拽等普通刷新不会触发，避免打断用户操作。
     /// </summary>
     private bool _animateNextContent;
+
+    #endregion
+
+    #region 作业项变化动画
+
+    /// <summary>
+    /// 删除或编辑后，保留内容从旧位置移动到新位置所需的时间。
+    /// </summary>
+    private static readonly TimeSpan ChangeReflowDuration = TimeSpan.FromMilliseconds(300);
+
+    /// <summary>
+    /// 新增或编辑后，新作业卡片从右侧滑入所需的时间。
+    /// </summary>
+    private static readonly TimeSpan ChangeEnterDuration = TimeSpan.FromMilliseconds(360);
+
+    /// <summary>
+    /// 删除或编辑后，旧作业卡片向左滑出所需的时间。
+    /// </summary>
+    private static readonly TimeSpan ChangeExitDuration = TimeSpan.FromMilliseconds(260);
+
+    /// <summary>
+    /// 作业项变化动画的刷新间隔。
+    /// </summary>
+    private static readonly TimeSpan ChangeFrameInterval = TimeSpan.FromMilliseconds(16);
+
+    /// <summary>
+    /// 卡片滑入/滑出的横向距离范围。
+    /// </summary>
+    private const double ChangeMinSlideOffset = 260;
+    private const double ChangeMaxSlideOffset = 640;
+
+    private enum ChangeEasing
+    {
+        OutCubic,
+        InCubic
+    }
+
+    /// <summary>
+    /// 一条作业项变化动画：控件从 (StartX, StartY) 移动到 (EndX, EndY)，
+    /// 同时把透明度从 StartOpacity 渐变到 EndOpacity。
+    /// </summary>
+    private sealed class ChangeAnimationState
+    {
+        public required Control Control { get; init; }
+        public required TranslateTransform Transform { get; init; }
+        public required double StartX { get; init; }
+        public required double StartY { get; init; }
+        public required double EndX { get; init; }
+        public required double EndY { get; init; }
+        public required double StartOpacity { get; init; }
+        public required double EndOpacity { get; init; }
+        public required TimeSpan Duration { get; init; }
+        public required TimeSpan Delay { get; init; }
+        public required ChangeEasing Easing { get; init; }
+
+        /// <summary>
+        /// 动画结束后是否从拖拽浮层移除。旧作业卡片的滑出动画使用该标记。
+        /// </summary>
+        public bool RemoveFromOverlay { get; init; }
+    }
+
+    /// <summary>
+    /// 内容替换前记录的旧布局。保留的科目和作业卡片通过旧、新位置差
+    /// 计算 FLIP 位移，被删除或替换的卡片则单独复用到浮层中播放滑出动画。
+    /// </summary>
+    private sealed class HomeworkLayoutSnapshot
+    {
+        public Dictionary<string, Point> SubjectPositions { get; } = new(StringComparer.Ordinal);
+        public Dictionary<Guid, Point> ItemPositions { get; } = new();
+
+        public HomeworkItemPanel? ChangedItemPanel { get; set; }
+        public SubjectHomeworkPanel? ChangedSubjectPanel { get; set; }
+        public string? ChangedItemSubject { get; set; }
+        public Point ChangedItemPosition { get; set; }
+        public Size ChangedItemSize { get; set; }
+        public Point ChangedSubjectPosition { get; set; }
+        public Size ChangedSubjectSize { get; set; }
+    }
+
+    private readonly List<ChangeAnimationState> _changeAnimationStates = [];
+
+    private readonly DispatcherTimer _changeAnimationTimer = new(DispatcherPriority.Render)
+    {
+        Interval = ChangeFrameInterval
+    };
+
+    private readonly Stopwatch _changeAnimationStopwatch = new();
 
     #endregion
 
@@ -260,6 +348,7 @@ public partial class  HomeworkPanel : UserControl
         _autoScrollTimer.Tick += AutoScrollTimer_OnTick;
         _dragAutoScrollTimer.Tick += DragAutoScrollTimer_OnTick;
         _entranceTimer.Tick += EntranceTimer_OnTick;
+        _changeAnimationTimer.Tick += ChangeAnimationTimer_OnTick;
         this.AttachedToVisualTree += OnAttachedToVisualTree;
         this.DetachedFromVisualTree += OnDetachedFromVisualTree;
 
@@ -316,14 +405,26 @@ public partial class  HomeworkPanel : UserControl
 
     public void DisplayHomework(Homework homework)
     {
-        _logger.Debug("直接展示作业内容，日期: {Date}", homework.Date);
+        DisplayHomework(homework, HomeworkChangeKind.None, null);
+    }
+
+    /// <summary>
+    /// 展示作业内容，并按本次变化类型播放对应的卡片动画。
+    /// </summary>
+    /// <param name="homework">要展示的完整作业。</param>
+    /// <param name="changeKind">本次内容变化的类型。</param>
+    /// <param name="changedItemId">发生变化的作业项 ID。新增、编辑或删除时传入。</param>
+    public void DisplayHomework(Homework homework, HomeworkChangeKind changeKind, Guid? changedItemId)
+    {
+        _logger.Debug("直接展示作业内容，日期: {Date}，变化类型: {ChangeKind}",
+            homework.Date, changeKind);
         // 直接展示会覆盖异步刷新的结果，使所有尚未完成的刷新失效。
         _contentVersion++;
 
         IsFrozen = homework.Frozen;
 
         var (subjectPanels, hasHomework) = BuildHomeworkPanels(homework);
-        ReplaceHomeworkContent(subjectPanels, hasHomework);
+        ReplaceHomeworkContent(subjectPanels, hasHomework, changeKind, changedItemId);
         _logger.Debug("作业内容展示完成");
     }
 
@@ -431,8 +532,21 @@ public partial class  HomeworkPanel : UserControl
     /// 用已经构建好的科目面板替换当前内容。旧内容在新内容就绪后才被移除，
     /// 因此不会出现“全部作业先消失、等待加载后再出现”的空白帧。
     /// </summary>
-    private void ReplaceHomeworkContent(IReadOnlyList<SubjectHomeworkPanel> subjectPanels, bool hasHomework)
+    private void ReplaceHomeworkContent(
+        IReadOnlyList<SubjectHomeworkPanel> subjectPanels,
+        bool hasHomework,
+        HomeworkChangeKind changeKind = HomeworkChangeKind.None,
+        Guid? changedItemId = null)
     {
+        HomeworkLayoutSnapshot? layoutSnapshot = null;
+        if (changeKind != HomeworkChangeKind.None && changedItemId is { } itemId && IsEffectivelyVisible)
+        {
+            // 先结束仍在播放的动画，保证测量到的是内容的最终布局位置。
+            CancelEntranceAnimation();
+            CancelChangeAnimation();
+            layoutSnapshot = CaptureLayoutSnapshot(itemId);
+        }
+
         ClearHomeworkGrid();
         _subjectPanels.AddRange(subjectPanels);
         ReflowSubjectPanels();
@@ -442,6 +556,9 @@ public partial class  HomeworkPanel : UserControl
 
         // 新内容已经挂到视觉树，先设置起始位移再开始动画，避免卡片在最终位置闪一帧。
         TryStartEntranceAnimation();
+
+        if (layoutSnapshot is not null && changedItemId is { } changedId)
+            TryStartChangeAnimation(layoutSnapshot, changeKind, changedId);
     }
 
     private void OnAttachedToVisualTree(object? sender, VisualTreeAttachmentEventArgs e)
@@ -460,6 +577,7 @@ public partial class  HomeworkPanel : UserControl
         AppSettings.Instance.MainViewColumns.ValueChanged -= OnMainViewColumnsChanged;
         CancelDrag();
         CancelEntranceAnimation();
+        CancelChangeAnimation();
     }
 
     private void OnMainViewColumnsChanged(int _)
@@ -495,6 +613,9 @@ public partial class  HomeworkPanel : UserControl
 
         // 旧内容的入场动画也一并停止并复位，避免计时器继续操作即将移除的卡片。
         CancelEntranceAnimation();
+
+        // 作业项变化动画可能正在使用旧卡片作为浮层，清理后旧内容才能安全释放。
+        CancelChangeAnimation();
 
         // 先清空每列中的科目面板，确保它们与旧列的父子关系被解除，
         // 否则重新分列时会被判定为“已有视觉父级”。
@@ -730,6 +851,9 @@ public partial class  HomeworkPanel : UserControl
 
         // 用户开始拖拽时立即结束入场动画，避免两个动画同时修改同一列内容的位置和透明度。
         CancelEntranceAnimation();
+
+        // 拖拽浮层与作业项变化动画共用 DragOverlay，开始拖拽前先清理变化动画。
+        CancelChangeAnimation();
 
         // 拖拽期间暂停普通自动滚动，避免两个计时器同时修改滚动位置。
         _autoScrollTimer.Stop();
@@ -1344,6 +1468,416 @@ public partial class  HomeworkPanel : UserControl
         }
 
         _entranceStates.Clear();
+    }
+
+    #endregion
+
+    #region 作业项变化动画实现
+
+    /// <summary>
+    /// 在内容替换前记录旧布局，供 FLIP 位移动画和旧卡片滑出动画使用。
+    /// </summary>
+    private HomeworkLayoutSnapshot CaptureLayoutSnapshot(Guid changedItemId)
+    {
+        var snapshot = new HomeworkLayoutSnapshot();
+
+        foreach (var subjectPanel in _subjectPanels)
+        {
+            var subject = subjectPanel.Subject;
+            Point? subjectPosition = null;
+            if (!string.IsNullOrEmpty(subject))
+            {
+                subjectPosition = subjectPanel.TranslatePoint(default, this);
+                if (subjectPosition.HasValue)
+                    snapshot.SubjectPositions[subject] = subjectPosition.Value;
+            }
+
+            foreach (var itemPanel in subjectPanel.ItemPanelHost.Children.OfType<HomeworkItemPanel>())
+            {
+                var item = itemPanel.HomeworkItem;
+                if (item is null)
+                    continue;
+
+                var itemPosition = itemPanel.TranslatePoint(default, this);
+                if (itemPosition.HasValue)
+                    snapshot.ItemPositions[item.Id] = itemPosition.Value;
+
+                if (item.Id != changedItemId || !itemPosition.HasValue)
+                    continue;
+
+                snapshot.ChangedItemPanel = itemPanel;
+                snapshot.ChangedItemSubject = subject;
+                snapshot.ChangedItemPosition = itemPosition.Value;
+                snapshot.ChangedItemSize = itemPanel.Bounds.Size;
+
+                if (subjectPosition.HasValue)
+                {
+                    snapshot.ChangedSubjectPanel = subjectPanel;
+                    snapshot.ChangedSubjectPosition = subjectPosition.Value;
+                    snapshot.ChangedSubjectSize = subjectPanel.Bounds.Size;
+                }
+            }
+        }
+
+        return snapshot;
+    }
+
+    /// <summary>
+    /// 新内容完成布局后，为新作业卡片和发生位移的旧内容建立动画：
+    /// 新增/编辑的卡片从右侧滑入，删除/编辑时的旧卡片向左滑出，
+    /// 其余保留的科目和卡片按旧、新位置差移动到新位置。
+    /// </summary>
+    private void TryStartChangeAnimation(
+        HomeworkLayoutSnapshot snapshot,
+        HomeworkChangeKind changeKind,
+        Guid changedItemId)
+    {
+        if (!IsEffectivelyVisible)
+            return;
+
+        // 变化动画和整页入场动画不能同时修改同一批控件的位移与透明度。
+        CancelEntranceAnimation();
+        _animateNextContent = false;
+
+        // 先执行一次布局，才能读取新内容的位置并计算 FLIP 偏移。
+        UpdateLayout();
+
+        var newSubjectPositions = new Dictionary<string, Point>(StringComparer.Ordinal);
+        var newItemPositions = new Dictionary<Guid, Point>();
+
+        foreach (var subjectPanel in _subjectPanels)
+        {
+            var subject = subjectPanel.Subject;
+            if (!string.IsNullOrEmpty(subject))
+            {
+                var subjectPosition = subjectPanel.TranslatePoint(default, this);
+                if (subjectPosition.HasValue)
+                    newSubjectPositions[subject] = subjectPosition.Value;
+            }
+
+            foreach (var itemPanel in subjectPanel.ItemPanelHost.Children.OfType<HomeworkItemPanel>())
+            {
+                if (itemPanel.HomeworkItem is not { } item)
+                    continue;
+
+                var itemPosition = itemPanel.TranslatePoint(default, this);
+                if (itemPosition.HasValue)
+                    newItemPositions[item.Id] = itemPosition.Value;
+            }
+        }
+
+        var subjectDeltas = new Dictionary<string, (double X, double Y)>(StringComparer.Ordinal);
+
+        // 先给保留下来的科目面板设置从旧位置到新位置的位移补偿。
+        foreach (var subjectPanel in _subjectPanels)
+        {
+            var subject = subjectPanel.Subject;
+            if (string.IsNullOrEmpty(subject) ||
+                !snapshot.SubjectPositions.TryGetValue(subject, out var oldPosition) ||
+                !newSubjectPositions.TryGetValue(subject, out var newPosition))
+                continue;
+
+            var deltaX = oldPosition.X - newPosition.X;
+            var deltaY = oldPosition.Y - newPosition.Y;
+            subjectDeltas[subject] = (deltaX, deltaY);
+
+            if (Math.Abs(deltaX) < 0.5 && Math.Abs(deltaY) < 0.5)
+                continue;
+
+            AddChangeMoveAnimation(subjectPanel, deltaX, deltaY, ChangeReflowDuration);
+        }
+
+        foreach (var subjectPanel in _subjectPanels)
+        {
+            var subject = subjectPanel.Subject;
+            var isNewSubject = string.IsNullOrEmpty(subject) ||
+                               !snapshot.SubjectPositions.ContainsKey(subject);
+            var subjectDelta = (X: 0d, Y: 0d);
+            if (!string.IsNullOrEmpty(subject))
+                subjectDeltas.TryGetValue(subject, out subjectDelta);
+
+            foreach (var itemPanel in subjectPanel.ItemPanelHost.Children.OfType<HomeworkItemPanel>())
+            {
+                if (itemPanel.HomeworkItem is not { } item)
+                    continue;
+
+                if (item.Id == changedItemId &&
+                    changeKind is HomeworkChangeKind.Added or HomeworkChangeKind.Edited)
+                {
+                    // 新科目整体从右侧滑入时，卡片跟随科目面板移动，不再重复设置位移。
+                    if (!isNewSubject && newItemPositions.TryGetValue(item.Id, out var itemPosition))
+                        AddChangeEnterAnimation(itemPanel, itemPosition);
+                    continue;
+                }
+
+                if (!snapshot.ItemPositions.TryGetValue(item.Id, out var oldItemPosition) ||
+                    !newItemPositions.TryGetValue(item.Id, out var newItemPosition))
+                    continue;
+
+                // 父科目面板已经承担了一部分位移，卡片只需补上剩余的相对位移。
+                var deltaX = oldItemPosition.X - newItemPosition.X - subjectDelta.X;
+                var deltaY = oldItemPosition.Y - newItemPosition.Y - subjectDelta.Y;
+                if (Math.Abs(deltaX) < 0.5 && Math.Abs(deltaY) < 0.5)
+                    continue;
+
+                AddChangeMoveAnimation(itemPanel, deltaX, deltaY, ChangeReflowDuration);
+            }
+        }
+
+        // 新增的科目整体从右侧滑入，科目标题和新卡片保持同步。
+        if (changeKind is HomeworkChangeKind.Added or HomeworkChangeKind.Edited)
+        {
+            foreach (var subjectPanel in _subjectPanels)
+            {
+                var subject = subjectPanel.Subject;
+                if (string.IsNullOrEmpty(subject) ||
+                    snapshot.SubjectPositions.ContainsKey(subject) ||
+                    !newSubjectPositions.TryGetValue(subject, out var subjectPosition))
+                    continue;
+
+                var containsChangedItem = subjectPanel.ItemPanelHost.Children
+                    .OfType<HomeworkItemPanel>()
+                    .Any(x => x.HomeworkItem?.Id == changedItemId);
+
+                if (containsChangedItem)
+                    AddChangeEnterAnimation(subjectPanel, subjectPosition);
+            }
+        }
+
+        if (changeKind is HomeworkChangeKind.Edited or HomeworkChangeKind.Deleted)
+            AddChangedItemExitAnimation(snapshot, newSubjectPositions);
+
+        if (_changeAnimationStates.Count == 0)
+            return;
+
+        _changeAnimationStopwatch.Restart();
+        _changeAnimationTimer.Start();
+    }
+
+    private void AddChangeEnterAnimation(Control control, Point finalPosition)
+    {
+        var width = control.Bounds.Width;
+        if (!double.IsFinite(width) || width <= 0)
+            width = control.DesiredSize.Width;
+        if (!double.IsFinite(width) || width <= 0)
+            width = 320;
+
+        var offset = Math.Clamp(width + 120, ChangeMinSlideOffset, ChangeMaxSlideOffset);
+
+        // 窗口较宽时尽量让卡片从内容区右边缘之外开始，避免直接出现在可视区域中间。
+        var viewportWidth = HomeworkScrollViewer.Bounds.Width;
+        if (double.IsFinite(viewportWidth) && viewportWidth > 0)
+        {
+            var viewportOffset = viewportWidth - finalPosition.X + 24;
+            if (viewportOffset > offset)
+                offset = Math.Min(viewportOffset, ChangeMaxSlideOffset);
+        }
+
+        var transform = EnsureTranslateTransform(control);
+        transform.X = offset;
+        transform.Y = 0;
+        control.Opacity = 0;
+
+        _changeAnimationStates.Add(new ChangeAnimationState
+        {
+            Control = control,
+            Transform = transform,
+            StartX = offset,
+            StartY = 0,
+            EndX = 0,
+            EndY = 0,
+            StartOpacity = 0,
+            EndOpacity = 1,
+            Duration = ChangeEnterDuration,
+            Delay = TimeSpan.Zero,
+            Easing = ChangeEasing.OutCubic
+        });
+    }
+
+    private void AddChangeMoveAnimation(Control control, double startX, double startY, TimeSpan duration)
+    {
+        var transform = EnsureTranslateTransform(control);
+        transform.X = startX;
+        transform.Y = startY;
+
+        _changeAnimationStates.Add(new ChangeAnimationState
+        {
+            Control = control,
+            Transform = transform,
+            StartX = startX,
+            StartY = startY,
+            EndX = 0,
+            EndY = 0,
+            StartOpacity = 1,
+            EndOpacity = 1,
+            Duration = duration,
+            Delay = TimeSpan.Zero,
+            Easing = ChangeEasing.OutCubic
+        });
+    }
+
+    /// <summary>
+    /// 把被删除或被替换的旧卡片移到浮层中，按旧位置向左滑出。
+    /// 如果该科目已经没有其它作业，则让整个科目面板一起滑出。
+    /// </summary>
+    private void AddChangedItemExitAnimation(
+        HomeworkLayoutSnapshot snapshot,
+        IReadOnlyDictionary<string, Point> newSubjectPositions)
+    {
+        var oldSubjectStillExists = snapshot.ChangedItemSubject is { } subject &&
+                                    newSubjectPositions.ContainsKey(subject);
+
+        Control? oldControl;
+        Point oldPosition;
+        Size oldSize;
+
+        if (!oldSubjectStillExists && snapshot.ChangedSubjectPanel is not null)
+        {
+            oldControl = snapshot.ChangedSubjectPanel;
+            oldPosition = snapshot.ChangedSubjectPosition;
+            oldSize = snapshot.ChangedSubjectSize;
+        }
+        else
+        {
+            oldControl = snapshot.ChangedItemPanel;
+            oldPosition = snapshot.ChangedItemPosition;
+            oldSize = snapshot.ChangedItemSize;
+        }
+
+        if (oldControl is null)
+            return;
+
+        var width = oldSize.Width;
+        if (!double.IsFinite(width) || width <= 0)
+            width = oldControl.Bounds.Width;
+        if (!double.IsFinite(width) || width <= 0)
+            width = 320;
+
+        // 旧内容已经被清空，这里复用原控件以保持和原卡片完全一致的外观。
+        if (oldControl.Parent is Panel oldParent)
+            oldParent.Children.Remove(oldControl);
+
+        oldControl.Width = width;
+        oldControl.HorizontalAlignment = HorizontalAlignment.Left;
+        oldControl.VerticalAlignment = VerticalAlignment.Top;
+        oldControl.Opacity = 1;
+        oldControl.IsHitTestVisible = false;
+
+        var transform = new TranslateTransform();
+        oldControl.RenderTransform = transform;
+
+        Canvas.SetLeft(oldControl, oldPosition.X);
+        Canvas.SetTop(oldControl, oldPosition.Y);
+        DragOverlay.Children.Add(oldControl);
+
+        var exitOffset = -Math.Clamp(width + 120, ChangeMinSlideOffset, ChangeMaxSlideOffset);
+        _changeAnimationStates.Add(new ChangeAnimationState
+        {
+            Control = oldControl,
+            Transform = transform,
+            StartX = 0,
+            StartY = 0,
+            EndX = exitOffset,
+            EndY = 0,
+            StartOpacity = 1,
+            EndOpacity = 0,
+            Duration = ChangeExitDuration,
+            Delay = TimeSpan.Zero,
+            Easing = ChangeEasing.InCubic,
+            RemoveFromOverlay = true
+        });
+    }
+
+    private void ChangeAnimationTimer_OnTick(object? sender, EventArgs e)
+    {
+        var elapsed = _changeAnimationStopwatch.Elapsed;
+        var allFinished = true;
+
+        for (var i = _changeAnimationStates.Count - 1; i >= 0; i--)
+        {
+            var state = _changeAnimationStates[i];
+            var localElapsed = elapsed - state.Delay;
+            if (localElapsed < TimeSpan.Zero)
+            {
+                allFinished = false;
+                continue;
+            }
+
+            var progress = Math.Clamp(
+                localElapsed.TotalMilliseconds / state.Duration.TotalMilliseconds, 0, 1);
+            var eased = ApplyChangeEasing(state.Easing, progress);
+
+            state.Transform.X = state.StartX + (state.EndX - state.StartX) * eased;
+            state.Transform.Y = state.StartY + (state.EndY - state.StartY) * eased;
+            state.Control.Opacity = state.StartOpacity +
+                                    (state.EndOpacity - state.StartOpacity) * eased;
+
+            if (progress < 1)
+            {
+                allFinished = false;
+                continue;
+            }
+
+            // 消除浮点误差，保证内容最终严格落在布局位置上。
+            state.Transform.X = state.EndX;
+            state.Transform.Y = state.EndY;
+            state.Control.Opacity = state.EndOpacity;
+
+            if (state.RemoveFromOverlay && DragOverlay.Children.Contains(state.Control))
+                DragOverlay.Children.Remove(state.Control);
+
+            _changeAnimationStates.RemoveAt(i);
+        }
+
+        if (!allFinished)
+            return;
+
+        _changeAnimationTimer.Stop();
+        _changeAnimationStopwatch.Reset();
+        _changeAnimationStates.Clear();
+    }
+
+    /// <summary>
+    /// 停止尚未完成的变化动画，并把保留内容恢复到最终位置、清除滑出浮层。
+    /// </summary>
+    private void CancelChangeAnimation()
+    {
+        _changeAnimationTimer.Stop();
+        _changeAnimationStopwatch.Reset();
+
+        foreach (var state in _changeAnimationStates)
+        {
+            if (state.RemoveFromOverlay)
+            {
+                if (DragOverlay.Children.Contains(state.Control))
+                    DragOverlay.Children.Remove(state.Control);
+                continue;
+            }
+
+            state.Transform.X = 0;
+            state.Transform.Y = 0;
+            state.Control.Opacity = 1;
+        }
+
+        _changeAnimationStates.Clear();
+    }
+
+    private static double ApplyChangeEasing(ChangeEasing easing, double progress) =>
+        easing switch
+        {
+            ChangeEasing.OutCubic => 1 - Math.Pow(1 - progress, 3),
+            ChangeEasing.InCubic => progress * progress * progress,
+            _ => progress
+        };
+
+    private static TranslateTransform EnsureTranslateTransform(Control control)
+    {
+        if (control.RenderTransform is TranslateTransform transform)
+            return transform;
+
+        transform = new TranslateTransform();
+        control.RenderTransform = transform;
+        return transform;
     }
 
     #endregion
