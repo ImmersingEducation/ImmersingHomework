@@ -9,6 +9,7 @@ using System.Text.Json;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.DependencyInjection;
 using ImmersingHomework.Helper;
+using ImmersingHomework.Shared.Models;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 
@@ -175,7 +176,13 @@ class Program
             date = DateOnly.FromDateTime(DateTime.Now);
         }
 
-        var homework = storageService.Load(date);
+        // 纯查询可能由系统从任意工作目录唤起，需按程序实际所在位置定位数据，
+        // 不能沿用常规运行时的 Directory.GetCurrentDirectory()。
+        var filePath = HomeworkDataLocator.ResolveFilePath(date);
+        var homework = File.Exists(filePath)
+            ? storageService.LoadFromFile(filePath)
+            : null;
+        homework ??= new Homework(date, []);
         json = JsonSerializer.Serialize(homework, new JsonSerializerOptions { WriteIndented = true });
         return true;
     }
