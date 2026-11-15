@@ -103,6 +103,12 @@ public partial class App : Application
         {
             var platformService = Services.GetRequiredService<IPlatformService>();
 
+            // 应用的真实“主窗口”是浮窗：它常驻、不随主界面关闭而关闭，且用户关不掉。
+            // 默认的 OnLastWindowClose 会在主界面关闭后直接退出（等于误关整个程序），
+            // 而 OnMainWindowClose 会被用户直接从任务栏关掉主界面触发。
+            // 因此只在显式调用 Shutdown（托盘菜单「退出」、异常窗口「退出」）时退出。
+            _desktopLifetime.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
             // 退出前补一次落盘，避免防抖窗口内的改动随进程一起消失
             _desktopLifetime.ShutdownRequested += (_, _) =>
             {
@@ -129,27 +135,10 @@ public partial class App : Application
 
             if (!AppSettings.Instance.FirstLaunch)
             {
-                _mainWindow = Services.GetRequiredService<MainWindow>();
-                _floatingButtonWindow = new FloatingButtonWindow();
+                CreateMainWindows();
 
-                platformService.SetTopmost(_floatingButtonWindow);
-                platformService.DisableFocus(_floatingButtonWindow);
-                platformService.HideFromTaskbar(_floatingButtonWindow);
-                platformService.HideFromAltTab(_floatingButtonWindow);
-                
-                _desktopLifetime.MainWindow = _floatingButtonWindow;
-            
-                _mainWindow.WindowMinimized += MainWindow_WindowMinimized;
-                _mainWindow.WindowDeactivated += MainWindow_WindowDeactivated;
-                _mainWindow.Closing += MainWindow_Closing;
-            
-                _floatingButtonWindow.FloatingButtonClicked += FloatingButtonWindow_FloatingButtonClicked;
-                _floatingButtonWindow.Closing += FloatingButtonWindow_Closing;
-            
-                _floatingButtonWindow.ShowWithAnimation();
-            
                 SetupTrayIcon();
-            
+
                 if (AppSettings.Instance.EnableClassIslandIPCService.Value &&
                     classIslandService.IsCurrentTimeBeforeFirstClass() &&
                     AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value)
@@ -558,6 +547,43 @@ public partial class App : Application
         _desktopLifetime?.Shutdown();
     }
 
+    /// <summary>
+    /// 创建主界面与浮窗。两者只在首次启动完成后建立；运行时若窗口被系统销毁，
+    /// 再次打开前由 <see cref="ShowMainWindow"/> 重新创建。
+    /// </summary>
+    private void CreateMainWindows()
+    {
+        if (_desktopLifetime is null)
+            return;
+
+        if (_mainWindow is null)
+        {
+            _mainWindow = Services.GetRequiredService<MainWindow>();
+            _mainWindow.WindowMinimized += MainWindow_WindowMinimized;
+            _mainWindow.WindowDeactivated += MainWindow_WindowDeactivated;
+            _mainWindow.Closing += MainWindow_Closing;
+            _mainWindow.Closed += MainWindow_Closed;
+            _mainWindow.CloseRequested += MainWindow_CloseRequested;
+        }
+
+        if (_floatingButtonWindow is null)
+        {
+            var platformService = Services.GetRequiredService<IPlatformService>();
+            _floatingButtonWindow = new FloatingButtonWindow();
+            platformService.SetTopmost(_floatingButtonWindow);
+            platformService.DisableFocus(_floatingButtonWindow);
+            platformService.HideFromTaskbar(_floatingButtonWindow);
+            platformService.HideFromAltTab(_floatingButtonWindow);
+            _floatingButtonWindow.FloatingButtonClicked += FloatingButtonWindow_FloatingButtonClicked;
+            _floatingButtonWindow.Closing += FloatingButtonWindow_Closing;
+            _floatingButtonWindow.Closed += FloatingButtonWindow_Closed;
+        }
+
+        // 浮窗是真实的主窗口：常驻、不随主界面关闭，用户也关不掉。
+        _desktopLifetime.MainWindow = _floatingButtonWindow;
+        _floatingButtonWindow.ShowWithAnimation();
+    }
+
     private async void MainWindow_WindowMinimized(object? sender, EventArgs e)
     {
         ShowFloatingButton();
@@ -574,13 +600,45 @@ public partial class App : Application
         }
     }
 
-    private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    /// <summary>
+    /// 主界面被用户关闭（任务栏关闭、Alt+F4）时，只隐藏而不销毁窗口，
+    /// 下次打开仍可正常 Show；真正退出由托盘菜单「退出」/ 异常窗口「退出」走 <see cref="ExitApplication"/>。
+    /// 应用退出（Shutdown / 系统关机）时不能取消，否则进程会在窗口关闭请求上卡住。
+    /// </summary>
+    private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
+        if (IsExiting(e.CloseReason))
+            return;
+
+        e.Cancel = true;
+        _mainWindow?.Hide();
     }
 
-    private void FloatingButtonWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void FloatingButtonWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
-        _mainWindow?.Close();
+        // 应用正在退出：放行，不能取消，否则 Shutdown 会一直卡在关窗上
+        if (IsExiting(e.CloseReason))
+            return;
+
+        // 浮窗是真实主窗口，用户从任务栏关掉它也等同于退出。
+        // 直接 Close 会再次走进本方法，真正退出交给 Shutdown 的 ApplicationShutdown 分支。
+        e.Cancel = true;
+        ExitApplication();
+    }
+
+    /// <summary>
+    /// 本次关闭是否由应用退出（Shutdown）或系统关机发起。这类关闭必须放行，
+    /// 否则 <see cref="ClassicDesktopStyleApplicationLifetime.Shutdown"/> 会卡在窗口上。
+    /// </summary>
+    private static bool IsExiting(WindowCloseReason reason) =>
+        reason is WindowCloseReason.ApplicationShutdown
+            or WindowCloseReason.OSShutdown
+            or WindowCloseReason.OwnerWindowClosing;
+
+    private void FloatingButtonWindow_Closed(object? sender, EventArgs e)
+    {
+        // 窗口已经销毁（例如系统强制关闭），标记为空，下次使用时重建
+        _floatingButtonWindow = null;
     }
 
     private void FloatingButtonWindow_FloatingButtonClicked(object? sender, EventArgs e)
@@ -596,15 +654,39 @@ public partial class App : Application
         _mainWindow.Hide();
     }
 
+    /// <summary>
+    /// 打开主界面。窗口若已被关闭销毁（用户从任务栏关掉、系统回收等），先重建再显示，
+    /// 避免对已关闭窗口调用 Show 抛出“Cannot re-show a closed window.”。
+    /// </summary>
     public void ShowMainWindow()
     {
+        if (_desktopLifetime is null) return;
+
+        if (_mainWindow is null)
+            CreateMainWindows();
         if (_mainWindow is null) return;
+
         _mainWindow.WindowState = WindowState.FullScreen;
         _mainWindow.Activate();
         _mainWindow.Show();
         // 每次打开主界面都重新加载并播放卡片入场动画。
         _mainWindow.HomeworkPanel.Refresh(animateCards: true);
     }
+
+    private void MainWindow_Closed(object? sender, EventArgs e)
+    {
+        if (!ReferenceEquals(sender, _mainWindow))
+            return;
+
+        // 窗口已经销毁，之后的打开请求必须重新创建
+        _mainWindow = null;
+    }
+
+    /// <summary>
+    /// 界面上的「关闭」按钮：只隐藏主界面并保留浮窗，与从任务栏关闭主界面一致，
+    /// 这样浮窗再点一下就能原样打开。真正退出走托盘菜单或异常窗口。
+    /// </summary>
+    private void MainWindow_CloseRequested(object? sender, EventArgs e) => HideMainWindow();
 
     private void ShowFloatingButton()
     {

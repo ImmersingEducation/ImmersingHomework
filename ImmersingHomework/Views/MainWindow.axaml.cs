@@ -169,6 +169,12 @@ public partial class MainWindow : Window
     public event EventHandler? WindowActivated;
     public event EventHandler? WindowDeactivated;
 
+    /// <summary>
+    /// 用户点击了界面上的关闭按钮。实际动作由 <see cref="App"/> 决定（隐藏界面并保留浮窗），
+    /// 与从任务栏关闭主界面的效果一致。
+    /// </summary>
+    public event EventHandler? CloseRequested;
+
     public DateOnly Date
     {
         get;
@@ -1686,6 +1692,16 @@ public partial class MainWindow : Window
     private void MinimizeButton_OnClick(object? sender, RoutedEventArgs e)
     {
         WindowMinimized?.Invoke(this, EventArgs.Empty);
+    }
+
+    /// <summary>
+    /// 界面上的关闭按钮。这里不调用 Window.Close：App 的 Closing 处理会取消关闭，
+    /// 直接发出请求，让 App 统一执行“隐藏界面、保留浮窗”。
+    /// </summary>
+    private void CloseButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        _logger.Information("用户点击了关闭按钮");
+        CloseRequested?.Invoke(this, EventArgs.Empty);
     }
 
     private async void ShareButton_OnClick(object? sender, RoutedEventArgs e)
