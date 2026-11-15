@@ -137,7 +137,6 @@ public partial class App : Application
                 _desktopLifetime.MainWindow = _floatingButtonWindow;
             
                 _mainWindow.WindowMinimized += MainWindow_WindowMinimized;
-                _mainWindow.WindowActivated += MainWindow_WindowActivated;
                 _mainWindow.WindowDeactivated += MainWindow_WindowDeactivated;
                 _mainWindow.Closing += MainWindow_Closing;
             
@@ -550,11 +549,6 @@ public partial class App : Application
         _mainWindow?.Hide();
     }
 
-    private void MainWindow_WindowActivated(object? sender, EventArgs e)
-    {
-        HideFloatingButton();
-    }
-
     private void MainWindow_WindowDeactivated(object? sender, EventArgs e)
     {
         if (_mainWindow != null && _mainWindow.WindowState == Avalonia.Controls.WindowState.Minimized)
@@ -574,6 +568,7 @@ public partial class App : Application
 
     private void FloatingButtonWindow_FloatingButtonClicked(object? sender, EventArgs e)
     {
+        // 浮窗现在是常驻侧边栏，打开主界面后保持显示
         ShowMainWindow();
     }
 

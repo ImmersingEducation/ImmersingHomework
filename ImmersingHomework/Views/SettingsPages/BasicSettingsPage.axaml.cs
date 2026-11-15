@@ -30,6 +30,7 @@ public partial class BasicSettingsPage : UserControl
     {
         LaunchAtStartupSwitch.IsChecked = AppSettings.Instance.LaunchAtStartup.Value;
         UrlSchemaRegisteredSwitch.IsChecked = AppSettings.Instance.UrlSchemaRegistered.Value;
+        FloatingWindowSideComboBox.SelectedIndex = (int)AppSettings.Instance.FloatingWindowLeftOrRight.Value;
         ThemeModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.ThemeMode.Value);
         TeachingSecurityModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.TeachingSecurityMode.Value);
     }
@@ -50,6 +51,18 @@ public partial class BasicSettingsPage : UserControl
             _logger.Information("URL 协议注册设置变更: {Value}", UrlSchemaRegisteredSwitch.IsChecked.Value);
             AppSettings.Instance.UrlSchemaRegistered.Value = UrlSchemaRegisteredSwitch.IsChecked.Value;
         }
+    }
+
+    private void FloatingWindowSideComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (FloatingWindowSideComboBox.SelectedIndex < 0)
+            return;
+
+        var side = FloatingWindowSideComboBox.SelectedIndex == 0
+            ? FloatingWindowSide.Left
+            : FloatingWindowSide.Right;
+        _logger.Information("浮窗位置设置变更: {Side}", side);
+        AppSettings.Instance.FloatingWindowLeftOrRight.Value = side;
     }
 
     private void ThemeModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)

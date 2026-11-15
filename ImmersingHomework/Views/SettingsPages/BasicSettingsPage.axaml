@@ -26,6 +26,18 @@
                     <ToggleSwitch x:Name="UrlSchemaRegisteredSwitch" OnContent="" OffContent="" IsCheckedChanged="UrlSchemaRegisteredSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
+            <fa:FASettingsExpander Header="浮窗位置" Description="选择浮窗显示在屏幕左侧还是右侧。">
+                <fa:FASettingsExpander.IconSource>
+                    <fa:FASymbolIconSource Symbol="Pin"/>
+                </fa:FASettingsExpander.IconSource>
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="FloatingWindowSideComboBox"
+                                   SelectionChanged="FloatingWindowSideComboBox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="靠左"/>
+                        <fa:FAComboBoxItem Content="靠右"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="外观样式" Description="选择软件的显示主题。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="DarkTheme"/>

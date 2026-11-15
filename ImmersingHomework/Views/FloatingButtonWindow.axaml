@@ -2,12 +2,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
-        mc:Ignorable="d" d:DesignWidth="88" d:DesignHeight="88"
+        mc:Ignorable="d" d:DesignWidth="36" d:DesignHeight="108"
         x:Class="ImmersingHomework.Views.FloatingButtonWindow"
-        Title="FloatingButton"
-        Width="88"
-        Height="88"
+        Title="作业板"
+        Width="36"
+        Height="108"
         CanResize="False"
         WindowDecorations="None"
         Background="Transparent"
@@ -18,8 +17,29 @@
         ShowActivated="False"
         ShowInTaskbar="False"
         Icon="avares://ImmersingHomework/Assets/icon.png">
-    <Border CornerRadius="16"
-            BoxShadow="0 4 20 0 rgba(0,0,0,0.2)">
-        <fa:FAImageIcon Source="avares://ImmersingHomework/Assets/icon.png" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+    <Border CornerRadius="12"
+            Background="{DynamicResource SolidBackgroundFillColorQuarternaryBrush}"
+            BorderBrush="{DynamicResource SurfaceStrokeColorDefaultBrush}"
+            BorderThickness="2" Opacity="0.8"
+            Cursor="Hand">
+        <StackPanel HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Spacing="1">
+            <TextBlock Text="作"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <TextBlock Text="业"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+            <TextBlock Text="板"
+                       FontSize="15"
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       Foreground="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </StackPanel>
     </Border>
 </Window>

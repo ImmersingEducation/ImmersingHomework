@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Platform;
 using Avalonia.Threading;
+using ImmersingHomework.Enums;
 using ImmersingHomework.Models;
 using Serilog;
 
@@ -14,6 +15,9 @@ namespace ImmersingHomework.Views;
 public partial class FloatingButtonWindow : Window
 {
     private readonly ILogger _logger = Log.ForContext<FloatingButtonWindow>();
+
+    /// <summary>浮窗与屏幕侧边之间的固定间距（DIP）。</summary>
+    private const double SideMargin = 8;
 
     /// <summary>拖动死区：两轴位移都小于该值（物理像素）时仍按点击处理。</summary>
     private const int DragDeadZonePixels = 4;
@@ -27,7 +31,7 @@ public partial class FloatingButtonWindow : Window
     private PixelPoint _dragStartPosition;     // 按下时的窗口位置（物理像素）
     private PixelPoint _dragStartScreenPoint;  // 按下时的指针虚拟桌面坐标（物理像素）
     private double _dragRenderScaling;         // 按下时的 DPI：拖动中用它换算，避免跨不同缩放比的屏幕时跳变
-    private Screen? _dragScreen;               // 本次拖动的"源屏"，跨屏后迁移
+    private Screen? _dragScreen;               // 本次拖动的源屏
     private IPointer? _capturedPointer;
 
     private int _opacityAnimationRevision;     // 手写 cancel token：让过期的淡入淡出动画立刻退出
@@ -39,9 +43,8 @@ public partial class FloatingButtonWindow : Window
         _logger.Debug("FloatingButtonWindow 初始化");
         InitializeComponent();
 
-        Position = new PixelPoint(
-            AppSettings.Instance.FloatingButtonPositionX.Value,
-            AppSettings.Instance.FloatingButtonPositionY.Value);
+        // 窗口尺寸在 Opened 后才能真正确定，这里先放一个占位位置；窗口初始透明度为 0，不会闪烁。
+        Position = new PixelPoint(0, AppSettings.Instance.FloatingButtonPositionY.Value);
         Opacity = 0;
 
         // 三个 Tunnel 事件 + handledEventsToo：整个窗口（含透明区域）都是拖动热区，
@@ -53,7 +56,11 @@ public partial class FloatingButtonWindow : Window
         // 指针捕获被抢走 / 窗口中途隐藏时，释放事件不会再来，必须有统一的取消路径
         AddHandler(PointerCaptureLostEvent, (_, _) => CancelDrag(), RoutingStrategies.Tunnel);
         PropertyChanged += OnSelfPropertyChanged;
-        Opened += (_, _) => Dispatcher.UIThread.Post(EnsurePositionVisible, DispatcherPriority.Render);
+        Opened += OnOpened;
+        Closed += OnClosed;
+
+        AppSettings.Instance.FloatingWindowLeftOrRight.ValueChanged += OnFloatingWindowSideChanged;
+        AppSettings.Instance.FloatingButtonPositionY.ValueChanged += OnFloatingButtonPositionYChanged;
 
         _logger.Debug("浮窗初始位置: {Position}", Position);
     }
@@ -69,6 +76,20 @@ public partial class FloatingButtonWindow : Window
     {
         _logger.Information("隐藏浮窗");
         AnimateOpacity(0, OpacityAnimationMilliseconds, Hide);
+    }
+
+    private void OnOpened(object? sender, EventArgs e)
+    {
+        ApplyAnchoredPosition();
+
+        // 布局完成后 Bounds / RenderScaling 才是最终值，再对齐一次保证 8px 间距准确。
+        Dispatcher.UIThread.Post(ApplyAnchoredPosition, DispatcherPriority.Render);
+    }
+
+    private void OnClosed(object? sender, EventArgs e)
+    {
+        AppSettings.Instance.FloatingWindowLeftOrRight.ValueChanged -= OnFloatingWindowSideChanged;
+        AppSettings.Instance.FloatingButtonPositionY.ValueChanged -= OnFloatingButtonPositionYChanged;
     }
 
     #region 指针拖动
@@ -117,10 +138,18 @@ public partial class FloatingButtonWindow : Window
 
         e.Handled = true;
 
-        // 位置 = 起点 + 增量（而非逐帧累加），免疫像素取整与 DPI 量化带来的抖动累积
-        Position = ConstrainDragPosition(
-            new PixelPoint(_dragStartPosition.X + deltaX, _dragStartPosition.Y + deltaY),
-            pointerPosition);
+        // 浮窗固定在屏幕侧边，只允许沿纵向移动
+        var screen = _dragScreen ?? Screens.Primary;
+        if (screen is null)
+            return;
+
+        var (width, height) = GetPixelSize(screen.Scaling);
+        var workingArea = screen.WorkingArea;
+        var y = Math.Clamp(
+            _dragStartPosition.Y + deltaY,
+            workingArea.Y,
+            Math.Max(workingArea.Y, workingArea.Bottom - height));
+        Position = new PixelPoint(GetAnchoredX(workingArea, width, screen.Scaling), y);
     }
 
     private void OnPointerReleased(object? sender, PointerReleasedEventArgs e)
@@ -139,6 +168,7 @@ public partial class FloatingButtonWindow : Window
         }
 
         _isDragging = false;
+        _dragScreen = null;
         ReleasePointerCapture(e.Pointer);
         e.Handled = true;
 
@@ -180,7 +210,53 @@ public partial class FloatingButtonWindow : Window
 
     #endregion
 
-    #region 屏幕约束
+    #region 屏幕定位
+
+    private void OnFloatingWindowSideChanged(FloatingWindowSide side)
+    {
+        ApplyAnchoredPositionOnUiThread();
+    }
+
+    private void OnFloatingButtonPositionYChanged(int positionY)
+    {
+        ApplyAnchoredPositionOnUiThread();
+    }
+
+    private void ApplyAnchoredPositionOnUiThread()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(ApplyAnchoredPosition);
+            return;
+        }
+
+        ApplyAnchoredPosition();
+    }
+
+    /// <summary>按“靠左/靠右”设置贴住屏幕工作区侧边，纵向位置取自设置。</summary>
+    private void ApplyAnchoredPosition()
+    {
+        var screen = Screens.Primary ?? GetScreenForWindow(Position);
+        if (screen is null)
+            return;
+
+        var (width, height) = GetPixelSize(screen.Scaling);
+        var workingArea = screen.WorkingArea;
+        var y = Math.Clamp(
+            AppSettings.Instance.FloatingButtonPositionY.Value,
+            workingArea.Y,
+            Math.Max(workingArea.Y, workingArea.Bottom - height));
+        Position = new PixelPoint(GetAnchoredX(workingArea, width, screen.Scaling), y);
+    }
+
+    private static int GetAnchoredX(PixelRect workingArea, int width, double renderScaling)
+    {
+        var sideMargin = (int)Math.Round(SideMargin * renderScaling);
+        var x = AppSettings.Instance.FloatingWindowLeftOrRight.Value == FloatingWindowSide.Left
+            ? workingArea.X + sideMargin
+            : workingArea.Right - width - sideMargin;
+        return Math.Clamp(x, workingArea.X, Math.Max(workingArea.X, workingArea.Right - width));
+    }
 
     private static PixelPoint ToPixelPoint(Point point, double renderScaling)
     {
@@ -190,110 +266,13 @@ public partial class FloatingButtonWindow : Window
     }
 
     /// <summary>窗口的物理像素尺寸；布局尚未完成时回退到 XAML 里写死的 Width/Height。</summary>
-    private (int Width, int Height) GetPixelSize()
+    private (int Width, int Height) GetPixelSize(double? renderScaling = null)
     {
+        var scaling = renderScaling ?? RenderScaling;
         var width = Bounds.Width > 0 ? Bounds.Width : Width;
         var height = Bounds.Height > 0 ? Bounds.Height : Height;
-        return (Math.Max(1, (int)Math.Ceiling(width * RenderScaling)),
-                Math.Max(1, (int)Math.Ceiling(height * RenderScaling)));
-    }
-
-    /// <summary>
-    /// 把请求位置钳制到合法范围：指针跨到相邻屏时按两块工作区的并集/交集钳制，
-    /// 否则按源屏工作区钳制。浮窗不允许停到屏幕外或两块屏之间的"死区"里。
-    /// </summary>
-    private PixelPoint ConstrainDragPosition(PixelPoint requestedPosition, PixelPoint pointerPosition)
-    {
-        var (width, height) = GetPixelSize();
-        var sourceScreen = _dragScreen;
-        var targetScreen = GetScreenAt(pointerPosition);
-
-        if (sourceScreen is not null && targetScreen is not null &&
-            TryConstrainAcrossAdjacentScreens(
-                requestedPosition, width, height,
-                sourceScreen.Bounds, targetScreen.Bounds,
-                sourceScreen.WorkingArea, targetScreen.WorkingArea,
-                out var acrossPosition))
-        {
-            // 完全进入目标屏工作区后，才把"源屏"迁移过去
-            if (IsWithinWorkingArea(acrossPosition, width, height, targetScreen.WorkingArea))
-                _dragScreen = targetScreen;
-            return acrossPosition;
-        }
-
-        var workingArea = (sourceScreen ?? Screens.Primary)?.WorkingArea;
-        return workingArea is null
-            ? requestedPosition
-            : ClampToWorkingArea(requestedPosition, width, height, workingArea.Value);
-    }
-
-    private static bool TryConstrainAcrossAdjacentScreens(
-        PixelPoint requestedPosition,
-        int width,
-        int height,
-        PixelRect sourceBounds,
-        PixelRect targetBounds,
-        PixelRect sourceWorkingArea,
-        PixelRect targetWorkingArea,
-        out PixelPoint constrainedPosition)
-    {
-        // 水平相邻：X 取两块工作区的并集，Y 取交集
-        if (sourceBounds.Right == targetBounds.X || targetBounds.Right == sourceBounds.X)
-        {
-            var top = Math.Max(sourceWorkingArea.Y, targetWorkingArea.Y);
-            var bottom = Math.Min(sourceWorkingArea.Bottom, targetWorkingArea.Bottom);
-            if (bottom - top < height)
-            {
-                constrainedPosition = default;
-                return false;
-            }
-
-            constrainedPosition = new PixelPoint(
-                Math.Clamp(
-                    requestedPosition.X,
-                    Math.Min(sourceWorkingArea.X, targetWorkingArea.X),
-                    Math.Max(sourceWorkingArea.Right, targetWorkingArea.Right) - width),
-                Math.Clamp(requestedPosition.Y, top, bottom - height));
-            return true;
-        }
-
-        // 垂直相邻：Y 取并集，X 取交集
-        if (sourceBounds.Bottom == targetBounds.Y || targetBounds.Bottom == sourceBounds.Y)
-        {
-            var left = Math.Max(sourceWorkingArea.X, targetWorkingArea.X);
-            var right = Math.Min(sourceWorkingArea.Right, targetWorkingArea.Right);
-            if (right - left < width)
-            {
-                constrainedPosition = default;
-                return false;
-            }
-
-            constrainedPosition = new PixelPoint(
-                Math.Clamp(requestedPosition.X, left, right - width),
-                Math.Clamp(
-                    requestedPosition.Y,
-                    Math.Min(sourceWorkingArea.Y, targetWorkingArea.Y),
-                    Math.Max(sourceWorkingArea.Bottom, targetWorkingArea.Bottom) - height));
-            return true;
-        }
-
-        constrainedPosition = default;
-        return false;
-    }
-
-    private static PixelPoint ClampToWorkingArea(PixelPoint position, int width, int height, PixelRect workingArea)
-    {
-        return new PixelPoint(
-            Math.Clamp(position.X, workingArea.X, Math.Max(workingArea.X, workingArea.Right - width)),
-            Math.Clamp(position.Y, workingArea.Y, Math.Max(workingArea.Y, workingArea.Bottom - height)));
-    }
-
-    private static bool IsWithinWorkingArea(PixelPoint position, int width, int height, PixelRect workingArea)
-    {
-        return position.X >= workingArea.X
-            && position.X + width <= workingArea.Right
-            && position.Y >= workingArea.Y
-            && position.Y + height <= workingArea.Bottom;
+        return (Math.Max(1, (int)Math.Ceiling(width * scaling)),
+                Math.Max(1, (int)Math.Ceiling(height * scaling)));
     }
 
     private Screen? GetScreenAt(PixelPoint point)
@@ -321,41 +300,13 @@ public partial class FloatingButtonWindow : Window
             ?? Screens.Primary;
     }
 
-    private bool IsFullyVisibleOnAnyScreen(PixelPoint position, int width, int height)
-    {
-        foreach (var screen in Screens.All)
-        {
-            if (IsWithinWorkingArea(position, width, height, screen.WorkingArea))
-                return true;
-        }
-
-        return false;
-    }
-
-    /// <summary>启动纠偏：保存的位置不在任何屏幕工作区内（换过显示器 / 改过分辨率）时拉回来。</summary>
-    private void EnsurePositionVisible()
-    {
-        var (width, height) = GetPixelSize();
-        if (IsFullyVisibleOnAnyScreen(Position, width, height))
-            return;
-
-        var workingArea = GetScreenForWindow(Position, width, height)?.WorkingArea;
-        if (workingArea is null)
-            return;
-
-        _logger.Information("浮窗保存的位置不在任何屏幕工作区内，已纠正: {OldPosition}", Position);
-        Position = ClampToWorkingArea(Position, width, height, workingArea.Value);
-        SavePosition();
-    }
-
     #endregion
 
     #region 持久化与淡入淡出
 
     private void SavePosition()
     {
-        // AppSettings 内部已有 300ms 防抖（MarkDirty），拖动结束时写一次即可
-        AppSettings.Instance.FloatingButtonPositionX.Value = Position.X;
+        // AppSettings 内部已有 300ms 防抖，拖动结束时写一次即可
         AppSettings.Instance.FloatingButtonPositionY.Value = Position.Y;
     }
 

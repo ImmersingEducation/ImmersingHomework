@@ -124,8 +124,11 @@ public class AppSettings
     public ObservableProperty<UpdateCheckBehavior> UpdateCheckBehavior { get; set; } =
         new(Enums.UpdateCheckBehavior.NoticeImmediately);
     
-    public ObservableProperty<int> FloatingButtonPositionX { get; set; } = new(100);
-    
+    /// <summary>浮窗靠屏幕左侧还是右侧显示。</summary>
+    public ObservableProperty<FloatingWindowSide> FloatingWindowLeftOrRight { get; set; } =
+        new(FloatingWindowSide.Left);
+
+    /// <summary>浮窗的纵向位置，单位为物理像素。</summary>
     public ObservableProperty<int> FloatingButtonPositionY { get; set; } = new(100);
 
     /// <summary>
@@ -209,7 +212,7 @@ public class AppSettings
         HitokotoRefreshTimeSpan.Value = loaded.HitokotoRefreshTimeSpan.Value;
         UpdateChannel.Value = loaded.UpdateChannel.Value;
         UpdateCheckBehavior.Value = loaded.UpdateCheckBehavior.Value;
-        FloatingButtonPositionX.Value = loaded.FloatingButtonPositionX.Value;
+        FloatingWindowLeftOrRight.Value = loaded.FloatingWindowLeftOrRight.Value;
         FloatingButtonPositionY.Value = loaded.FloatingButtonPositionY.Value;
     }
 
@@ -253,7 +256,7 @@ public class AppSettings
         Watch(HitokotoRefreshTimeSpan, ScheduleAutoSave);
         Watch(UpdateChannel, ScheduleAutoSave);
         Watch(UpdateCheckBehavior, ScheduleAutoSave);
-        Watch(FloatingButtonPositionX, ScheduleAutoSave);
+        Watch(FloatingWindowLeftOrRight, ScheduleAutoSave);
         Watch(FloatingButtonPositionY, ScheduleAutoSave);
 
         _autoSaveTimer = new Timer(_ => Save(), null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
