@@ -167,12 +167,13 @@ public partial class TagPage : UserControl
 
         foreach (var color in PredefinedColors)
         {
+            var displayColor = TagColorPalette.Resolve(color, ActualThemeVariant);
             var colorPreview = new Border
             {
                 Width = 20,
                 Height = 20,
                 CornerRadius = new CornerRadius(10),
-                Background = new SolidColorBrush(color)
+                Background = new SolidColorBrush(displayColor)
             };
             var colorItem = new ComboBoxItem
             {

@@ -51,7 +51,9 @@ public class HomeworkReceiptService
                     tagPanel.Children.Add(new Tag
                     {
                         TagName = tag.Name,
-                        TagColor = tag.Color.ToSolidColorBrush()
+                        TagColor = tag.Color.ToSolidColorBrush(),
+                        // 回执固定为白色背景，始终使用浅色配色。
+                        UseThemeVariantColor = false
                     });
                 }
                 subjectPanel.Children.Add(tagPanel);

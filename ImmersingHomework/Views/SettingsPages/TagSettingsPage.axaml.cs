@@ -45,6 +45,7 @@ public partial class TagSettingsPage : UserControl
             _logger.Debug("TagSettingsPage 附加到视觉树，刷新标签列表");
             Refresh();
         };
+        ActualThemeVariantChanged += (_, _) => Refresh();
     }
 
     public void Refresh()
@@ -57,14 +58,15 @@ public partial class TagSettingsPage : UserControl
         for (var i = 0; i < tags.Count; i++)
         {
             var tag = tags[i];
-            var color = tag.Color.ToAvaloniaColor();
+            var identifierColor = tag.Color.ToAvaloniaColor();
+            var displayColor = tag.GetDisplayColor(ActualThemeVariant);
             var row = new SettingsListItem
             {
                 Title = tag.Name,
-                Description = GetColorName(color),
-                LeadingContent = CreateTagLeadingIcon(color),
+                Description = GetColorName(identifierColor),
+                LeadingContent = CreateTagLeadingIcon(displayColor),
                 IsReorderable = true,
-                RowBackground = tag.Color.ToSolidColorBrush(),
+                RowBackground = new SolidColorBrush(displayColor),
                 RowMargin = new Thickness(8, 4),
                 RowCornerRadius = new CornerRadius(6),
                 ShowSeparator = false
@@ -85,7 +87,7 @@ public partial class TagSettingsPage : UserControl
         {
             Symbol = FASymbol.Tag,
             FontSize = 16,
-            Foreground = IsLight(color) ? Brushes.Black : Brushes.White,
+            Foreground = new SolidColorBrush(TagColorPalette.GetContrastingForeground(color)),
             VerticalAlignment = VerticalAlignment.Center
         };
     }
@@ -102,11 +104,6 @@ public partial class TagSettingsPage : UserControl
 
         _logger.Information("调整标签顺序: {OldIndex} -> {NewIndex}", oldIndex, newIndex);
         tags.Move(oldIndex, newIndex);
-    }
-
-    private static bool IsLight(Avalonia.Media.Color color)
-    {
-        return 0.299 * color.R + 0.587 * color.G + 0.114 * color.B > 150;
     }
 
     private async void AddTagButton_OnClick(object? sender, RoutedEventArgs e)
@@ -254,12 +251,13 @@ public partial class TagSettingsPage : UserControl
 
         foreach (var color in PredefinedColors)
         {
+            var displayColor = TagColorPalette.Resolve(color, ActualThemeVariant);
             var check = new TextBlock
             {
                 Text = "✓",
                 FontSize = 14,
                 FontWeight = FontWeight.Bold,
-                Foreground = Brushes.Black,
+                Foreground = new SolidColorBrush(TagColorPalette.GetContrastingForeground(displayColor)),
                 IsVisible = false
             };
             var swatchButton = new Button
@@ -268,7 +266,7 @@ public partial class TagSettingsPage : UserControl
                 Height = 32,
                 Padding = new Thickness(0),
                 CornerRadius = new CornerRadius(16),
-                Background = new SolidColorBrush(color),
+                Background = new SolidColorBrush(displayColor),
                 BorderBrush = swatchBorderBrush,
                 BorderThickness = new Thickness(1),
                 Content = check

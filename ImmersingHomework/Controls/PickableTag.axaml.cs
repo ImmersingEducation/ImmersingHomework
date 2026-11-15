@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
 using Serilog;
+using TagColorPalette = ImmersingHomework.Shared.Models.TagColorPalette;
 
 namespace ImmersingHomework.Controls;
 
@@ -36,9 +37,6 @@ public partial class PickableTag : UserControl
         set => SetValue(IsCheckedProperty, value);
     }
 
-    private IBrush? _originalBackground;
-    private IBrush? _originalForeground;
-
     public PickableTag()
     {
         _logger.Debug("PickableTag 初始化");
@@ -71,6 +69,7 @@ public partial class PickableTag : UserControl
             UpdateTagName();
             UpdateVisual();
         };
+        ActualThemeVariantChanged += (_, _) => UpdateVisual();
     }
 
     private void UpdateTagName()
@@ -98,28 +97,20 @@ public partial class PickableTag : UserControl
         _logger.Debug("更新视觉状态，选中: {IsChecked}", IsChecked);
         if (TagToggleButton == null || TagText == null) return;
 
-        if (IsChecked)
-        {
-            if (_originalBackground == null)
-            {
-                _originalBackground = TagToggleButton.Background;
-            }
-            if (_originalForeground == null)
-            {
-                _originalForeground = TagText.Foreground;
-            }
+        var displayBrush = GetDisplayBrush();
+        var background = IsChecked ? LightenBrush(displayBrush, 0.3f) : displayBrush;
 
-            TagText.Foreground = new SolidColorBrush(Colors.White);
-            TagToggleButton.Background = LightenBrush(TagColor, 0.3f);
-        }
-        else
-        {
-            if (_originalForeground != null)
-            {
-                TagText.Foreground = new SolidColorBrush(Colors.Black);
-            }
-            TagToggleButton.Background = TagColor;
-        }
+        TagToggleButton.Background = background;
+        TagText.Foreground = new SolidColorBrush(background is ISolidColorBrush { Color: var color }
+            ? TagColorPalette.GetContrastingForeground(color)
+            : TagColorPalette.GetContrastingForeground(ActualThemeVariant));
+    }
+
+    private IBrush GetDisplayBrush()
+    {
+        return TagColor is ISolidColorBrush { Color: var color }
+            ? new SolidColorBrush(TagColorPalette.Resolve(color, ActualThemeVariant))
+            : TagColor;
     }
 
     private IBrush LightenBrush(IBrush brush, float amount)
