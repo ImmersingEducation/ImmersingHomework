@@ -34,5 +34,20 @@
                 </fa:FAComboBox>
             </fa:FASettingsExpander.Footer>
         </fa:FASettingsExpander>
+        <fa:FASettingsExpander Header="主题色" Description="设置软件的强调色，按钮、开关与选中态都会使用该颜色。">
+            <fa:FASettingsExpander.IconSource>
+                <fa:FASymbolIconSource Symbol="ColorBackgroundFilled"/>
+            </fa:FASettingsExpander.IconSource>
+            <fa:FASettingsExpander.Footer>
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Border x:Name="ThemeAccentColorPreview"
+                            Width="32" Height="32" CornerRadius="8"
+                            BorderThickness="1"
+                            BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"/>
+                    <ColorPicker x:Name="ThemeAccentColorPicker"
+                                 ColorChanged="ThemeAccentColorPicker_OnColorChanged"/>
+                </StackPanel>
+            </fa:FASettingsExpander.Footer>
+        </fa:FASettingsExpander>
     </StackPanel>
 </UserControl>

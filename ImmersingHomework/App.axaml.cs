@@ -89,6 +89,9 @@ public partial class App : Application
         ApplyThemeMode();
         SubscribeToThemeModeChanges();
 
+        ApplyThemeAccentColor();
+        SubscribeToThemeAccentColorChanges();
+
         var classIslandService = Services.GetRequiredService<IClassIslandService>();
         if (AppSettings.Instance.EnableClassIslandIPCService.Value)
         {
@@ -392,6 +395,20 @@ public partial class App : Application
         {
             _logger.Information("外观样式设置变更，新值: {Value}", newValue);
             Dispatcher.UIThread.Post(ApplyThemeMode);
+        };
+    }
+
+    private void ApplyThemeAccentColor()
+    {
+        ThemeAccentHelper.Apply(AppSettings.Instance.ThemeAccentColor.Value);
+    }
+
+    private void SubscribeToThemeAccentColorChanges()
+    {
+        AppSettings.Instance.ThemeAccentColor.ValueChanged += (newValue) =>
+        {
+            _logger.Information("主题色设置变更，新值: {Value}", newValue);
+            Dispatcher.UIThread.Post(ApplyThemeAccentColor);
         };
     }
 

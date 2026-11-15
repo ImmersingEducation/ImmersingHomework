@@ -75,6 +75,12 @@ public class AppSettings
 
     public ObservableProperty<ThemeMode> ThemeMode { get; set; } = new(Enums.ThemeMode.System);
 
+    /// <summary>
+    /// 自定义主题色，取值形如 <c>#FF0078D4</c>。为 <c>null</c> 时跟随系统强调色。
+    /// 存成字符串而不是 <see cref="Avalonia.Media.Color"/>，是为了让 JSON 里能直接读懂、手改。
+    /// </summary>
+    public ObservableProperty<string?> ThemeAccentColor { get; set; } = new(null);
+
     public ObservableProperty<TeachingSecurityMode> TeachingSecurityMode { get; set; } =
         new(Models.TeachingSecurityMode.AutoRestart);
 
@@ -192,6 +198,7 @@ public class AppSettings
         LaunchAtStartup.Value = loaded.LaunchAtStartup.Value;
         UrlSchemaRegistered.Value = loaded.UrlSchemaRegistered.Value;
         ThemeMode.Value = loaded.ThemeMode.Value;
+        ThemeAccentColor.Value = loaded.ThemeAccentColor.Value;
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         MainViewTitleText = loaded.MainViewTitleText;
@@ -236,6 +243,7 @@ public class AppSettings
         Watch(LaunchAtStartup, ScheduleAutoSave);
         Watch(UrlSchemaRegistered, ScheduleAutoSave);
         Watch(ThemeMode, ScheduleAutoSave);
+        Watch(ThemeAccentColor, ScheduleAutoSave);
         Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(MainViewColumns, ScheduleAutoSave);
         Watch(MainViewTitleText, ScheduleAutoSave);

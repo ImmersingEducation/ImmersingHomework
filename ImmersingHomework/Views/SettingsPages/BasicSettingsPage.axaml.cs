@@ -3,7 +3,10 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
+using Avalonia.Media;
+using Color = Avalonia.Media.Color;
 using ImmersingHomework.Enums;
+using ImmersingHomework.Helper;
 using ImmersingHomework.Models;
 using ImmersingHomework.Shared.Models;
 using Serilog;
@@ -32,6 +35,7 @@ public partial class BasicSettingsPage : UserControl
         UrlSchemaRegisteredSwitch.IsChecked = AppSettings.Instance.UrlSchemaRegistered.Value;
         FloatingWindowSideComboBox.SelectedIndex = (int)AppSettings.Instance.FloatingWindowLeftOrRight.Value;
         ThemeModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.ThemeMode.Value);
+        RefreshThemeAccentColor();
         TeachingSecurityModeComboBox.SelectedIndex = Convert.ToInt32(AppSettings.Instance.TeachingSecurityMode.Value);
     }
 
@@ -75,8 +79,37 @@ public partial class BasicSettingsPage : UserControl
         }
     }
 
-    private void TeachingSecurityModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private void ThemeAccentColorPicker_OnColorChanged(object? sender, ColorChangedEventArgs e)
     {
+        ApplyAccentColorPreview(e.NewColor);
+
+        // 拖动取色时会连续触发；变色由 App 订阅 ThemeAccentColor 完成，写盘则合并为一次
+        var value = ThemeAccentHelper.ToSettingValue(e.NewColor);
+        if (AppSettings.Instance.ThemeAccentColor.Value == value)
+            return;
+
+        _logger.Information("主题色设置变更: {Value}", value);
+        AppSettings.Instance.ThemeAccentColor.Value = value;
+    }
+
+    private void RefreshThemeAccentColor()
+    {
+        // 未设置过主题色时，把当前生效的强调色（系统强调色）显示出来，用户在此基础上修改即可
+        var color = ThemeAccentHelper.Parse(AppSettings.Instance.ThemeAccentColor.Value)
+                    ?? ThemeAccentHelper.GetCurrentAccentColor()
+                    ?? Colors.DodgerBlue;
+        ApplyAccentColorPreview(color);
+
+        // 直接写 Color 属性；上面的一致性判断会把这次刷新触发的回写拦下来
+        ThemeAccentColorPicker.Color = color;
+    }
+
+    private void ApplyAccentColorPreview(Color color)
+    {
+        ThemeAccentColorPreview.Background = new SolidColorBrush(color);
+    }
+
+    private void TeachingSecurityModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)    {
         if (TeachingSecurityModeComboBox.SelectedIndex >= 0)
         {
             var mode = (TeachingSecurityMode)TeachingSecurityModeComboBox.SelectedIndex;
