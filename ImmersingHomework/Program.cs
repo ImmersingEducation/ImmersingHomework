@@ -168,10 +168,12 @@ class Program
         if (!string.Equals(url.Host, "homework", StringComparison.OrdinalIgnoreCase))
             return false;
 
+        // 查询参数里的日期可能来自 shell 或外部程序，`?date=2026-11-15:...`、`date=?date=...`
+        // 这类值会带上 scheme 前缀或缩略形式；直接按 yyyy-MM-dd 解析失败又会静默退回“当天”，
+        // 让调用方拿到错误日期的数据。这里先把值规整成标准形态再解析。
         DateOnly date;
         if (url.Query.TryGetValue("date", out var rawDate) &&
-            DateOnly.TryParseExact(rawDate.Trim().Trim('"'), "yyyy-MM-dd",
-                CultureInfo.InvariantCulture, DateTimeStyles.None, out var parsed))
+            TryParseQueryDate(rawDate, out var parsed))
         {
             date = parsed;
         }
@@ -189,6 +191,56 @@ class Program
         homework ??= new Homework(date, []);
         json = JsonSerializer.Serialize(homework, new JsonSerializerOptions { WriteIndented = true });
         return true;
+    }
+
+    /// <summary>
+    /// 把查询参数里的日期规整为 <see cref="DateOnly"/>。
+    /// </summary>
+    /// <remarks>
+    /// 除了标准的 <c>yyyy-MM-dd</c>，还兼容调用方常见的几种写法：
+    /// 值里重复出现 <c>date=</c>、带 <c>immersinghomework://</c> 前缀、全角横线、单数字的月日，
+    /// 以及 <c>2026-11-15T10:20:30</c> 这类带时间的 ISO 字符串。
+    /// </remarks>
+    private static bool TryParseQueryDate(string? raw, out DateOnly date)
+    {
+        date = default;
+        if (string.IsNullOrWhiteSpace(raw))
+            return false;
+
+        var value = raw.Trim().Trim('"', '\'');
+
+        // date=?date=2026-11-15 或多级转发后层层叠加的 date=
+        var dateKeyIndex = value.LastIndexOf("date=", StringComparison.OrdinalIgnoreCase);
+        if (dateKeyIndex >= 0)
+            value = value[(dateKeyIndex + "date=".Length)..];
+
+        // immersinghomework://homework?date=2026-11-15 被整体当作参数值传进来
+        var queryIndex = value.IndexOf('?');
+        if (queryIndex >= 0)
+            value = value[(queryIndex + 1)..];
+
+        value = value.Trim().Trim('"', '\'').Trim();
+        if (value.Length == 0)
+            return false;
+
+        // 去掉时间部分，只保留日期
+        var timeIndex = value.IndexOfAny(['T', 't', ' ']);
+        if (timeIndex > 0)
+            value = value[..timeIndex];
+
+        // 全角横线、斜杠统一成半角横线
+        value = value.Replace('－', '-').Replace('–', '-').Replace('—', '-').Replace('/', '-');
+
+        if (DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out date))
+            return true;
+
+        // 单数字的月日，如 2026-1-5
+        if (DateOnly.TryParseExact(value, "yyyy-M-d", CultureInfo.InvariantCulture,
+                DateTimeStyles.None, out date))
+            return true;
+
+        return DateOnly.TryParse(value, CultureInfo.InvariantCulture, DateTimeStyles.None, out date);
     }
 
     private static void WriteToStdout(string message)
