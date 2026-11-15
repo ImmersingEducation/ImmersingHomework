@@ -6,16 +6,52 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              MaxWidth="1024"
              x:Class="ImmersingHomework.Views.SettingsPages.HomeworkTemplateSettingsPage">
-    <ScrollViewer>
-        <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
+    <Grid RowDefinitions="Auto,*" RowSpacing="12" Margin="12,12,12,12">
+        <StackPanel Grid.Row="0" Orientation="Vertical" Spacing="4">
             <TextBlock Text="作业模板设置" FontSize="36" FontWeight="Bold"/>
-            <TextBlock Text="管理作业模板。" FontSize="18"/>
-            <Grid RowDefinitions="Auto,*" ColumnDefinitions="*,Auto" RowSpacing="8" ColumnSpacing="8">
-                <Button Grid.Row="0" Grid.Column="1" Content="添加作业模板" Click="AddTemplateButton_OnClick"/>
-                <ScrollViewer Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
-                    <WrapPanel ItemSpacing="8" LineSpacing="8" x:Name="HomeworkTemplatePanel"/>
-                </ScrollViewer>
-            </Grid>
+            <TextBlock Text="预设带参数的作业名称，新建作业时可一键套用。"
+                       FontSize="18"
+                       TextWrapping="Wrap"/>
         </StackPanel>
-    </ScrollViewer>
+
+        <Border Grid.Row="1" Classes="settingsListCard">
+            <Grid RowDefinitions="Auto,*">
+                <Border Grid.Row="0" Classes="settingsListHeader">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock x:Name="CountText"
+                                   VerticalAlignment="Center"
+                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <Button Grid.Column="1"
+                                Classes="accent"
+                                Click="AddTemplateButton_OnClick">
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <fa:FASymbolIcon Symbol="Add" FontSize="14"/>
+                                <TextBlock Text="添加模板"/>
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="1">
+                    <ScrollViewer x:Name="ListScrollViewer"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="0,0,4,0">
+                        <StackPanel x:Name="HomeworkTemplatePanel"/>
+                    </ScrollViewer>
+                    <StackPanel x:Name="EmptyState"
+                                Classes="settingsEmptyState"
+                                IsVisible="False">
+                        <fa:FASymbolIcon Symbol="Code"
+                                         FontSize="32"
+                                         HorizontalAlignment="Center"
+                                         Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        <TextBlock Text="还没有作业模板" Classes="settingsEmptyTitle"/>
+                        <TextBlock Text="使用 [] 表示参数，例如：完成[]第[]页。点击上方「添加模板」开始。"
+                                   Classes="settingsEmptyHint"/>
+                    </StackPanel>
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
 </UserControl>

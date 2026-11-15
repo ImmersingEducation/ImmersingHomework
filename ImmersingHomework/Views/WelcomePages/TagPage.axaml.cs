@@ -142,8 +142,10 @@ public partial class TagPage : UserControl
             }
 
             _logger.Information("更新标签: {OldName} -> {NewName}", tag.Name, editTag.Name);
+            // 原地修改以保留作业项中的引用，再立即落盘；自动保存只监听集合变化，不会感知属性变更。
             tag.Name = editTag.Name;
             tag.Color = editTag.Color;
+            AppSettings.Instance.Save();
             Refresh();
         }
     }

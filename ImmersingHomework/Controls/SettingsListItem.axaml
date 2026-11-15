@@ -1,0 +1,101 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:fa="clr-namespace:FluentAvalonia.UI.Controls;assembly=FluentAvalonia"
+             mc:Ignorable="d" d:DesignWidth="600" d:DesignHeight="48"
+             x:Class="ImmersingHomework.Controls.SettingsListItem">
+    <UserControl.Styles>
+        <Style Selector="TextBlock.title">
+            <Setter Property="FontSize" Value="14"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}"/>
+        </Style>
+        <Style Selector="TextBlock.description">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="TextTrimming" Value="CharacterEllipsis"/>
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+        <Style Selector="Button.rowAction">
+            <Setter Property="Theme" Value="{StaticResource TransparentButton}"/>
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Padding" Value="0"/>
+            <Setter Property="CornerRadius" Value="4"/>
+        </Style>
+        <Style Selector="Button.rowAction.delete">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}"/>
+        </Style>
+        <Style Selector="Ellipse.dragDot">
+            <Setter Property="Fill" Value="{DynamicResource TextFillColorSecondaryBrush}"/>
+        </Style>
+    </UserControl.Styles>
+
+    <StackPanel>
+        <Border x:Name="RowBorder"
+                Background="Transparent"
+                Padding="16,8"
+                MinHeight="48">
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                <Border x:Name="DragHandleBorder"
+                        Width="20"
+                        Height="32"
+                        VerticalAlignment="Center"
+                        Background="Transparent"
+                        IsVisible="False"
+                        ToolTip.Tip="拖动调整顺序">
+                    <Grid x:Name="DragDots"
+                          Width="10"
+                          Height="16"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Center"
+                          ColumnDefinitions="*,*"
+                          ColumnSpacing="2"
+                          RowDefinitions="*,*,*"
+                          RowSpacing="2">
+                        <Ellipse Grid.Row="0" Grid.Column="0" Classes="dragDot" Width="2.5" Height="2.5"/>
+                        <Ellipse Grid.Row="0" Grid.Column="1" Classes="dragDot" Width="2.5" Height="2.5"/>
+                        <Ellipse Grid.Row="1" Grid.Column="0" Classes="dragDot" Width="2.5" Height="2.5"/>
+                        <Ellipse Grid.Row="1" Grid.Column="1" Classes="dragDot" Width="2.5" Height="2.5"/>
+                        <Ellipse Grid.Row="2" Grid.Column="0" Classes="dragDot" Width="2.5" Height="2.5"/>
+                        <Ellipse Grid.Row="2" Grid.Column="1" Classes="dragDot" Width="2.5" Height="2.5"/>
+                    </Grid>
+                </Border>
+                <ContentPresenter x:Name="LeadingPresenter"
+                                  Grid.Column="1"
+                                  VerticalAlignment="Center"
+                                  IsVisible="False"/>
+                <StackPanel Grid.Column="2" VerticalAlignment="Center" Spacing="2">
+                    <TextBlock x:Name="TitleText" Classes="title"/>
+                    <TextBlock x:Name="DescriptionText" Classes="description" IsVisible="False"/>
+                </StackPanel>
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Spacing="2">
+                    <Button x:Name="EditButton"
+                            Classes="rowAction"
+                            ToolTip.Tip="编辑"
+                            Click="EditButton_OnClick">
+                        <fa:FASymbolIcon Symbol="Edit"
+                                         FontSize="14"
+                                         Foreground="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                    <Button x:Name="DeleteButton"
+                            Classes="rowAction delete"
+                            ToolTip.Tip="删除"
+                            Click="DeleteButton_OnClick">
+                        <fa:FASymbolIcon Symbol="Delete"
+                                         FontSize="14"
+                                         Foreground="{Binding $parent[Button].Foreground}"/>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+        <Border x:Name="SeparatorBorder"
+                Height="1"
+                Margin="16,0"
+                Background="{DynamicResource DividerStrokeColorDefaultBrush}"/>
+    </StackPanel>
+</UserControl>

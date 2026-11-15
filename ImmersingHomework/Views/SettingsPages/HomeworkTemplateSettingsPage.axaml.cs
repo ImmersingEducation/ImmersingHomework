@@ -1,12 +1,14 @@
-using System.Linq;
+using System;
+using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
-using Avalonia.Layout;
 using Avalonia.Markup.Xaml;
+using Avalonia.Markup.Xaml.MarkupExtensions;
+using Avalonia.Media;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Controls;
 using ImmersingHomework.Models;
-using ImmersingHomework.Shared.Models;
 using Serilog;
 
 namespace ImmersingHomework.Views.SettingsPages;
@@ -14,11 +16,13 @@ namespace ImmersingHomework.Views.SettingsPages;
 public partial class HomeworkTemplateSettingsPage : UserControl
 {
     private readonly ILogger _logger = Log.ForContext<HomeworkTemplateSettingsPage>();
+    private readonly SettingsListReorder _reorder;
 
     public HomeworkTemplateSettingsPage()
     {
         _logger.Debug("HomeworkTemplateSettingsPage 初始化");
         InitializeComponent();
+        _reorder = new SettingsListReorder(HomeworkTemplatePanel, ListScrollViewer, MoveTemplate);
         this.AttachedToVisualTree += (_, _) =>
         {
             _logger.Debug("HomeworkTemplateSettingsPage 附加到视觉树，刷新模板列表");
@@ -28,60 +32,63 @@ public partial class HomeworkTemplateSettingsPage : UserControl
 
     public void Refresh()
     {
-        _logger.Debug("刷新作业模板列表，共 {Count} 个模板", AppSettings.Instance.HomeworkTemplates.Count);
+        var templates = AppSettings.Instance.HomeworkTemplates;
+        _logger.Debug("刷新作业模板列表，共 {Count} 个模板", templates.Count);
+
+        _reorder.Cancel();
         HomeworkTemplatePanel.Children.Clear();
-        foreach (var template in AppSettings.Instance.HomeworkTemplates)
+        for (var i = 0; i < templates.Count; i++)
         {
-            var button = new Button();
-            button.Content = new TextBlock { Text = template };
-            button.Click += async (s, e) => await OnTemplateButtonClick(template);
-            HomeworkTemplatePanel.Children.Add(button);
+            var template = templates[i];
+            var parameterCount = CountParameters(template);
+            var row = new SettingsListItem
+            {
+                Title = template,
+                Description = parameterCount == 0 ? "无参数" : $"{parameterCount} 个参数",
+                LeadingContent = CreateTemplateBadge(),
+                IsReorderable = true,
+                ShowSeparator = i < templates.Count - 1
+            };
+            row.EditRequested += async (_, _) => await EditTemplate(template);
+            row.DeleteRequested += async (_, _) => await DeleteTemplate(template);
+            HomeworkTemplatePanel.Children.Add(row);
         }
+
+        CountText.Text = $"共 {templates.Count} 个模板";
+        EmptyState.IsVisible = templates.Count == 0;
+        ListScrollViewer.IsVisible = templates.Count > 0;
     }
 
-    private async System.Threading.Tasks.Task OnTemplateButtonClick(string templateName)
+    private static Control CreateTemplateBadge()
     {
-        _logger.Information("准备删除作业模板: {Template}", templateName);
-        var window = TopLevel.GetTopLevel(this) as Window;
-        if (window == null)
+        var badge = new Border();
+        badge.Classes.Add("codeBadge");
+        badge.Child = new TextBlock { Text = "[]" };
+        return badge;
+    }
+
+    private void MoveTemplate(int oldIndex, int newIndex)
+    {
+        var templates = AppSettings.Instance.HomeworkTemplates;
+        if (oldIndex < 0 || oldIndex >= templates.Count)
             return;
 
-        var dialog = new FAContentDialog()
-        {
-            Title = "删除作业模板",
-            Content = $"确定要删除该作业模板吗？",
-            PrimaryButtonText = "删除",
-            CloseButtonText = "取消"
-        };
+        newIndex = Math.Clamp(newIndex, 0, templates.Count - 1);
+        if (oldIndex == newIndex)
+            return;
 
-        var result = await dialog.ShowAsync(window);
-
-        if (result == FAContentDialogResult.Primary)
-        {
-            _logger.Information("用户确认删除作业模板: {Template}", templateName);
-            AppSettings.Instance.HomeworkTemplates.Remove(templateName);
-            Refresh();
-        }
-        else
-        {
-            _logger.Debug("用户取消删除作业模板: {Template}", templateName);
-        }
+        _logger.Information("调整作业模板顺序: {OldIndex} -> {NewIndex}", oldIndex, newIndex);
+        templates.Move(oldIndex, newIndex);
+        UpdateSeparators();
     }
 
-    private static int CountParameters(string? text)
+    private void UpdateSeparators()
     {
-        if (string.IsNullOrEmpty(text))
-            return 0;
-
-        var count = 0;
-        var index = 0;
-        while ((index = text.IndexOf("[]", index, System.StringComparison.Ordinal)) != -1)
+        for (var i = 0; i < HomeworkTemplatePanel.Children.Count; i++)
         {
-            count++;
-            index += 2;
+            if (HomeworkTemplatePanel.Children[i] is SettingsListItem row)
+                row.ShowSeparator = i < HomeworkTemplatePanel.Children.Count - 1;
         }
-
-        return count;
     }
 
     private async void AddTemplateButton_OnClick(object? sender, RoutedEventArgs e)
@@ -91,71 +98,192 @@ public partial class HomeworkTemplateSettingsPage : UserControl
         if (window == null)
             return;
 
+        var templateName = await ShowTemplateDialog(window, null);
+        if (string.IsNullOrEmpty(templateName))
+            return;
+
+        if (TemplateNameExists(templateName, null))
+        {
+            _logger.Warning("作业模板已存在: {Template}", templateName);
+            return;
+        }
+
+        _logger.Information("添加新作业模板: {Template}", templateName);
+        AppSettings.Instance.HomeworkTemplates.Add(templateName);
+        Refresh();
+    }
+
+    private async Task EditTemplate(string oldName)
+    {
+        _logger.Information("准备编辑作业模板: {Template}", oldName);
+        var window = TopLevel.GetTopLevel(this) as Window;
+        if (window == null)
+            return;
+
+        var newName = await ShowTemplateDialog(window, oldName);
+        if (string.IsNullOrEmpty(newName) || newName == oldName)
+            return;
+
+        var index = AppSettings.Instance.HomeworkTemplates.IndexOf(oldName);
+        if (index < 0)
+        {
+            _logger.Warning("待编辑的作业模板已不存在: {Template}", oldName);
+            return;
+        }
+
+        _logger.Information("更新作业模板: {OldName} -> {NewName}", oldName, newName);
+        AppSettings.Instance.HomeworkTemplates[index] = newName;
+        Refresh();
+    }
+
+    private async Task DeleteTemplate(string templateName)
+    {
+        _logger.Information("准备删除作业模板: {Template}", templateName);
+        var window = TopLevel.GetTopLevel(this) as Window;
+        if (window == null)
+            return;
+
+        var dialog = new FAContentDialog
+        {
+            Title = "删除作业模板",
+            Content = $"确定要删除作业模板「{templateName}」吗？",
+            PrimaryButtonText = "删除",
+            CloseButtonText = "取消",
+            DefaultButton = FAContentDialogButton.Close
+        };
+        dialog.UseDangerPrimaryButton();
+
+        var result = await dialog.ShowAsync(window);
+        if (result != FAContentDialogResult.Primary)
+        {
+            _logger.Debug("用户取消删除作业模板: {Template}", templateName);
+            return;
+        }
+
+        _logger.Information("用户确认删除作业模板: {Template}", templateName);
+        AppSettings.Instance.HomeworkTemplates.Remove(templateName);
+        Refresh();
+    }
+
+    private async Task<string?> ShowTemplateDialog(Window window, string? oldName)
+    {
+        var isNew = oldName == null;
         var textBox = new TextBox
         {
             PlaceholderText = "请输入作业模板名称",
-            Width = 300
+            Text = oldName ?? string.Empty,
+            Width = 340,
+            MaxLength = 100
         };
 
-        var parameterCountText = new TextBlock
+        var hintText = new TextBlock
         {
-            Text = "参数数量: 0",
-            Margin = new Thickness(0, 4, 0, 0)
+            Text = "一对中括号 [] 代表一个参数。",
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap
         };
+        hintText.Bind(TextBlock.ForegroundProperty,
+            new DynamicResourceExtension("TextFillColorSecondaryBrush"));
 
-        textBox.TextChanged += (_, _) =>
+        var countText = new TextBlock
         {
-            parameterCountText.Text = $"参数数量: {CountParameters(textBox.Text)}";
+            Text = "参数数量：0",
+            FontSize = 12
         };
+        countText.Bind(TextBlock.ForegroundProperty,
+            new DynamicResourceExtension("TextFillColorSecondaryBrush"));
 
-        var contentPanel = new StackPanel
+        var errorText = new TextBlock
         {
-            Orientation = Orientation.Vertical,
+            IsVisible = false,
+            FontSize = 12,
+            TextWrapping = TextWrapping.Wrap
+        };
+        errorText.Bind(TextBlock.ForegroundProperty,
+            new DynamicResourceExtension("SystemFillColorCriticalBrush"));
+
+        var content = new StackPanel
+        {
             Spacing = 8,
             Children =
             {
                 new TextBlock { Text = "作业模板名称" },
-                new TextBlock { Text = "一对中括号 [] 代表一个参数", FontSize = 12 },
                 textBox,
-                parameterCountText
+                hintText,
+                countText,
+                errorText
             }
         };
 
-        var dialog = new FAContentDialog()
+        var dialog = new FAContentDialog
         {
-            Title = "添加作业模板",
-            Content = contentPanel,
-            PrimaryButtonText = "添加",
-            CloseButtonText = "取消"
+            Title = isNew ? "添加作业模板" : "编辑作业模板",
+            Content = content,
+            PrimaryButtonText = isNew ? "添加" : "保存",
+            CloseButtonText = "取消",
+            DefaultButton = FAContentDialogButton.Primary,
+            IsPrimaryButtonEnabled = false
         };
+
+        void UpdateCount()
+        {
+            countText.Text = $"参数数量：{CountParameters(textBox.Text)}";
+        }
+
+        void Validate()
+        {
+            var name = textBox.Text?.Trim() ?? string.Empty;
+            var duplicate = TemplateNameExists(name, oldName);
+            dialog.IsPrimaryButtonEnabled = !string.IsNullOrWhiteSpace(name) && !duplicate;
+            errorText.IsVisible = !string.IsNullOrWhiteSpace(name) && duplicate;
+            errorText.Text = "该作业模板已存在，请输入其他名称。";
+        }
+
+        textBox.TextChanged += (_, _) =>
+        {
+            UpdateCount();
+            Validate();
+        };
+        dialog.Opened += (_, _) =>
+        {
+            textBox.Focus();
+            if (!isNew)
+                textBox.SelectAll();
+        };
+        UpdateCount();
+        Validate();
 
         var result = await dialog.ShowAsync(window);
+        if (result != FAContentDialogResult.Primary)
+            return null;
 
-        if (result == FAContentDialogResult.Primary)
+        return textBox.Text?.Trim();
+    }
+
+    private static bool TemplateNameExists(string name, string? exclude)
+    {
+        foreach (var template in AppSettings.Instance.HomeworkTemplates)
         {
-            var templateName = textBox.Text?.Trim();
-            if (string.IsNullOrEmpty(templateName))
-            {
-                _logger.Debug("作业模板名称为空，取消添加");
-                return;
-            }
-
-            if (AppSettings.Instance.HomeworkTemplates.Contains(templateName))
-            {
-                _logger.Warning("作业模板已存在: {Template}", templateName);
-                var errorDialog = new FAContentDialog()
-                {
-                    Title = "错误",
-                    Content = "该作业模板已存在，请输入其他名称。",
-                    CloseButtonText = "确定"
-                };
-                await errorDialog.ShowAsync(window);
-                return;
-            }
-
-            _logger.Information("添加新作业模板: {Template}", templateName);
-            AppSettings.Instance.HomeworkTemplates.Add(templateName);
-            Refresh();
+            if (template == name && template != exclude)
+                return true;
         }
+
+        return false;
+    }
+
+    private static int CountParameters(string? text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return 0;
+
+        var count = 0;
+        var index = 0;
+        while ((index = text.IndexOf("[]", index, StringComparison.Ordinal)) != -1)
+        {
+            count++;
+            index += 2;
+        }
+
+        return count;
     }
 }
