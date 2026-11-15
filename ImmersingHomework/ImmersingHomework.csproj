@@ -52,6 +52,9 @@
       <Compile Update="Controls\SnapshotStorageManageDialogContent.axaml.cs">
         <DependentUpon>SnapshotStorageManageDialogContent.axaml</DependentUpon>
       </Compile>
+      <Compile Update="Views\SettingsPages\HitokotoSettingsPage.axaml.cs">
+        <DependentUpon>HitokotoSettingsPage.axaml</DependentUpon>
+      </Compile>
     </ItemGroup>
 
     <ItemGroup>
