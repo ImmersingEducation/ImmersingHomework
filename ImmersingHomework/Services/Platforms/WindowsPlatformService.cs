@@ -216,7 +216,8 @@ public class WindowsPlatformService : PlatformServiceBase
         {
             try
             {
-                var exePath = Process.GetCurrentProcess().MainModule?.FileName;
+                // 指向 Launcher：外壳会设置正确的工作目录并透传参数，同时保证待处理的更新能被应用
+                var exePath = LauncherContext.ResolveLauncherEntryPoint() ?? Environment.ProcessPath;
                 if (string.IsNullOrEmpty(exePath))
                 {
                     _logger.Error("URL 协议注册失败: 无法获取可执行文件路径");

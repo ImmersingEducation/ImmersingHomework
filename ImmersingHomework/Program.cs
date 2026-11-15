@@ -27,6 +27,10 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        // URL 协议、ClassIsland 等外部启动方式的工作目录不可靠，
+        // 统一到应用根目录，保证 Data、Logs、Outputs 始终是同一份。
+        Environment.CurrentDirectory = LauncherContext.RootDirectory;
+
         var loggerConfiguration = new LoggerConfiguration()
 #if DEBUG
             .MinimumLevel.Verbose()

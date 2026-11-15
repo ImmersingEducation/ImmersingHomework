@@ -50,14 +50,14 @@ public static class LauncherContext
     public static bool IsLaunchedByLauncher => ResolvedLauncherDirectory is not null;
 
     /// <summary>
-    /// 更新相关路径的根目录：由 Launcher 启动时为 Launcher 目录，否则为当前工作目录。
+    /// 应用相关路径的根目录：由 Launcher 启动时为 Launcher 目录，否则为可执行文件所在目录。
     /// </summary>
     /// <remarks>
     /// 不用 <see cref="Environment.CurrentDirectory"/> 是因为它会被启动方式影响
-    /// （工作目录被外部改写时更新包会落到 Launcher 读不到的位置）。Launcher 自身使用
-    /// <see cref="AppContext.BaseDirectory"/>，这里与它保持一致。
+    /// （URL 协议等外部启动方式不会保证工作目录，数据与日志可能落到错误位置）。
+    /// Launcher 自身使用 <see cref="AppContext.BaseDirectory"/>，这里与它保持一致。
     /// </remarks>
-    public static string RootDirectory => ResolvedLauncherDirectory ?? Directory.GetCurrentDirectory();
+    public static string RootDirectory => ResolvedLauncherDirectory ?? AppContext.BaseDirectory;
 
     /// <summary>待应用更新的标记文件路径。</summary>
     public static string UpdateFlagPath => Path.Combine(RootDirectory, UpdateFlagFileName);
