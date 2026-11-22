@@ -9,6 +9,15 @@
         <StackPanel Orientation="Vertical" Spacing="8" Margin="12 12 12 0">
             <TextBlock Text="主界面设置" FontSize="36" FontWeight="Bold"/>
             <TextBlock Text="设置主界面外观与行为。" FontSize="18"/>
+            <fa:FASettingsExpander Header="主界面显示模式" Description="主界面以何种方式显示。">
+                <fa:FASettingsExpander.Footer>
+                    <fa:FAComboBox x:Name="MainViewModeComboBox"
+                                   SelectionChanged="MainViewModeComboBox_OnSelectionChanged">
+                        <fa:FAComboBoxItem Content="全屏"/>
+                        <fa:FAComboBoxItem Content="桌面驻留"/>
+                    </fa:FAComboBox>
+                </fa:FASettingsExpander.Footer>
+            </fa:FASettingsExpander>
             <fa:FASettingsExpander Header="主界面列数" Description="主界面作业分隔显示的列数。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Pause"></fa:FASymbolIconSource>

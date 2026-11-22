@@ -9,6 +9,7 @@ using Avalonia.Markup.Xaml;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using FluentAvalonia.UI.Controls;
+using ImmersingHomework.Enums;
 using ImmersingHomework.Models;
 using Serilog;
 
@@ -31,6 +32,7 @@ public partial class MainViewSettingsPage : UserControl
 
     public void Refresh()
     {
+        MainViewModeComboBox.SelectedIndex = (int)AppSettings.Instance.MainViewMode.Value;
         MainViewColumnNumericUpDown.Value = AppSettings.Instance.MainViewColumns.Value;
         MainViewTitleTextBox.Text = AppSettings.Instance.MainViewTitleText.Value;
 
@@ -59,6 +61,19 @@ public partial class MainViewSettingsPage : UserControl
         BackgroundImageBlurSlider.IsEnabled = hasBackground;
         BackgroundImageBlurSlider.Value = blur;
         BackgroundImageBlurTextBlock.Text = $"{blur:0} px";
+    }
+
+    private void MainViewModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (MainViewModeComboBox.SelectedIndex < 0)
+            return;
+
+        var mode = (MainViewMode)MainViewModeComboBox.SelectedIndex;
+        if (AppSettings.Instance.MainViewMode.Value == mode)
+            return;
+
+        _logger.Information("主界面显示模式变更: {Mode}", mode);
+        AppSettings.Instance.MainViewMode.Value = mode;
     }
 
     private void AdvancedMaterialSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)

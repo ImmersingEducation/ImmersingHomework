@@ -84,6 +84,8 @@ public class AppSettings
     public ObservableProperty<TeachingSecurityMode> TeachingSecurityMode { get; set; } =
         new(Models.TeachingSecurityMode.AutoRestart);
 
+    public ObservableProperty<MainViewMode> MainViewMode { get; set; } = new(Enums.MainViewMode.FullScreen);
+    
     public ObservableProperty<int> MainViewColumns { get; set; } = new(4);
 
     public ObservableProperty<string> MainViewTitleText { get; set; } = new("作业");
@@ -200,6 +202,7 @@ public class AppSettings
         ThemeMode.Value = loaded.ThemeMode.Value;
         ThemeAccentColor.Value = loaded.ThemeAccentColor.Value;
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
+        MainViewMode.Value = loaded.MainViewMode.Value;
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         MainViewTitleText = loaded.MainViewTitleText;
         MainViewAutoScrollSpeed.Value = Math.Clamp(loaded.MainViewAutoScrollSpeed.Value, 10, 300);
@@ -245,6 +248,7 @@ public class AppSettings
         Watch(ThemeMode, ScheduleAutoSave);
         Watch(ThemeAccentColor, ScheduleAutoSave);
         Watch(TeachingSecurityMode, ScheduleAutoSave);
+        Watch(MainViewMode, ScheduleAutoSave);
         Watch(MainViewColumns, ScheduleAutoSave);
         Watch(MainViewTitleText, ScheduleAutoSave);
         Watch(MainViewAutoScrollSpeed, ScheduleAutoSave);
