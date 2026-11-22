@@ -89,22 +89,11 @@
                                                                   CornerRadius="30"
                                                                   HorizontalAlignment="Left"
                                                                   FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
-                                        <Panel>
-                                                <Button x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="最小化" Click="MinimizeButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
-                                                </Button>
-                                                <!-- 关闭按钮与最小化按钮共用一个材质胶囊，两个 30×30 的热区并排，
-                                                     不改变胶囊 60×60 的位置和尺寸 -->
-                                                <Button x:Name="CloseButton"
-                                                        Width="30" Height="60"
-                                                        HorizontalAlignment="Right"
-                                                        CornerRadius="0,30,30,0"
-                                                        Background="Transparent" BorderBrush="Transparent"
-                                                        ToolTip.Tip="关闭"
-                                                        Click="CloseButton_OnClick">
-                                                        <fa:FASymbolIcon Symbol="Cancel" FontSize="16"/>
-                                                </Button>
-                                        </Panel>
+                                        <!-- 主界面是沉浸式全屏窗口，“最小化”即隐藏主界面并保留浮窗，
+                                             因此不再单独提供关闭按钮。 -->
+                                        <Button x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="最小化" Click="MinimizeButton_OnClick">
+                                                <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
+                                        </Button>
                                 </controls:AdvancedMaterialSurface>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
                                         <Grid Width="60" Height="60">

@@ -563,7 +563,6 @@ public partial class App : Application
             _mainWindow.WindowDeactivated += MainWindow_WindowDeactivated;
             _mainWindow.Closing += MainWindow_Closing;
             _mainWindow.Closed += MainWindow_Closed;
-            _mainWindow.CloseRequested += MainWindow_CloseRequested;
         }
 
         if (_floatingButtonWindow is null)
@@ -681,12 +680,6 @@ public partial class App : Application
         // 窗口已经销毁，之后的打开请求必须重新创建
         _mainWindow = null;
     }
-
-    /// <summary>
-    /// 界面上的「关闭」按钮：只隐藏主界面并保留浮窗，与从任务栏关闭主界面一致，
-    /// 这样浮窗再点一下就能原样打开。真正退出走托盘菜单或异常窗口。
-    /// </summary>
-    private void MainWindow_CloseRequested(object? sender, EventArgs e) => HideMainWindow();
 
     private void ShowFloatingButton()
     {
