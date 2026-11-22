@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Interactivity;
@@ -63,7 +64,7 @@ public partial class MainViewSettingsPage : UserControl
         BackgroundImageBlurTextBlock.Text = $"{blur:0} px";
     }
 
-    private void MainViewModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void MainViewModeComboBox_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (MainViewModeComboBox.SelectedIndex < 0)
             return;
@@ -74,6 +75,22 @@ public partial class MainViewSettingsPage : UserControl
 
         _logger.Information("主界面显示模式变更: {Mode}", mode);
         AppSettings.Instance.MainViewMode.Value = mode;
+
+        // 显示模式决定主窗口是全屏还是桌面驻留窗口，只能在启动时应用，因此提示重启。
+        var window = TopLevel.GetTopLevel(this) as Window;
+        if (window is null)
+            return;
+
+        var dialog = new FAContentDialog
+        {
+            Title = "重启软件",
+            Content = "该设置需要重启生效。",
+            PrimaryButtonText = "重启",
+            CloseButtonText = "取消"
+        };
+        var result = await dialog.ShowAsync(window);
+        if (result is FAContentDialogResult.Primary)
+            ((App)Application.Current!).RestartApplication();
     }
 
     private void AdvancedMaterialSwitch_OnIsCheckedChanged(object? sender, RoutedEventArgs e)

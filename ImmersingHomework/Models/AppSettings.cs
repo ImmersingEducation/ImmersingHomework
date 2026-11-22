@@ -85,6 +85,24 @@ public class AppSettings
         new(Models.TeachingSecurityMode.AutoRestart);
 
     public ObservableProperty<MainViewMode> MainViewMode { get; set; } = new(Enums.MainViewMode.FullScreen);
+
+    /// <summary>
+    /// 桌面驻留模式下主界面窗口左上角的屏幕横坐标（物理像素）。
+    /// 为 <see langword="null"/> 时表示尚未保存过位置，启动时居中显示。
+    /// </summary>
+    public ObservableProperty<int?> MainWindowX { get; set; } = new(null);
+
+    /// <summary>
+    /// 桌面驻留模式下主界面窗口左上角的屏幕纵坐标（物理像素）。
+    /// 为 <see langword="null"/> 时表示尚未保存过位置，启动时居中显示。
+    /// </summary>
+    public ObservableProperty<int?> MainWindowY { get; set; } = new(null);
+
+    /// <summary>桌面驻留模式下主界面窗口的宽度（DIP）。</summary>
+    public ObservableProperty<double> MainWindowWidth { get; set; } = new(960);
+
+    /// <summary>桌面驻留模式下主界面窗口的高度（DIP）。</summary>
+    public ObservableProperty<double> MainWindowHeight { get; set; } = new(640);
     
     public ObservableProperty<int> MainViewColumns { get; set; } = new(4);
 
@@ -203,6 +221,10 @@ public class AppSettings
         ThemeAccentColor.Value = loaded.ThemeAccentColor.Value;
         TeachingSecurityMode.Value = loaded.TeachingSecurityMode.Value;
         MainViewMode.Value = loaded.MainViewMode.Value;
+        MainWindowX.Value = loaded.MainWindowX.Value;
+        MainWindowY.Value = loaded.MainWindowY.Value;
+        MainWindowWidth.Value = Math.Clamp(loaded.MainWindowWidth.Value, 640, 10000);
+        MainWindowHeight.Value = Math.Clamp(loaded.MainWindowHeight.Value, 400, 10000);
         MainViewColumns.Value = Math.Clamp(loaded.MainViewColumns.Value, 1, 6);
         MainViewTitleText = loaded.MainViewTitleText;
         MainViewAutoScrollSpeed.Value = Math.Clamp(loaded.MainViewAutoScrollSpeed.Value, 10, 300);
@@ -249,6 +271,10 @@ public class AppSettings
         Watch(ThemeAccentColor, ScheduleAutoSave);
         Watch(TeachingSecurityMode, ScheduleAutoSave);
         Watch(MainViewMode, ScheduleAutoSave);
+        Watch(MainWindowX, ScheduleAutoSave);
+        Watch(MainWindowY, ScheduleAutoSave);
+        Watch(MainWindowWidth, ScheduleAutoSave);
+        Watch(MainWindowHeight, ScheduleAutoSave);
         Watch(MainViewColumns, ScheduleAutoSave);
         Watch(MainViewTitleText, ScheduleAutoSave);
         Watch(MainViewAutoScrollSpeed, ScheduleAutoSave);

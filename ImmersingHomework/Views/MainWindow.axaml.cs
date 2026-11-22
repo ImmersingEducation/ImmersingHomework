@@ -19,6 +19,7 @@ using Avalonia.Layout;
 using Avalonia.Markup.Xaml.MarkupExtensions;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Styling;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
@@ -43,6 +44,25 @@ public partial class MainWindow : Window
     private bool _isFrozen;
     private bool _isAutoScrollEnabled;
     private string? _lastHitokotoText;
+
+    /// <summary>桌面驻留模式窗口的圆角半径。</summary>
+    private const double DesktopResidentCornerRadius = 16;
+
+    private const double DesktopResidentMinWidth = 640;
+    private const double DesktopResidentMinHeight = 400;
+    private const double DesktopResidentMaxSize = 10000;
+
+    /// <summary>是否处于“调整窗口”遮罩模式。</summary>
+    private bool _isWindowAdjustmentMode;
+
+    /// <summary>桌面驻留窗口的位置/尺寸是否已经按设置应用过。</summary>
+    private bool _desktopResidentBoundsApplied;
+
+    /// <summary>正在应用设置中的窗口位置/尺寸，避免回写事件覆盖用户刚保存的值。</summary>
+    private bool _isApplyingDesktopResidentBounds;
+
+    private static bool IsDesktopResidentMode =>
+        AppSettings.Instance.MainViewMode.Value == MainViewMode.DesktopResident;
 
     /// <summary>
     /// 主抽屉的状态
@@ -285,7 +305,10 @@ public partial class MainWindow : Window
 
         UpdateTimeMachineSelection(null);
 
-        WindowState = WindowState.FullScreen;
+        if (IsDesktopResidentMode)
+            ConfigureDesktopResidentWindow();
+        else
+            WindowState = WindowState.FullScreen;
         
         DateChanged += UpdateDateText;
         DateChanged += UpdateGoBackTodayButtonVisibility;
@@ -337,6 +360,9 @@ public partial class MainWindow : Window
             AppSettings.Instance.MainViewBackgroundImageBlur.ValueChanged -= OnBackgroundImageBlurChanged;
             AdvancedMaterialSurface.MaterialStateChanged -= OnAdvancedMaterialSurfaceStateChanged;
             this.LayoutUpdated -= OnLayoutUpdated;
+            PositionChanged -= MainWindow_OnDesktopResidentPositionChanged;
+            SizeChanged -= MainWindow_OnDesktopResidentSizeChanged;
+            WindowFrame.SizeChanged -= WindowFrame_OnDesktopResidentSizeChanged;
             HomeworkPanel.ScrollOffsetChanged -= OnHomeworkScrollOffsetChanged;
             _homeworkContentTransform.PropertyChanged -= OnHomeworkTransformPropertyChanged;
             ClearAdvancedMaterialClip();
@@ -351,6 +377,218 @@ public partial class MainWindow : Window
         HomeworkPanel.Refresh();
         _logger.Information("MainWindow 初始化完成");
     }
+
+    #region 桌面驻留窗口
+
+    /// <summary>
+    /// 桌面驻留模式：无边框、16px 圆角、普通窗口（非全屏），
+    /// 位置与尺寸取自 <see cref="AppSettings"/>，首次启动时居中显示。
+    /// </summary>
+    private void ConfigureDesktopResidentWindow()
+    {
+        _logger.Information("主界面以桌面驻留模式启动");
+
+        WindowDecorations = WindowDecorations.None;
+        WindowState = WindowState.Normal;
+        WindowStartupLocation = WindowStartupLocation.Manual;
+        CanResize = true;
+        MinWidth = DesktopResidentMinWidth;
+        MinHeight = DesktopResidentMinHeight;
+
+        WindowFrame.CornerRadius = new CornerRadius(DesktopResidentCornerRadius);
+        WindowFrame.ClipToBounds = true;
+        WindowFrame.SizeChanged += WindowFrame_OnDesktopResidentSizeChanged;
+        UpdateWindowFrameClip(WindowFrame.Bounds.Size);
+        AdjustWindowSurface.IsVisible = true;
+
+        Width = Math.Clamp(AppSettings.Instance.MainWindowWidth.Value,
+            DesktopResidentMinWidth, DesktopResidentMaxSize);
+        Height = Math.Clamp(AppSettings.Instance.MainWindowHeight.Value,
+            DesktopResidentMinHeight, DesktopResidentMaxSize);
+
+        Opened += (_, _) => ApplyDesktopResidentBoundsOnce();
+        PositionChanged += MainWindow_OnDesktopResidentPositionChanged;
+        SizeChanged += MainWindow_OnDesktopResidentSizeChanged;
+
+        RegisterWindowResizeHandles();
+    }
+
+    /// <summary>
+    /// 遮罩里的八方向按钮使用指针按下事件启动系统级缩放，
+    /// 不能用 Click：等到 Click 时拖动已经结束了。
+    /// </summary>
+    private void RegisterWindowResizeHandles()
+    {
+        RegisterWindowResizeHandle(ResizeLeftButton, WindowEdge.West);
+        RegisterWindowResizeHandle(ResizeTopLeftButton, WindowEdge.NorthWest);
+        RegisterWindowResizeHandle(ResizeTopButton, WindowEdge.North);
+        RegisterWindowResizeHandle(ResizeTopRightButton, WindowEdge.NorthEast);
+        RegisterWindowResizeHandle(ResizeRightButton, WindowEdge.East);
+        RegisterWindowResizeHandle(ResizeBottomRightButton, WindowEdge.SouthEast);
+        RegisterWindowResizeHandle(ResizeBottomButton, WindowEdge.South);
+        RegisterWindowResizeHandle(ResizeBottomLeftButton, WindowEdge.SouthWest);
+    }
+
+    private void RegisterWindowResizeHandle(Button button, WindowEdge edge)
+    {
+        button.AddHandler(PointerPressedEvent, (_, e) =>
+        {
+            if (!_isWindowAdjustmentMode || !IsDesktopResidentMode)
+                return;
+            if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+                return;
+
+            BeginResizeDrag(edge, e);
+            e.Handled = true;
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+    }
+
+    private void ApplyDesktopResidentBoundsOnce()
+    {
+        if (_desktopResidentBoundsApplied)
+            return;
+
+        _desktopResidentBoundsApplied = true;
+        ApplyDesktopResidentBounds();
+    }
+
+    private void WindowFrame_OnDesktopResidentSizeChanged(object? sender, SizeChangedEventArgs e) =>
+        UpdateWindowFrameClip(e.NewSize);
+
+    private void UpdateWindowFrameClip(Size size)
+    {
+        if (size.Width <= 0 || size.Height <= 0)
+            return;
+
+        WindowFrame.Clip = new RectangleGeometry
+        {
+            Rect = new Rect(size),
+            RadiusX = DesktopResidentCornerRadius,
+            RadiusY = DesktopResidentCornerRadius
+        };
+    }
+
+    /// <summary>
+    /// 应用设置中的窗口位置与尺寸。没有保存过位置时以主屏幕工作区居中，
+    /// 保存的位置已不在任何屏幕上时同样回退到居中，避免窗口“消失”在屏幕外。
+    /// </summary>
+    private void ApplyDesktopResidentBounds()
+    {
+        _isApplyingDesktopResidentBounds = true;
+        try
+        {
+            var width = Math.Clamp(AppSettings.Instance.MainWindowWidth.Value,
+                DesktopResidentMinWidth, DesktopResidentMaxSize);
+            var height = Math.Clamp(AppSettings.Instance.MainWindowHeight.Value,
+                DesktopResidentMinHeight, DesktopResidentMaxSize);
+            Width = width;
+            Height = height;
+
+            Screen? screen = null;
+            if (AppSettings.Instance.MainWindowX.Value is { } savedX &&
+                AppSettings.Instance.MainWindowY.Value is { } savedY)
+            {
+                var savedPosition = new PixelPoint(savedX, savedY);
+                screen = Screens.ScreenFromPoint(savedPosition);
+                if (screen is not null)
+                {
+                    Position = savedPosition;
+                    return;
+                }
+            }
+
+            screen ??= Screens.Primary;
+            if (screen is null)
+                return;
+
+            var scaling = screen.Scaling;
+            var pixelWidth = (int)Math.Ceiling(width * scaling);
+            var pixelHeight = (int)Math.Ceiling(height * scaling);
+            var area = screen.WorkingArea;
+            Position = new PixelPoint(
+                area.X + Math.Max(0, (area.Width - pixelWidth) / 2),
+                area.Y + Math.Max(0, (area.Height - pixelHeight) / 2));
+        }
+        finally
+        {
+            _isApplyingDesktopResidentBounds = false;
+        }
+    }
+
+    private void MainWindow_OnDesktopResidentPositionChanged(object? sender, PixelPointEventArgs e)
+    {
+        if (!IsDesktopResidentMode || _isApplyingDesktopResidentBounds)
+            return;
+
+        AppSettings.Instance.MainWindowX.Value = e.Point.X;
+        AppSettings.Instance.MainWindowY.Value = e.Point.Y;
+    }
+
+    private void MainWindow_OnDesktopResidentSizeChanged(object? sender, SizeChangedEventArgs e)
+    {
+        if (!IsDesktopResidentMode || _isApplyingDesktopResidentBounds)
+            return;
+
+        AppSettings.Instance.MainWindowWidth.Value =
+            Math.Round(Math.Max(DesktopResidentMinWidth, e.NewSize.Width), 2);
+        AppSettings.Instance.MainWindowHeight.Value =
+            Math.Round(Math.Max(DesktopResidentMinHeight, e.NewSize.Height), 2);
+    }
+
+    /// <summary>把当前窗口位置与尺寸写回设置，锁定调整模式时调用。</summary>
+    private void SaveDesktopResidentBounds()
+    {
+        if (!IsDesktopResidentMode)
+            return;
+
+        AppSettings.Instance.MainWindowX.Value = Position.X;
+        AppSettings.Instance.MainWindowY.Value = Position.Y;
+
+        var size = ClientSize;
+        if (size.Width > 0)
+            AppSettings.Instance.MainWindowWidth.Value = Math.Round(size.Width, 2);
+        if (size.Height > 0)
+            AppSettings.Instance.MainWindowHeight.Value = Math.Round(size.Height, 2);
+    }
+
+    private void AdjustWindowButton_OnClick(object? sender, RoutedEventArgs e) =>
+        SetWindowAdjustmentMode(true);
+
+    private void LockWindowButton_OnClick(object? sender, RoutedEventArgs e) =>
+        SetWindowAdjustmentMode(false);
+
+    private void SetWindowAdjustmentMode(bool enabled)
+    {
+        if (!IsDesktopResidentMode)
+            return;
+
+        _isWindowAdjustmentMode = enabled;
+        WindowAdjustmentOverlay.IsVisible = enabled;
+        WindowAdjustmentOverlay.IsHitTestVisible = enabled;
+
+        if (enabled)
+        {
+            _logger.Information("进入窗口调整模式");
+            return;
+        }
+
+        SaveDesktopResidentBounds();
+        _logger.Information("退出窗口调整模式，已保存窗口位置与尺寸");
+    }
+
+    private void WindowAdjustmentMoveSurface_OnPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (!_isWindowAdjustmentMode || !IsDesktopResidentMode)
+            return;
+        if (!e.GetCurrentPoint(this).Properties.IsLeftButtonPressed)
+            return;
+
+        // 交给系统处理窗口拖动，松开后会通过 PositionChanged 自动写回设置。
+        BeginMoveDrag(e);
+        e.Handled = true;
+    }
+
+    #endregion
 
 
     public void UpdateTitleText(string? text)

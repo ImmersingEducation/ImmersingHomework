@@ -9,6 +9,11 @@
         Title="方圆作业板" Background="Transparent"
         TransparencyLevelHint="Transparent"
         Icon="avares://ImmersingHomework/Assets/icon.png">
+    <!-- 全屏模式下圆角为 0；桌面驻留模式由代码设置 16，圆角外的窗口区域保持透明。 -->
+    <Border x:Name="WindowFrame"
+            Background="Transparent"
+            ClipToBounds="True"
+            CornerRadius="0">
         <Grid RowDefinitions="Auto,*">
                 <!-- 主界面背景层。没有背景图片时，高级材质只在材质控件的位置镂空；
                      有背景图片时保持整层不透明，并在材质区域叠加模糊副本，避免透出桌面。 -->
@@ -84,17 +89,30 @@
                         </Grid>
                         <!-- 按钮栏悬浮于作业面板之上，不占用布局行；保留 16 的底部外边距，位置与原来保持一致 -->
                         <Grid x:Name="ButtonBar" VerticalAlignment="Bottom" Margin="0,0,0,16" RowDefinitions="*" ColumnDefinitions="*,Auto,*">
-                                <controls:AdvancedMaterialSurface Grid.Column="0"
-                                                                  Width="60" Height="60"
-                                                                  CornerRadius="30"
-                                                                  HorizontalAlignment="Left"
-                                                                  FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
-                                        <!-- 主界面是沉浸式全屏窗口，“最小化”即隐藏主界面并保留浮窗，
-                                             因此不再单独提供关闭按钮。 -->
-                                        <Button x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="最小化" Click="MinimizeButton_OnClick">
-                                                <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
-                                        </Button>
-                                </controls:AdvancedMaterialSurface>
+                                <StackPanel Grid.Column="0"
+                                            Orientation="Horizontal"
+                                            Spacing="16"
+                                            HorizontalAlignment="Left">
+                                        <controls:AdvancedMaterialSurface Width="60" Height="60"
+                                                                          CornerRadius="30"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                <!-- “最小化”即隐藏主界面；全屏模式下同时保留浮窗，
+                                                     因此不再单独提供关闭按钮。 -->
+                                                <Button x:Name="MinimizeButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="最小化" Click="MinimizeButton_OnClick">
+                                                        <fa:FASymbolIcon Symbol="FullScreenMinimize" FontSize="24"/>
+                                                </Button>
+                                        </controls:AdvancedMaterialSurface>
+                                        <!-- 仅桌面驻留模式显示：进入窗口位置/大小调整遮罩。 -->
+                                        <controls:AdvancedMaterialSurface x:Name="AdjustWindowSurface"
+                                                                          Width="60" Height="60"
+                                                                          CornerRadius="30"
+                                                                          IsVisible="False"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                <Button x:Name="AdjustWindowButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="调整窗口" Click="AdjustWindowButton_OnClick">
+                                                        <fa:FASymbolIcon Symbol="FullScreen" FontSize="24"/>
+                                                </Button>
+                                        </controls:AdvancedMaterialSurface>
+                                </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="16">
                                         <Grid Width="60" Height="60">
                                                 <controls:AdvancedMaterialSurface Width="60" Height="60"
@@ -366,5 +384,100 @@
                                 </Panel>
                         </Canvas>
                 </Panel>
+                <!-- 桌面驻留模式的窗口调整遮罩：覆盖全部内容，提供八方向缩放与整体拖动。 -->
+                <Panel x:Name="WindowAdjustmentOverlay"
+                       Grid.RowSpan="2"
+                       ZIndex="1000"
+                       IsVisible="False"
+                       IsHitTestVisible="False"
+                       Background="#88000000">
+                        <Panel.Styles>
+                                <Style Selector="Button.WindowAdjustHandle">
+                                        <Setter Property="Width" Value="48"/>
+                                        <Setter Property="Height" Value="48"/>
+                                        <Setter Property="Padding" Value="0"/>
+                                        <Setter Property="CornerRadius" Value="12"/>
+                                        <Setter Property="Background" Value="#66000000"/>
+                                        <Setter Property="BorderBrush" Value="#99FFFFFF"/>
+                                        <Setter Property="BorderThickness" Value="1"/>
+                                        <Setter Property="Foreground" Value="White"/>
+                                        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+                                        <Setter Property="VerticalContentAlignment" Value="Center"/>
+                                </Style>
+                        </Panel.Styles>
+                        <!-- 铺满窗口的透明层：拖动按钮以外的区域时移动窗口。 -->
+                        <Border x:Name="WindowAdjustmentMoveSurface"
+                                Background="Transparent"
+                                PointerPressed="WindowAdjustmentMoveSurface_OnPointerPressed"/>
+                        <TextBlock Text="您现在可以拖动调整窗口位置、大小，或锁定更改。"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center"
+                                   MaxWidth="520"
+                                   FontSize="20"
+                                   FontWeight="SemiBold"
+                                   Foreground="White"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap"
+                                   IsHitTestVisible="False"/>
+                        <Button x:Name="ResizeLeftButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Left" VerticalAlignment="Center"
+                                Margin="16,0,0,0">
+                                <fa:FASymbolIcon Symbol="ChevronLeft" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeTopLeftButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Left" VerticalAlignment="Top"
+                                Margin="16,16,0,0">
+                                <TextBlock Text="↖" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeTopButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Center" VerticalAlignment="Top"
+                                Margin="0,16,0,0">
+                                <fa:FASymbolIcon Symbol="ChevronUp" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeTopRightButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Right" VerticalAlignment="Top"
+                                Margin="0,16,16,0">
+                                <TextBlock Text="↗" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeRightButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Right" VerticalAlignment="Center"
+                                Margin="0,0,16,0">
+                                <fa:FASymbolIcon Symbol="ChevronRight" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeBottomRightButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                                Margin="0,0,16,16">
+                                <TextBlock Text="↘" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeBottomButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                Margin="0,0,0,16">
+                                <fa:FASymbolIcon Symbol="ChevronDown" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="ResizeBottomLeftButton"
+                                Classes="WindowAdjustHandle"
+                                HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                                Margin="16,0,0,16">
+                                <TextBlock Text="↙" FontSize="20"/>
+                        </Button>
+                        <Button x:Name="LockWindowButton"
+                                Classes="accent"
+                                HorizontalAlignment="Center" VerticalAlignment="Bottom"
+                                Margin="0,0,0,84"
+                                Height="44" CornerRadius="22" Padding="20,0"
+                                Click="LockWindowButton_OnClick">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                        <TextBlock Text="锁定更改" VerticalAlignment="Center"/>
+                                </StackPanel>
+                        </Button>
+                </Panel>
         </Grid>
+    </Border>
 </Window>

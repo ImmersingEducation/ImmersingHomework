@@ -30,6 +30,14 @@ public partial class BasicSettingsPage : UserControl
         LaunchAtStartupSwitch.IsChecked = AppSettings.Instance.LaunchAtStartup.Value;
         UrlSchemaRegisteredSwitch.IsChecked = AppSettings.Instance.UrlSchemaRegistered.Value;
         FloatingWindowSideComboBox.SelectedIndex = (int)AppSettings.Instance.FloatingWindowLeftOrRight.Value;
+
+        // 桌面驻留模式下不显示浮窗，浮窗位置设置自然失效。
+        var isDesktopResident = AppSettings.Instance.MainViewMode.Value == MainViewMode.DesktopResident;
+        FloatingWindowSideExpander.IsEnabled = !isDesktopResident;
+        FloatingWindowSideExpander.Description = isDesktopResident
+            ? "桌面驻留模式下不显示浮窗，此设置不可用。"
+            : "选择浮窗显示在屏幕左侧还是右侧。";
+
         RefreshThemeAccentColor();
     }
 

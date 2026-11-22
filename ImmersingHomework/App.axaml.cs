@@ -46,6 +46,10 @@ public partial class App : Application
     public IServiceProvider Services =>
         _services ?? throw new InvalidOperationException("依赖注入容器尚未构建。");
 
+    /// <summary>主界面是否以桌面驻留模式运行（该模式在启动时读取，运行期间不会切换）。</summary>
+    private static bool IsDesktopResident =>
+        AppSettings.Instance.MainViewMode.Value == MainViewMode.DesktopResident;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -139,9 +143,16 @@ public partial class App : Application
 
                 SetupTrayIcon();
 
-                if (AppSettings.Instance.EnableClassIslandIPCService.Value &&
-                    classIslandService.IsCurrentTimeBeforeFirstClass() &&
-                    AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value)
+                // 桌面驻留模式主界面本身就是常驻窗口，启动后直接显示；
+                // 全屏模式保持原有逻辑，仅在需要时按联动设置唤起。
+                if (IsDesktopResident)
+                {
+                    _logger.Information("桌面驻留模式，启动时显示主界面");
+                    ShowMainWindow();
+                }
+                else if (AppSettings.Instance.EnableClassIslandIPCService.Value &&
+                         classIslandService.IsCurrentTimeBeforeFirstClass() &&
+                         AppSettings.Instance.ShowHomeworkBeforeFirstClassNextDay.Value)
                 {
                     _logger.Information("当前时间在第一节课前，显示主界面");
                     ShowMainWindow();
@@ -563,6 +574,17 @@ public partial class App : Application
             _mainWindow.WindowDeactivated += MainWindow_WindowDeactivated;
             _mainWindow.Closing += MainWindow_Closing;
             _mainWindow.Closed += MainWindow_Closed;
+
+            // 桌面驻留窗口需要留在所有普通窗口的底层；全屏模式保持原来的 z-order 行为。
+            if (IsDesktopResident)
+                Services.GetRequiredService<IPlatformService>().SetBottommost(_mainWindow);
+        }
+
+        if (IsDesktopResident)
+        {
+            // 桌面驻留模式不显示浮窗，主界面直接常驻桌面。
+            _desktopLifetime.MainWindow = _mainWindow;
+            return;
         }
 
         if (_floatingButtonWindow is null)
@@ -585,6 +607,13 @@ public partial class App : Application
 
     private async void MainWindow_WindowMinimized(object? sender, EventArgs e)
     {
+        // 桌面驻留模式没有浮窗，最小化即隐藏主界面，之后仍可从托盘重新打开。
+        if (IsDesktopResident)
+        {
+            _mainWindow?.Hide();
+            return;
+        }
+
         ShowFloatingButton();
         // 等待一小段时间让浮窗显示完成，然后隐藏主窗口
         await Task.Delay(200);
@@ -665,7 +694,17 @@ public partial class App : Application
             CreateMainWindows();
         if (_mainWindow is null) return;
 
-        _mainWindow.WindowState = WindowState.FullScreen;
+        if (IsDesktopResident)
+        {
+            // 桌面驻留窗口保持普通窗口状态，位置与尺寸由 MainWindow 自己从设置恢复。
+            if (_mainWindow.WindowState == WindowState.Minimized)
+                _mainWindow.WindowState = WindowState.Normal;
+        }
+        else
+        {
+            _mainWindow.WindowState = WindowState.FullScreen;
+        }
+
         _mainWindow.Activate();
         _mainWindow.Show();
         // 每次打开主界面都重新加载并播放卡片入场动画。

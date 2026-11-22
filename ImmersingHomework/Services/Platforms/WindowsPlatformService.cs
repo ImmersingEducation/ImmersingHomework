@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 using System.Text;
 using Avalonia.Controls;
+using Avalonia.Threading;
 using ImmersingHomework.Abstractions;
 using ImmersingHomework.Helper;
 using Microsoft.Win32;
@@ -18,6 +19,10 @@ public class WindowsPlatformService : PlatformServiceBase
     private const int GWL_EXSTYLE = -20;
     private const uint WS_EX_NOACTIVATE = 0x08000000;
     private const uint WS_EX_TOOLWINDOW = 0x00000080;
+    private const uint SWP_NOSIZE = 0x0001;
+    private const uint SWP_NOMOVE = 0x0002;
+    private const uint SWP_NOACTIVATE = 0x0010;
+    private static readonly IntPtr HwndBottom = new(1);
     private const string UrlScheme = "immersinghomework";
     private const string ShortcutName = "方圆作业板";
     private static readonly Guid ShellLinkClassId = new("00021401-0000-0000-C000-000000000046");
@@ -32,6 +37,10 @@ public class WindowsPlatformService : PlatformServiceBase
     [DllImport("user32.dll")]
     private static extern int GetWindowLong(IntPtr hWnd, int nIndex);
 
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern bool SetWindowPos(
+        IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint uFlags);
+
     public override void SetTopmost(Window window, bool enable = true)
     {
         window.Opened += (sender, e) =>
@@ -39,6 +48,31 @@ public class WindowsPlatformService : PlatformServiceBase
             window.Topmost = enable;
             if (enable && window.TryGetPlatformHandle()?.Handle is IntPtr hwnd) SetForegroundWindow(hwnd);
         };
+    }
+
+    public override void SetBottommost(Window window, bool enable = true)
+    {
+        if (!enable)
+            return;
+
+        void Apply()
+        {
+            window.Topmost = false;
+            if (window.TryGetPlatformHandle()?.Handle is IntPtr hwnd)
+                SetWindowPos(hwnd, HwndBottom, 0, 0, 0, 0,
+                    SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+
+        window.Opened += (_, _) =>
+        {
+            Apply();
+            // 首次显示时窗口尚未完全完成布局，再补一次确保最终 z-order 在底层。
+            Dispatcher.UIThread.Post(Apply, DispatcherPriority.Background);
+        };
+
+        // 桌面驻留窗口被点击后 Windows 会把它提到最前，这里重新放回底层。
+        window.Activated += (_, _) =>
+            Dispatcher.UIThread.Post(Apply, DispatcherPriority.Background);
     }
 
     public override void DisableFocus(Window window)

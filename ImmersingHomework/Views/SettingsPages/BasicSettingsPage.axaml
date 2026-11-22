@@ -26,7 +26,7 @@
                     <ToggleSwitch x:Name="UrlSchemaRegisteredSwitch" OnContent="" OffContent="" IsCheckedChanged="UrlSchemaRegisteredSwitch_OnIsCheckedChanged"/>
                 </fa:FASettingsExpander.Footer>
             </fa:FASettingsExpander>
-            <fa:FASettingsExpander Header="浮窗位置" Description="选择浮窗显示在屏幕左侧还是右侧。">
+            <fa:FASettingsExpander x:Name="FloatingWindowSideExpander" Header="浮窗位置" Description="选择浮窗显示在屏幕左侧还是右侧。">
                 <fa:FASettingsExpander.IconSource>
                     <fa:FASymbolIconSource Symbol="Pin"/>
                 </fa:FASettingsExpander.IconSource>

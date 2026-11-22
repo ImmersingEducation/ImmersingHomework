@@ -10,6 +10,9 @@ public interface IPlatformService
 {
     void SetTopmost(Window window, bool enable = true);
 
+    /// <summary>把窗口放到所有普通窗口的底层（桌面驻留模式的“置底”）。</summary>
+    void SetBottommost(Window window, bool enable = true);
+
     void DisableFocus(Window window);
 
     void HideFromTaskbar(Window window);
