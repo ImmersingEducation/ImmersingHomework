@@ -73,7 +73,10 @@ public class AdvancedMaterialSurface : CompositionMaterialControl
     {
         base.OnPropertyChanged(change);
 
-        if (change.Property == IsNativeMaterialActiveProperty)
+        // IsVisible 变化时也要通知主窗口刷新背景镂空：
+        // 隐藏的表面不能再在背景层留下材质空洞。
+        if (change.Property == IsNativeMaterialActiveProperty ||
+            change.Property == IsVisibleProperty)
             MaterialStateChanged?.Invoke(this, EventArgs.Empty);
     }
 

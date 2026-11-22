@@ -144,15 +144,26 @@
                                                 </StackPanel>
                                         </controls:AdvancedMaterialSurface>
                                 </StackPanel>
-                                <controls:AdvancedMaterialSurface Grid.Column="2"
-                                                                  Width="90" Height="60"
-                                                                  CornerRadius="30"
-                                                                  HorizontalAlignment="Right"
-                                                                  FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
-                                        <Button x:Name="DateButton" Width="90" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="DateButton_OnClick">
-                                                <TextBlock x:Name="DateText"></TextBlock>
-                                        </Button>
-                                </controls:AdvancedMaterialSurface>
+                                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="16"
+                                            HorizontalAlignment="Right">
+                                        <!-- 隐藏整个材质表面：只隐藏内部 Button 时，外层材质仍会绘制并打洞 -->
+                                        <controls:AdvancedMaterialSurface x:Name="GoBackTodaySurface"
+                                                                          Width="60" Height="60"
+                                                                          CornerRadius="30"
+                                                                          IsVisible="False"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                <Button x:Name="GoBackTodayButton" Width="60" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" ToolTip.Tip="回到今天" Click="GoBackTodayButton_OnClick">
+                                                        <fa:FASymbolIcon Symbol="CalendarToday" FontSize="24"></fa:FASymbolIcon>
+                                                </Button>
+                                        </controls:AdvancedMaterialSurface>
+                                        <controls:AdvancedMaterialSurface Height="60"
+                                                                          CornerRadius="30"
+                                                                          FallbackBrush="{DynamicResource CardBackgroundFillColorDefaultBrush}">
+                                                <Button x:Name="DateButton" Width="90" Height="60" CornerRadius="30" Background="Transparent" BorderBrush="Transparent" Click="DateButton_OnClick">
+                                                        <TextBlock x:Name="DateText"></TextBlock>
+                                                </Button>
+                                        </controls:AdvancedMaterialSurface>
+                                </StackPanel>
                                 <Popup x:Name="CalendarPopup"
                                         Placement="Bottom"
                                         IsLightDismissEnabled="True"

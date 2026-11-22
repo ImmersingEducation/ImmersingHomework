@@ -288,6 +288,7 @@ public partial class MainWindow : Window
         WindowState = WindowState.FullScreen;
         
         DateChanged += UpdateDateText;
+        DateChanged += UpdateGoBackTodayButtonVisibility;
         DateChanged += (date) => HomeworkPanel.Date = date;
         // 日期切换后旧快照列表已不再适用，直接收起时光机。
         // 日期变化时不播放退出动画，并让旧日期的动画结果失效。
@@ -316,6 +317,8 @@ public partial class MainWindow : Window
         this.Activated += (s, e) => 
         {
             _logger.Debug("窗口激活");
+            // 窗口可能跨过零点后才重新激活，此时“今天”已经变化。
+            UpdateGoBackTodayButtonVisibility(Date);
             WindowActivated?.Invoke(this, EventArgs.Empty);
         };
         this.Deactivated += (s, e) => 
@@ -358,6 +361,15 @@ public partial class MainWindow : Window
     {
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
         DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
+    }
+
+    /// <summary>
+    /// 只有当前查看的日期不是今天时，才显示“回到今天”按钮。
+    /// </summary>
+    private void UpdateGoBackTodayButtonVisibility(DateOnly date)
+    {
+        // 隐藏整个材质表面，内部按钮自然一起隐藏；只隐藏按钮的话，外层材质仍会绘制并镂空背景。
+        GoBackTodaySurface.IsVisible = date != DateOnly.FromDateTime(DateTime.Now);
     }
 
     /// <summary>
@@ -2140,5 +2152,15 @@ public partial class MainWindow : Window
         _storageService.Save(mergedHomework);
         _logger.Information("作业合并完成");
         return mergedHomework;
+    }
+
+    private void GoBackTodayButton_OnClick(object? sender, RoutedEventArgs e)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Now);
+        if (Date == today)
+            return;
+
+        _logger.Information("回到今天: {Date}", today);
+        Date = today;
     }
 }
