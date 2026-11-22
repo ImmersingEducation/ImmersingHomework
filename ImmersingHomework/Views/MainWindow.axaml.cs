@@ -318,6 +318,7 @@ public partial class MainWindow : Window
         {
             _logger.Debug("窗口激活");
             // 窗口可能跨过零点后才重新激活，此时“今天”已经变化。
+            UpdateDateText(Date);
             UpdateGoBackTodayButtonVisibility(Date);
             WindowActivated?.Invoke(this, EventArgs.Empty);
         };
@@ -360,7 +361,9 @@ public partial class MainWindow : Window
     public void UpdateDateText(DateOnly date)
     {
         DateText.Text = $"{ Date.Month }月{ Date.Day }日";
-        DateTextBlock.Text = $"{Date.Month}月{Date.Day}日";
+        // 顶部大标题在查看今天时追加“今天”，查看其它日期时保持原样。
+        DateTextBlock.Text = $"{Date.Month}月{Date.Day}日"
+            + (date == DateOnly.FromDateTime(DateTime.Now) ? " 今天" : string.Empty);
     }
 
     /// <summary>
